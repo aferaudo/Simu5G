@@ -23,16 +23,16 @@ import simu5g.nodes.NR.NRUe;
 import simu5g.nodes.backgroundCell.BackgroundCell;
 import simu5g.world.radio.LteChannelControl;
 
-// SingleCell_standalone
+// MultiCell_standalone
 //
 // This network represents the deployment option 3 in 3GPP 38.801
 //
-network SingleCell_Standalone
+network MultiCell_Standalone
 {
     parameters:
         int numUe = default(1);
         int numBgCells = default(0);
-        @display("i=block/network2;bgb=826,558;bgi=background/pisa");
+        @display("i=block/network2;bgb=1088.032,678.896;bgi=background/pisa");
     submodules:
         channelControl: LteChannelControl {
             @display("p=50,25;is=s");
@@ -53,26 +53,37 @@ network SingleCell_Standalone
             @display("p=212,118;is=n;i=device/server");
         }
         router: Router {
-            @display("p=363.175,115.66875;i=device/smallrouter");
+            @display("p=351.81198,115.771996;i=device/smallrouter");
         }
         upf: Upf {
-            @display("p=527.35,116.9125");
+            @display("p=500,115");
         }
         iUpf: Upf {
-            @display("p=725,118");
+            @display("p=500,215");
         }
-        gnb: gNodeB {
-            @display("p=726.35,277.35626;is=vl");
+        gnb1: gNodeB {
+            @display("p=250,300;is=vl");
+        }
+        gnb2: gNodeB {
+            @display("p=750,300.556;is=vl");
         }
         bgCell[numBgCells]: BackgroundCell {
-            @display("p=416,277;is=vl");
+            @display("p=249.528,483.31998;is=vl");
         }
         ue[numUe]: NRUe {
-            @display("p=628.09375,411.68124");
+            @display("p=499.056,428.244");
         }
     connections:
+
+        //# Data Network connections
         server.pppg++ <--> Eth10G <--> router.pppg++;
         router.pppg++ <--> Eth10G <--> upf.filterGate;
+
+        //# 5G Core Network connections
         upf.pppg++ <--> Eth10G <--> iUpf.pppg++;
-        iUpf.pppg++ <--> Eth10G <--> gnb.ppp;
+        iUpf.pppg++ <--> Eth10G <--> gnb1.ppp;
+        iUpf.pppg++ <--> Eth10G <--> gnb2.ppp;
+
+        //# X2 connections
+        gnb1.x2++ <--> Eth10G <--> gnb2.x2++;
 }
