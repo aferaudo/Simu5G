@@ -15,7 +15,7 @@
 
 package simu5g.nodes.mec.Dynamic;
 import simu5g.nodes.mec.VirtualisationInfrastructure.VirtualisationInfrastructure;
-import simu5g.nodes.mec.VirtualisationInfrastructureManager.Dynamic.VirtualisationInfrastructureManagerDyn;
+import simu5g.nodes.mec.VirtualisationInfrastructureManager.Dynamic.VirtualisationInfrastructureManagerHost;
 import simu5g.nodes.mec.MECPlatform.Dynamic.MECPlatformDyn;
 import simu5g.nodes.mec.MECPlatformManager.MecPlatformManager;
 import simu5g.nodes.Upf;
@@ -53,7 +53,7 @@ module MECHostDyn
             @display("p=461.84,214.605");
         }
 
-        vimD: VirtualisationInfrastructureManagerDyn {
+        vimH: VirtualisationInfrastructureManagerHost {
 
             @display("p=414,400");
         }
@@ -83,7 +83,7 @@ module MECHostDyn
             bgApp[i].socketOut --> vi.meBGAppIn[i];
         }
 
-        vimD.mm7GnB <--> Eth10G <--> ethAntenna++;
+        vimH.mm7GnB <--> Eth10G <--> ethAntenna++;
         mecPlatformD.ethExt <--> Eth10G <--> ethAntenna++;
 		
 		vi.mePlatform <--> Eth10G <--> mecPlatformD.virtInfr;
