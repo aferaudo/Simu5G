@@ -20,6 +20,8 @@
 
 #include "nodes/mec/utils/MecCommon.h"
 
+#include <inet/transportlayer/contract/udp/UdpSocket.h>
+
 //###########################################################################
 //data structures and values
 
@@ -63,8 +65,18 @@ class VirtualisationInfrastructureManagerDyn : public cSimpleModule
     // Reference to other modules
     cModule* vimHost;
 
+    inet::UdpSocket socket;
+
     std::map<std::string, HostDescriptor> handledHosts; // Resource Handling
     std::map<std::string, AppDescriptor> handledApp; //App Handling
+
+    // counter to generate host ids
+    int hostCounter = 0;
+
+    // buffer
+    double bufferSize;
+    ResourceDescriptor* totalBufferResources;
+    ResourceDescriptor* usedBufferResources;
 
 
     public:
@@ -106,13 +118,23 @@ class VirtualisationInfrastructureManagerDyn : public cSimpleModule
 //        bool deRegisterMecApp(int mecAppID);
 
         /*
+         * Add a new Host to those managed by VIM
+         */
+        std::string registerHost(double ram, double disk, double cpu, inet::L3Address ip_addr);
+
+        /*
+         * Remove managed host
+         */
+        void unregisterHost(std::string host_id);
+
+        /*
          * Check if a MecApp is allocable according to available resources among the cars
          */
         bool isAllocable(double ram, double disk, double cpu);
 
     protected:
 
-//        virtual int numInitStages();
+        virtual int numInitStages() const { return inet::NUM_INIT_STAGES; }
 
         void initialize(int stage);
 
@@ -148,6 +170,8 @@ class VirtualisationInfrastructureManagerDyn : public cSimpleModule
     private:
 
         std::list<HostDescriptor> getAllHosts();
+
+        bool isAllocableOnBuffer(double ram, double disk, double cpu);
 
 };
 

@@ -25,6 +25,9 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
 {
     parameters:
     	@class(VirtualisationInfrastructureManagerDyn);
+    	
+    	int localPort = default(3333);
+    	double bufferSize = default(0.15);				// Percentage value of resources buffer
     
     gates:
         output socketOut;

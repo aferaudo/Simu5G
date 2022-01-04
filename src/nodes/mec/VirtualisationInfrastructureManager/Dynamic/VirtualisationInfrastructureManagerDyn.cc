@@ -6,6 +6,8 @@
 //
 
 // Imports
+#include <sstream>
+
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/VirtualisationInfrastructureManagerDyn.h"
 
 
@@ -21,21 +23,32 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
     cSimpleModule::initialize(stage);
 
     // avoid multiple initializations
-//    if (stage!=inet::INITSTAGE_APPLICATION_LAYER-1){
-//        std::cout << "sto returnando" << endl;
-//        return;
-//    }
+    if (stage!=inet::INITSTAGE_APPLICATION_LAYER-1){
+        return;
+    }
 
     EV << "VirtualisationInfrastructureManagerDyn::initialize - stage " << stage << endl;
 
-    // get reference of other modules
+    // Init parameters
     vimHost = getParentModule();
+    // Init BUFFER
+    bufferSize = par("bufferSize");
+    totalBufferResources = new ResourceDescriptor();
+    totalBufferResources->ram = vimHost->par("localRam").doubleValue() * bufferSize;
+    totalBufferResources->cpu = vimHost->par("localCpuSpeed").doubleValue() * bufferSize;
+    totalBufferResources->disk = vimHost->par("localDisk").doubleValue() * bufferSize;
+
+    usedBufferResources = new ResourceDescriptor();
+    usedBufferResources->ram = 0;
+    usedBufferResources->cpu = 0;
+    usedBufferResources->disk = 0;
+
     if(vimHost->hasPar("localRam") && vimHost->hasPar("localDisk") && vimHost->hasPar("localCpuSpeed")){
         HostDescriptor* descriptor = new HostDescriptor();
         ResourceDescriptor* totalResources = new ResourceDescriptor();
-        totalResources->ram = vimHost->par("localRam").doubleValue();
-        totalResources->cpu = vimHost->par("localCpuSpeed").doubleValue();
-        totalResources->disk = vimHost->par("localDisk").doubleValue();
+        totalResources->ram = vimHost->par("localRam").doubleValue() * (1-bufferSize);
+        totalResources->cpu = vimHost->par("localCpuSpeed").doubleValue() * (1-bufferSize);
+        totalResources->disk = vimHost->par("localDisk").doubleValue() * (1-bufferSize);
 
         ResourceDescriptor* usedResources = new ResourceDescriptor();
         usedResources->ram = 0;
@@ -54,6 +67,16 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
     else
         throw cRuntimeError("VirtualisationInfrastructureManagerDyn::initialize - \tFATAL! Cannot find static resource definition!");
 
+    // Set up socket for communcation
+    int port = par("localPort");
+    EV << "VirtualisationInfrastructureManagerDyn::initialize - binding socket to port " << port << endl;
+    if (port != -1)
+    {
+        socket.setOutputGate(gate("socketOut"));
+        socket.bind(port);
+    }
+
+
     cMessage* print = new cMessage("Print");
     scheduleAt(simTime()+0.01, print);
 
@@ -61,6 +84,7 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 
 void VirtualisationInfrastructureManagerDyn::handleMessage(cMessage *msg)
 {
+    EV << "VirtualisationInfrastructureManagerDyn::handleMessage - message received!" << endl;
     if (msg->isSelfMessage())
     {
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - self message received!" << endl;
@@ -69,10 +93,63 @@ void VirtualisationInfrastructureManagerDyn::handleMessage(cMessage *msg)
         printResources();
         deallocateResources(1000,1000,1000, "LOCAL_ID");
         printResources();
+        std::string addedHostId = registerHost(2222,2222,2222,inet::L3Address("192.168.10.10"));
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - bestHost " << findBestHostDyn(1000,1000,1000) << endl;
+        unregisterHost(addedHostId);
     }else{
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - other message received!" << endl;
     }
+}
+
+std::string VirtualisationInfrastructureManagerDyn::registerHost(double ram, double disk, double cpu, inet::L3Address ip_addr)
+{
+    EV << "VirtualisationInfrastructureManagerDyn::registerHost" << endl;
+
+    hostCounter += 1;
+    std::stringstream ss;
+    ss << hostCounter << "_" << ip_addr;
+    std::string host_id = ss.str();
+
+    auto it = handledHosts.find(host_id);
+    if(it != handledHosts.end()){
+        EV << "VirtualisationInfrastructureManagerDyn::registerHost - Host already exists!" << endl;
+        return "";
+    }
+
+    HostDescriptor* descriptor = new HostDescriptor();
+    ResourceDescriptor* totalResources = new ResourceDescriptor();
+    totalResources->ram = ram;
+    totalResources->cpu = cpu;
+    totalResources->disk = disk;
+
+    ResourceDescriptor* usedResources = new ResourceDescriptor();
+    usedResources->ram = 0;
+    usedResources->cpu = 0;
+    usedResources->disk = 0;
+
+    descriptor->totalAmount = *totalResources;
+    descriptor->usedAmount = *usedResources;
+    descriptor->numRunningApp = 0;
+    descriptor->address = ip_addr;
+
+    handledHosts[host_id] = *descriptor;
+
+    printResources();
+
+    return host_id;
+}
+
+void VirtualisationInfrastructureManagerDyn::unregisterHost(std::string host_id)
+{
+    EV << "VirtualisationInfrastructureManagerDyn::unregisterHost" << endl;
+    auto it = handledHosts.find(host_id);
+    if(it == handledHosts.end()){
+        EV << "VirtualisationInfrastructureManagerDyn::unregisterHost - Host doesn't exists!" << endl;
+    }
+
+    printResources();
+
+    handledHosts.erase(it);
 }
 
 bool VirtualisationInfrastructureManagerDyn::isAllocable(double ram, double disk, double cpu)
@@ -154,6 +231,11 @@ void VirtualisationInfrastructureManagerDyn::printResources()
         EV << "VirtualisationInfrastructureManagerDyn::printResources - allocated Disk: " << descriptor.usedAmount.disk << " / " << descriptor.totalAmount.disk << endl;
         EV << "VirtualisationInfrastructureManagerDyn::printResources - allocated CPU: " << descriptor.usedAmount.cpu << " / " << descriptor.totalAmount.cpu << endl;
     }
+
+    EV << "VirtualisationInfrastructureManagerDyn:: BUFFER" << endl;
+    EV << "VirtualisationInfrastructureManagerDyn::printResources - allocated Ram: " << usedBufferResources->ram << " / " << totalBufferResources->ram << endl;
+    EV << "VirtualisationInfrastructureManagerDyn::printResources - allocated Disk: " << usedBufferResources->disk << " / " << totalBufferResources->disk << endl;
+    EV << "VirtualisationInfrastructureManagerDyn::printResources - allocated CPU: " << usedBufferResources->cpu << " / " << totalBufferResources->cpu << endl;
 }
 
 
@@ -170,3 +252,12 @@ std::list<HostDescriptor> VirtualisationInfrastructureManagerDyn::getAllHosts()
 
     return hosts;
 }
+
+bool VirtualisationInfrastructureManagerDyn::isAllocableOnBuffer(double ram, double disk, double cpu)
+{
+    return  ram < totalBufferResources->ram - usedBufferResources->ram
+            && disk < totalBufferResources->disk - usedBufferResources->disk
+            && cpu  < totalBufferResources->cpu - usedBufferResources->cpu;
+}
+
+
