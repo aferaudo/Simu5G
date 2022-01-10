@@ -9,6 +9,7 @@
 #include <sstream>
 
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/VirtualisationInfrastructureManagerDyn.h"
+#include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/RegistrationPacket_m.h"
 
 
 Define_Module(VirtualisationInfrastructureManagerDyn);
@@ -68,6 +69,8 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         throw cRuntimeError("VirtualisationInfrastructureManagerDyn::initialize - \tFATAL! Cannot find static resource definition!");
 
     // Set up socket for communcation
+    localAddress = inet::L3AddressResolver().resolve(par("localAddress"));
+    EV << "VirtualisationInfrastructureManagerDyn::initialize - localAddress " << localAddress << endl;
     int port = par("localPort");
     EV << "VirtualisationInfrastructureManagerDyn::initialize - binding socket to port " << port << endl;
     if (port != -1)
@@ -78,7 +81,8 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 
 
     cMessage* print = new cMessage("Print");
-    scheduleAt(simTime()+0.01, print);
+//    scheduleAt(simTime()+0.01, print);
+    scheduleAt(simTime()+1.00, print);
 
 }
 
@@ -96,8 +100,31 @@ void VirtualisationInfrastructureManagerDyn::handleMessage(cMessage *msg)
         std::string addedHostId = registerHost(2222,2222,2222,inet::L3Address("192.168.10.10"));
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - bestHost " << findBestHostDyn(1000,1000,1000) << endl;
         unregisterHost(addedHostId);
+
+        destAddress = inet::L3AddressResolver().resolve(par("destAddress"));
+        inet::Packet* packet = new inet::Packet("Register");
+        auto registrationpck = inet::makeShared<RegistrationPacket>();
+        registrationpck->setRam(7777);
+        registrationpck->setDisk(7777);
+        registrationpck->setCpu(7777);
+        registrationpck->setAddress(localAddress);
+        registrationpck->setChunkLength(inet::B(200));
+        packet->insertAtBack(registrationpck);
+        socket.sendTo(packet, destAddress, 3333);
     }else{
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - other message received!" << endl;
+
+        inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+        if (pPacket == 0)
+            throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
+
+        auto data = pPacket->peekData<RegistrationPacket>();
+//        inet::PacketPrinter printer;
+//        printer.printPacket(std::cout, pPacket);
+
+        registerHost(data->getRam(),data->getDisk(),data->getCpu(),data->getAddress());
+
+        getParentModule()->bubble("Host Registrato");
     }
 }
 

@@ -17,6 +17,8 @@
 //INET
 #include "inet/networklayer/common/L3Address.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
+#include "inet/networklayer/ipv4/Ipv4Header_m.h"
+#include "inet/common/packet/printer/PacketPrinter.h"
 
 #include "nodes/mec/utils/MecCommon.h"
 
@@ -66,6 +68,8 @@ class VirtualisationInfrastructureManagerDyn : public cSimpleModule
     cModule* vimHost;
 
     inet::UdpSocket socket;
+    inet::L3Address destAddress;
+    inet::L3Address localAddress;
 
     std::map<std::string, HostDescriptor> handledHosts; // Resource Handling
     std::map<std::string, AppDescriptor> handledApp; //App Handling

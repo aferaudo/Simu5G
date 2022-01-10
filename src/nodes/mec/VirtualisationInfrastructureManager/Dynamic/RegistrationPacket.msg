@@ -13,26 +13,14 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
-package simu5g.nodes.mec.VirtualisationInfrastructureManager.Dynamic;
+import inet.common.INETDefs;
+import inet.common.packet.chunk.Chunk;
+import inet.networklayer.common.L3Address;
 
-import simu5g.nodes.mec.VirtualisationInfrastructureManager.VirtualisationInfrastructureManager;
-import inet.applications.contract.IApp;
-
-//
-// TODO auto-generated module
-//
-simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructureManager like IApp
-{
-    parameters:
-    	@class(VirtualisationInfrastructureManagerDyn);
-    	
-    	int localPort = default(3333);
-    	string destAddress;
-        string localAddress;
-        
-    	double bufferSize = default(0.15);				// Percentage value of resources buffer
+class RegistrationPacket extends inet::FieldsChunk {
+    double ram;
+    double cpu;
+    double disk;
     
-    gates:
-        output socketOut;
-        input socketIn;
+    inet::L3Address address;
 }

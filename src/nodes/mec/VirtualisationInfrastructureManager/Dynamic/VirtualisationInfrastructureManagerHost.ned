@@ -75,6 +75,9 @@ module VirtualisationInfrastructureManagerHost extends NRUe
         inout mm7GnB;
 //        input mm7d2d @directIn;
 
+		// to gnodes
+        inout pppENB[];
+
     submodules:
 
 //         transport layer 
@@ -174,7 +177,8 @@ module VirtualisationInfrastructureManagerHost extends NRUe
 //        cellularNic.upperLayerOut --> nl.in++;
 //        cellularNic.upperLayerIn <-- nl.out++;
 
-        mm7Eth.phys <--> mm7GnB;
+//        mm7Eth.phys <--> mm7GnB;
+        pppENB++ <--> mm7Eth.phys;
 
 //        cellularNic.radioIn <-- mm7d2d;
 
