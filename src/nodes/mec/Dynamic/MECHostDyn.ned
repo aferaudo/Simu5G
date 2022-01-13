@@ -21,6 +21,7 @@ import simu5g.nodes.mec.MECPlatformManager.MecPlatformManager;
 import simu5g.nodes.Upf;
 import inet.node.ethernet.Eth10G;
 import inet.applications.contract.IApp;
+import simu5g.nodes.NR.NRUe;
 
 //
 // @author Alessandro Calvio
@@ -31,63 +32,42 @@ import inet.applications.contract.IApp;
 // - static 
 // - non static (this are managed by the Dynamic virutalisation infrastructure Manager)
 // Static resources are less if compared with a normal MEC Host
-module MECHostDyn
+module MECHostDyn extends NRUe
 {
     parameters:
-        @display("i=device/server2;bgb=1000,500");
+        @display("i=device/mainframe;bgb=1036,665");
 
         // TODO static resources to be defined (now = normal MEC Host)
         //#	MEC Host Resources
         int maxMECApps = default(0);
-        double maxRam @unit("B") = default(32GB);
-        double maxDisk @unit("B") = default(100TB);
-        double maxCpuSpeed = default(300000); 	 // CPU's clock speed in Million Instruction per Seconds (MIPS)
+        double localRam @unit("B") = default(32GB);
+        double localDisk @unit("B") = default(100TB);
+        double localCpuSpeed = default(300000); 	 // CPU's clock speed in Million Instruction per Seconds (MIPS)
+        
+        // Setup Mec components
+        numApps = 2;
+        
+        app[0].typename = "VirtualisationInfrastructureManagerDyn";
+        app[0].localPort = 3333;
+        
+        app[1].typename = "MecPlatformManagerDyn";
+        app[1].localPort = 3334;
 
     gates:
         inout ethAntenna[];
-        input radioIn[] @directin; // for d2d communication
+//        input radioIn[] @directin; // for d2d communication
 
     submodules:
 
-        vi: VirtualisationInfrastructure { //defined for local apps
-            @display("p=461.84,214.605");
-        }
 
-        vimH: VirtualisationInfrastructureManagerHost {
-
-            @display("p=414,400");
-        }
-        mecPlatformD: MECPlatformDyn {
-            @display("p=643.815,399.09");
-        }
-        mecPlatformManager: MecPlatformManager {
-
-            @display("p=853,126");
-        }
-        // UPF module used to connect the MEC host to the 5G Core Network (either a BS or a UPF)
-        upf_mec: Upf {
-            parameters:
-                @display("p=150,400");
-                nodeType = "UPF_MEC";
-        }
-
-        bgApp[numBGMecApp]: <> like IApp {
-            @display("p=390.305,69.025,row,140");
-        }
 
     connections allowunconnected:
 
-        // TODO define App communications Local apps
-        for i=0..numBGMecApp-1 {
-            bgApp[i].socketIn <-- vi.meBGAppOut[i];
-            bgApp[i].socketOut --> vi.meBGAppIn[i];
-        }
+//        vimH.mm7GnB <--> Eth10G <--> ethAntenna++;
+//        mecPlatformD.ethExt <--> Eth10G <--> ethAntenna++;
+//
+//        vi.mePlatform <--> Eth10G <--> mecPlatformD.virtInfr;
 
-        vimH.mm7GnB <--> Eth10G <--> ethAntenna++;
-        mecPlatformD.ethExt <--> Eth10G <--> ethAntenna++;
-		
-		vi.mePlatform <--> Eth10G <--> mecPlatformD.virtInfr;
-		
         // TODO define cellular communications
 	   	// Cellular channels do not need an external interface
 	   	// Two solutions:
