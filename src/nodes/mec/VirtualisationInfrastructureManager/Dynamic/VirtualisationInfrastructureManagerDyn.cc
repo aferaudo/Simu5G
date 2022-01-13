@@ -81,8 +81,8 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 
 
     cMessage* print = new cMessage("Print");
-//    scheduleAt(simTime()+0.01, print);
-    scheduleAt(simTime()+1.00, print);
+    scheduleAt(simTime()+0.01, print);
+//    scheduleAt(simTime()+1.00, print);
 
 }
 
@@ -100,17 +100,6 @@ void VirtualisationInfrastructureManagerDyn::handleMessage(cMessage *msg)
         std::string addedHostId = registerHost(2222,2222,2222,inet::L3Address("192.168.10.10"));
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - bestHost " << findBestHostDyn(1000,1000,1000) << endl;
         unregisterHost(addedHostId);
-
-        destAddress = inet::L3AddressResolver().resolve(par("destAddress"));
-        inet::Packet* packet = new inet::Packet("Register");
-        auto registrationpck = inet::makeShared<RegistrationPacket>();
-        registrationpck->setRam(7777);
-        registrationpck->setDisk(7777);
-        registrationpck->setCpu(7777);
-        registrationpck->setAddress(localAddress);
-        registrationpck->setChunkLength(inet::B(200));
-        packet->insertAtBack(registrationpck);
-        socket.sendTo(packet, destAddress, 3333);
     }else{
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - other message received!" << endl;
 
@@ -244,6 +233,35 @@ std::string VirtualisationInfrastructureManagerDyn::findBestHostDyn(double ram, 
     EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn - Best host not found!" << endl;
     return "";
 }
+
+MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(CreateAppMessage*)
+{
+    EV << "VirtualisationInfrastructureManagerDyn:: instantiateMEApp" << endl;
+
+    return new MecAppInstanceInfo();
+}
+
+bool VirtualisationInfrastructureManagerDyn::instantiateEmulatedMEApp(CreateAppMessage*)
+{
+    EV << "VirtualisationInfrastructureManagerDyn:: instantiateEmulatedMEApp" << endl;
+
+    return true;
+}
+
+bool VirtualisationInfrastructureManagerDyn::terminateMEApp(DeleteAppMessage*)
+{
+    EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp" << endl;
+
+    return true;
+}
+
+bool VirtualisationInfrastructureManagerDyn::terminateEmulatedMEApp(DeleteAppMessage*)
+{
+    EV << "VirtualisationInfrastructureManagerDyn:: terminateEmulatedMEApp" << endl;
+
+    return true;
+}
+
 
 void VirtualisationInfrastructureManagerDyn::printResources()
 {

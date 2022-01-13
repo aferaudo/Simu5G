@@ -27,7 +27,7 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
     	@class(VirtualisationInfrastructureManagerDyn);
     	
     	int localPort = default(3333);
-    	string destAddress;
+//    	string destAddress;
         string localAddress;
         
     	double bufferSize = default(0.15);				// Percentage value of resources buffer

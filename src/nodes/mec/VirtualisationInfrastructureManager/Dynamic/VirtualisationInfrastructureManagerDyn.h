@@ -9,6 +9,8 @@
 #ifndef DYNAMIC_VIM_H_
 #define DYNAMIC_VIM_H_
 
+#include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h" //MecAppInstanceInfo struct
+
 //BINDER and UTILITIES
 #include "common/LteCommon.h"
 #include "common/binder/Binder.h"
@@ -50,7 +52,7 @@ struct AppDescriptor
 };
 
 // used to calculate processing time needed to execute a number of instructions
-enum SchedulingMode {SEGREGATION, FAIR_SHARING};
+//enum SchedulingMode {SEGREGATION, FAIR_SHARING};
 
 //
 //  VirtualisationInfrastructureManagerDyn
@@ -89,22 +91,22 @@ class VirtualisationInfrastructureManagerDyn : public cSimpleModule
         /*
          * Istantiate ME Application on an handled car
          */
-//        MecAppInstanceInfo* instantiateMEApp(CreateAppMessage*);
+        MecAppInstanceInfo* instantiateMEApp(CreateAppMessage*);
 
         /*
          * Istantiate Emulated ME Application from MECPM
          */
-//        bool instantiateEmulatedMEApp(CreateAppMessage*);
+        bool instantiateEmulatedMEApp(CreateAppMessage*);
 
         /*
          * Terminate ME Application from MECPM
          */
-//        bool terminateMEApp(DeleteAppMessage*);
+        bool terminateMEApp(DeleteAppMessage*);
 
         /*
          * Terminate Emulated ME Application from MECPM
          */
-//        bool terminateEmulatedMEApp(DeleteAppMessage*);
+        bool terminateEmulatedMEApp(DeleteAppMessage*);
 
         /*
          * Logic for computing simulated processing time
