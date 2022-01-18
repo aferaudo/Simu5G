@@ -52,6 +52,10 @@ module MECHostDyn extends NRUe
         
         app[1].typename = "MecPlatformManagerDyn";
         app[1].localPort = 3334;
+        
+        
+        // Graphic parameters
+        string color = default("red");
 
     gates:
         inout ethAntenna[];

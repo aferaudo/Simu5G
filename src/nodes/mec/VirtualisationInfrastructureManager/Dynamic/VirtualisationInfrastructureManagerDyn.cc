@@ -80,6 +80,15 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
     }
 
 
+    // Graphic
+    color = getParentModule()->par("color").stringValue();
+    cDisplayString& dispStr = getParentModule()->getDisplayString();
+    dispStr.setTagArg("b", 0, 50);
+    dispStr.setTagArg("b", 1, 50);
+    dispStr.setTagArg("b", 2, "rect");
+    dispStr.setTagArg("b", 3, color.c_str());
+    dispStr.setTagArg("b", 4, "black");
+
     cMessage* print = new cMessage("Print");
     scheduleAt(simTime()+0.01, print);
 //    scheduleAt(simTime()+1.00, print);
@@ -152,6 +161,21 @@ std::string VirtualisationInfrastructureManagerDyn::registerHost(double ram, dou
 
     printResources();
 
+    // Add circle around host
+    cModule* module = inet::L3AddressResolver().findHostWithAddress(ip_addr);
+    std::cout << "module: " << module << endl;
+    if(module != nullptr){
+        cDisplayString& dispStr = module->getDisplayString();
+        dispStr.setTagArg("b", 0, 50);
+        dispStr.setTagArg("b", 1, 50);
+        dispStr.setTagArg("b", 2, "oval");
+        dispStr.setTagArg("b", 3, color.c_str());
+        dispStr.setTagArg("b", 4, "black");
+//        dispStr.setTagArg("b", 5, 4);
+//        EV << "VirtualisationInfrastructureManagerDyn::registerHost - display string of host " << ip_addr << " is " << dispStr << endl;
+    }
+
+
     return host_id;
 }
 
@@ -164,6 +188,14 @@ void VirtualisationInfrastructureManagerDyn::unregisterHost(std::string host_id)
     }
 
     printResources();
+
+    // Remove red circle around host
+    HostDescriptor* host = &(it->second);
+    cModule* module = inet::L3AddressResolver().findHostWithAddress(host->address);
+    if(module != nullptr){
+        cDisplayString& dispStr = module->getDisplayString();
+        dispStr.removeTag("b");
+    }
 
     handledHosts.erase(it);
 }

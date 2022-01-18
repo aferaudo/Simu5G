@@ -85,6 +85,9 @@ class VirtualisationInfrastructureManagerDyn : public cSimpleModule
     ResourceDescriptor* usedBufferResources;
 
 
+    std::string color;
+
+
     public:
         VirtualisationInfrastructureManagerDyn();
 
@@ -138,6 +141,11 @@ class VirtualisationInfrastructureManagerDyn : public cSimpleModule
          */
         bool isAllocable(double ram, double disk, double cpu);
 
+        /*
+        * Get all managed hosts
+        */
+       std::list<HostDescriptor> getAllHosts();
+
     protected:
 
         virtual int numInitStages() const { return inet::NUM_INIT_STAGES; }
@@ -174,8 +182,6 @@ class VirtualisationInfrastructureManagerDyn : public cSimpleModule
         std::string findBestHostDyn(double ram, double disk, double cpu);
 
     private:
-
-        std::list<HostDescriptor> getAllHosts();
 
         bool isAllocableOnBuffer(double ram, double disk, double cpu);
 
