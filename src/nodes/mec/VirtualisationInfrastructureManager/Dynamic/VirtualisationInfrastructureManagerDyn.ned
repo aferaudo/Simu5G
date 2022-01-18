@@ -29,7 +29,7 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
     	int localPort = default(3333);
 //    	string destAddress;
         string localAddress;
-        
+        string serverDestAddress; // used to communicate with the server 
     	double bufferSize = default(0.15);				// Percentage value of resources buffer
     
     gates:

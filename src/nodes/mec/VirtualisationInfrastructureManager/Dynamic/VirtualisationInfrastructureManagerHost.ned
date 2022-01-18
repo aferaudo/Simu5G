@@ -77,6 +77,9 @@ module VirtualisationInfrastructureManagerHost extends NRUe
 
 		// to gnodes
         inout pppENB[];
+        
+        // to server
+        inout ethiface[];
 
     submodules:
 
@@ -178,8 +181,8 @@ module VirtualisationInfrastructureManagerHost extends NRUe
 //        cellularNic.upperLayerIn <-- nl.out++;
 
 //        mm7Eth.phys <--> mm7GnB;
-        pppENB++ <--> mm7Eth.phys;
-
+        //pppENB++ <--> mm7Eth.phys;
+		ethiface++ <--> mm7Eth.phys;
 //        cellularNic.radioIn <-- mm7d2d;
 
 
