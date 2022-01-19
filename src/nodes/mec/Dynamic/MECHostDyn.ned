@@ -44,6 +44,10 @@ module MECHostDyn extends NRUe
         double localDisk @unit("B") = default(100TB);
         double localCpuSpeed = default(300000); 	 // CPU's clock speed in Million Instruction per Seconds (MIPS)
         
+        //Ethernet configuration
+        numEthInterfaces = 1;
+        eth[0].typename = "EthernetInterface";
+        
         // Setup Mec components
         numApps = 2;
         
@@ -58,7 +62,7 @@ module MECHostDyn extends NRUe
         string color = default("red");
 
     gates:
-        inout ethAntenna[];
+        inout ethserver[];
 //        input radioIn[] @directin; // for d2d communication
 
     submodules:
@@ -66,6 +70,8 @@ module MECHostDyn extends NRUe
 
 
     connections allowunconnected:
+        
+		ethserver++ <--> eth[0].phys;
 
 //        vimH.mm7GnB <--> Eth10G <--> ethAntenna++;
 //        mecPlatformD.ethExt <--> Eth10G <--> ethAntenna++;
