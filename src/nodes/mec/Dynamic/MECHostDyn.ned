@@ -62,7 +62,7 @@ module MECHostDyn extends NRUe
         string color = default("red");
 
     gates:
-        inout ethserver[1];
+        inout ethserver;
 //        input radioIn[] @directin; // for d2d communication
 
     submodules:
@@ -71,7 +71,7 @@ module MECHostDyn extends NRUe
 
     connections allowunconnected:
         
-		ethserver++ <--> eth[0].phys;
+		ethserver <--> eth[0].phys;
 
 //        vimH.mm7GnB <--> Eth10G <--> ethAntenna++;
 //        mecPlatformD.ethExt <--> Eth10G <--> ethAntenna++;

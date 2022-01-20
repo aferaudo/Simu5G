@@ -14,6 +14,12 @@
 // 
 
 #include "ClientResourceApp.h"
+
+// simu5g http utils
+#include "nodes/mec/MECPlatform/MECServices/packets/HttpRequestMessage/HttpRequestMessage.h"
+#include "nodes/mec/MECPlatform/MECServices/packets/HttpResponseMessage/HttpResponseMessage.h"
+#include "nodes/mec/utils/httpUtils/httpUtils.h"
+
 #include "inet/applications/tcpapp/GenericAppMsg_m.h"
 #include "inet/common/TimeTag_m.h"
 
@@ -50,6 +56,7 @@ void ClientResourceApp::initialize(int stage)
     // Socket local binding
     tcpSocket.setOutputGate(gate("socketOut"));
     tcpSocket.bind(localPort);
+    tcpSocket.setCallback(this);
 
     const char *lcAddress = par("localAddress").stringValue();
     localIPAddress = inet::L3AddressResolver().resolve(lcAddress);
@@ -59,10 +66,9 @@ void ClientResourceApp::initialize(int stage)
 
     EV << "ClientResourceApp::Client Address: " << localIPAddress.str() << endl;
 
-    //ADD stopTime >= SIMTIME_ZERO (to do that we need stop time as sim_time type)
-//    if (stopTime < startTime)
-//        throw cRuntimeError("Invalid startTime/stopTime parameters");
-//
+    if (stopTime >= SIMTIME_ZERO && stopTime < startTime)
+        throw cRuntimeError("Invalid startTime/stopTime parameters");
+
     cMessage *msg = new cMessage("connect");
     scheduleAt(simTime()+startTime, msg);
 }
@@ -78,12 +84,6 @@ void ClientResourceApp::handleSelfMessage(cMessage *msg){
     }else if (strcmp(msg->getName(), "send") == 0)
     {
         delete msg;
-        //cMessage *message = new cMessage(localIPAddress.str().data());
-//        const auto& payload = makeShared<inet::GenericAppMsg>();
-//        payload->setChunkLength(inet::B(1));
-//        payload->setExpectedReplyLength(inet::B(1));
-//        payload->setServerClose(false);
-//        payload->addTag<inet::CreationTimeTag>()->setCreationTime(simTime());
 
         long requestLength = par("requestLength");
         long replyLength = par("replyLength");
@@ -115,13 +115,31 @@ void ClientResourceApp::connectToSRR()
     else {
         EV << "Connecting to " << destIPAddress << " port=" << destPort << endl;
         tcpSocket.connect(destIPAddress, destPort);
-        // For testing: After a socket has been opened, a message containing the localIPAddress is sent
-        // Consider that we need to wait until the socket is opened
-        cMessage *msg = new cMessage("send");
-        scheduleAt(simTime()+0.05, msg);
+//        // For testing: After a socket has been opened, a message containing the localIPAddress is sent
+//        // Consider that we need to wait until the socket is opened
+//        cMessage *msg = new cMessage("send");
+//        scheduleAt(simTime()+0.05, msg);
     }
 
 }
+
+void ClientResourceApp::sendRewardRequest(){
+    EV << "ClientResourceApp::Sending Reward request" << endl;
+
+    std::string uri("/resourceRegisterApp/v1/reward_list");
+
+    std::string host = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
+    std::string params = ""; //no params needed
+    if(tcpSocket.getState() == inet::TcpSocket::CONNECTED)
+    {
+        EV << "ClientResourceApp::Connected - sending httpRequest to " << host << endl;
+        Http::sendGetRequest(&tcpSocket, host.c_str(), uri.c_str(), params.c_str());
+    }else
+    {
+        // schedule another http request when connected
+    }
+}
+
 
 void ClientResourceApp::handleMessage(cMessage *msg)
 {
@@ -129,4 +147,25 @@ void ClientResourceApp::handleMessage(cMessage *msg)
     {
         handleSelfMessage(msg);
     }
+    else
+    {
+        if(msg->arrivedOn("socketIn"))
+        {
+            ASSERT(tcpSocket && tcpSocket.belongsToSocket(msg));
+            tcpSocket.processMessage(msg);
+        }
+
+    }
+}
+
+void ClientResourceApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent){
+
+    EV << "ClientResourceApp::Reply received from the server" << packet->peekData() << endl;
+}
+
+void ClientResourceApp::socketEstablished(inet::TcpSocket *socket){
+
+    EV << "ClientResourceApp::connection established sending a message";
+    // First request to send: which is the reward system?
+    sendRewardRequest();
 }

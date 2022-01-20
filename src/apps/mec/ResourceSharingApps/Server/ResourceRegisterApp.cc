@@ -22,11 +22,16 @@
 
 #include "ResourceRegisterApp.h"
 
+#include "apps/mec/ResourceSharingApps/Server/ResourceRegisterThreadBase.h"
+#include "nodes/mec/utils/httpUtils/httpUtils.h"
+
 Define_Module(ResourceRegisterApp);
 
 ResourceRegisterApp::ResourceRegisterApp()
 {
     serverSocket = nullptr;
+    currentHttpMessage = nullptr;
+    baseUri_ = "/resourceRegisterApp/v1/";
 }
 
 void ResourceRegisterApp::initialize(int stage)
@@ -37,18 +42,28 @@ void ResourceRegisterApp::initialize(int stage)
         // Initialise lists and other parameters
         EV << "ResourceRegisterApp::initialize" << endl;
         startTime = par("startTime");
-
         localPort = par("localPort");
+
+        // Do we need other parameters?
     }
-    if(stage != inet::INITSTAGE_APPLICATION_LAYER)
-       return;
+//    if(stage != inet::INITSTAGE_APPLICATION_LAYER)
+//       return;
+
+    inet::ApplicationBase::initialize(stage);
 
 
+}
+
+void ResourceRegisterApp::handleStartOperation(inet::LifecycleOperation *operation){
 
     const char *localAddress = par("localAddress");
-    EV << "ResourceRegisterApp::initialize - local Address: " << localAddress << " port: " << localPort << endl;
+
+    EV << "ResourceRegisterApp::handleStartOperation - local Address: " << localAddress << " port: " << localPort << endl;
     localIPAddress = inet::L3AddressResolver().resolve(localAddress);
-    EV << "ResourceRegisterApp::initialize - local Address resolved: "<< localIPAddress << endl;
+    EV << "ResourceRegisterApp::handleStartOperation - local Address resolved: "<< localIPAddress << endl;
+
+    host_ = baseUri_ + ":" + std::to_string(localPort);
+
     serverSocket = new inet::TcpSocket();
     serverSocket->setOutputGate(gate("socketOut"));
     serverSocket->bind(localIPAddress, localPort);
@@ -59,10 +74,10 @@ void ResourceRegisterApp::initialize(int stage)
     cMessage *msg = new cMessage("listen");
     scheduleAt(simTime()+startTime, msg);
 
-
 }
 
-void ResourceRegisterApp::handleMessage(cMessage *msg)
+
+void ResourceRegisterApp::handleMessageWhenUp(cMessage *msg)
 {
     if(msg->isSelfMessage() && strcmp(msg->getName(), "listen") == 0)
     {
@@ -74,30 +89,40 @@ void ResourceRegisterApp::handleMessage(cMessage *msg)
     else{
         if(msg->arrivedOn("socketIn"))
         {
-            // TODO Manage multiple sockets
-            ASSERT(serverSocket && serverSocket->belongsToSocket(msg));
-            serverSocket->processMessage(msg);
+            inet::TcpSocket *socket = check_and_cast_nullable<inet::TcpSocket *>(socketMap.findSocketFor(msg));
+            if (socket)
+                socket->processMessage(msg);
+            else if (serverSocket->belongsToSocket(msg))
+                serverSocket->processMessage(msg);
         }
         else
             throw cRuntimeError("Unknown message");
     }
 }
 
-void ResourceRegisterApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent){
-
-    EV << "ResourceRegisterApp::Received packet on socket: " << packet->peekData() << endl;
-}
-
 void ResourceRegisterApp::socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo){
 
     auto newSocket = new inet::TcpSocket(availableInfo);
     newSocket->setOutputGate(gate("socketOut")); //gate connection
+    //newSocket->setCallback(this); // for now is this but it must be a thread!!!
+
+    EV << "ResourceRegisterApp::Creating a dedicated thread for socket " << newSocket->getSocketId() << endl;
+    ResourceRegisterThreadBase *proc = new ResourceRegisterThreadBase();
+    proc->init(newSocket);
+    newSocket->setCallback(proc);
 
     EV << "ResourceRegisterApp::Storing socket " << endl;
-
     socketMap.addSocket(newSocket);
+
+
     serverSocket->accept(availableInfo->getNewSocketId());
-    EV << "ResourceRegisterApp::SocketMap size " << socketMap.size() << endl;
+    EV << "ResourceRegisterApp::SocketMap size " << socketMap.size() << ", id: " << newSocket->getSocketId() << ", port: " << newSocket->getRemotePort() << endl;
 
 
+}
+
+void ResourceRegisterApp::handleStopOperation(inet::LifecycleOperation *operation){
+    for (auto thread : threadSet)
+             thread->getSocket()->close();
+    serverSocket->close();
 }
