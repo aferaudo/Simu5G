@@ -266,9 +266,40 @@ std::string VirtualisationInfrastructureManagerDyn::findBestHostDyn(double ram, 
     return "";
 }
 
-MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(CreateAppMessage*)
+MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(CreateAppMessage* msg)
 {
     EV << "VirtualisationInfrastructureManagerDyn:: instantiateMEApp" << endl;
+
+    Enter_Method_Silent();
+
+    inet::L3Address bestHostAddress = inet::L3Address();
+    int bestHostPort = 2222;
+
+    for(auto it = handledHosts.begin(); it != handledHosts.end(); ++it){
+        if (strcmp(it->first.c_str(), "LOCAL_ID")){
+            HostDescriptor descriptor = (it->second);
+            bestHostAddress = descriptor.address;
+            break;
+        }
+    }
+
+    inet::Packet* packet = new inet::Packet("Instantiation");
+    auto registrationpck = inet::makeShared<CreateAppMessage>();
+
+    registrationpck->setUeAppID(msg->getUeAppID());
+    registrationpck->setMEModuleName(msg->getMEModuleName());
+    registrationpck->setMEModuleType(msg->getMEModuleType());
+    registrationpck->setRequiredCpu(msg->getRequiredCpu());
+    registrationpck->setRequiredRam(msg->getRequiredRam());
+    registrationpck->setRequiredDisk(msg->getRequiredDisk());
+    registrationpck->setRequiredService(msg->getRequiredService());
+    registrationpck->setContextId(msg->getContextId());
+    registrationpck->setChunkLength(inet::B(2000));
+    packet->insertAtBack(registrationpck);
+
+    EV << "VirtualisationInfrastructureManagerDyn:: instantiateMEApp - sending to " << bestHostAddress << ":" << bestHostPort << endl;
+
+    socket.sendTo(packet, bestHostAddress, bestHostPort);
 
     return new MecAppInstanceInfo();
 }

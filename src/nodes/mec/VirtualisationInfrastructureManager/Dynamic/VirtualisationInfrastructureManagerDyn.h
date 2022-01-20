@@ -26,6 +26,8 @@
 
 #include <inet/transportlayer/contract/udp/UdpSocket.h>
 
+#include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
+
 //###########################################################################
 //data structures and values
 
