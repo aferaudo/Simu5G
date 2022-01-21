@@ -49,7 +49,16 @@ void VirtualisationInfrastructureApp::initialize(int stage)
         socket.setOutputGate(gate("socketOut"));
         socket.bind(localPort);
     }
-    EV << simTime() << "VirtualisationInfrastructureApp::initialize - binding to port: local:" << localPort << " , dest: " << vimAddress.str() << ":" << vimPort << endl;
+    EV << "VirtualisationInfrastructureApp::initialize - binding to port: local:" << localPort << " , dest: " << vimAddress.str() << ":" << vimPort << endl;
+
+    appcounter = 0;
+
+    // Init Graph
+    cDisplayString& dispStr = getDisplayString();
+    posx = atof(dispStr.getTagArg("p", 0));
+    posy = atof(dispStr.getTagArg("p", 1));
+
+    EV << "VirtualisationInfrastructureApp::initialize - reference position: " << posx << " , " << posy << endl;
 
 }
 
@@ -61,5 +70,64 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
 
     }else{
         EV << "VirtualisationInfrastructureApp::handleMessage - other message received!" << endl;
+
+        if (!strcmp(msg->getName(), "Instantiation")){
+            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+            if (pPacket == 0)
+                throw cRuntimeError("VirtualisationInfrastructureApp::handleMessage - FATAL! Error when casting to inet packet");
+
+            auto data = pPacket->peekData<CreateAppMessage>();
+
+            appcounter++;
+
+            handleInstantiation(const_cast<CreateAppMessage*>(data.get()));
+
+        }
     }
+
+    delete msg;
+}
+
+void VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data)
+{
+    EV << "VirtualisationInfrastructureApp::handleInstantiation - " << data << endl;
+
+    // Creation of requested app
+    char* meModuleName = (char*)data->getMEModuleName();
+    cModuleType *moduleType = cModuleType::get(data->getMEModuleType());
+    cModule *module = moduleType->create(meModuleName, getParentModule());
+    std::stringstream appName;
+    appName << meModuleName << "[" <<  data->getContextId() << "]";
+    module->setName(appName.str().c_str());
+    EV << "VirtualisationInfrastructureApp::handleMessage - meModuleName: " << appName.str() << endl;
+
+    double ram = data->getRequiredRam();
+    double disk = data->getRequiredDisk();
+    double cpu = data->getRequiredCpu();
+
+    //displaying ME App dynamically created (after 70 they will overlap..)
+    std::stringstream display;
+    display << "p=" << posx + (appcounter*300) << "," << posy << ";i=block/control";
+    module->setDisplayString(display.str().c_str());
+
+    module->par("mecAppId") = 22;
+    module->par("requiredRam") = ram;
+    module->par("requiredDisk") = disk;
+    module->par("requiredCpu") = cpu;
+    module->par("localUePort") = 1;
+    module->par("mp1Address") = "mechost";
+    module->par("mp1Port") = 3333;
+
+    module->finalizeParameters();
+
+    cModule *at = getParentModule()->getSubmodule("at");
+    cGate* newAtInGate = at->getOrCreateFirstUnconnectedGate("in", 0, false, true);
+    cGate* newAtOutGate = at->getOrCreateFirstUnconnectedGate("out", 0, false, true);
+
+    newAtOutGate->connectTo(module->gate("socketIn"));
+    module->gate("socketOut")->connectTo(newAtInGate);
+
+//    module->buildInside();
+//    module->scheduleStart(simTime());
+//    module->callInitialize();
 }

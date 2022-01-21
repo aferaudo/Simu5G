@@ -30,6 +30,8 @@
 #include <inet/transportlayer/contract/udp/UdpSocket.h>
 #include <omnetpp.h>
 
+#include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
+
 using namespace omnetpp;
 
 class VirtualisationInfrastructureApp : public cSimpleModule
@@ -43,6 +45,13 @@ class VirtualisationInfrastructureApp : public cSimpleModule
     inet::L3Address vimAddress;
     int vimPort;
 
+    // Business logic parameters
+    int appcounter;
+
+    // Graphic parameters
+    float posx;
+    float posy;
+
     public:
     VirtualisationInfrastructureApp();
 
@@ -55,6 +64,8 @@ class VirtualisationInfrastructureApp : public cSimpleModule
         virtual void handleMessage(cMessage *msg);
 
     private:
+
+        void handleInstantiation(CreateAppMessage* data);
 
 };
 

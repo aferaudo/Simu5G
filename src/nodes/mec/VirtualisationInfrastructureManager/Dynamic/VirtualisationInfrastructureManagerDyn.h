@@ -51,6 +51,7 @@ struct AppDescriptor
     int port;
     std::string name;
     std::string hostingHost;
+    bool isBuffered;
 };
 
 // used to calculate processing time needed to execute a number of instructions

@@ -32,7 +32,7 @@ void MecPlatformManagerDyn::initialize(int stage)
     EV << "MecPlatformManagerDyn::initialize - stage " << stage << endl;
 
     // Get other modules
-    vim = check_and_cast<VirtualisationInfrastructureManagerDyn*>(getParentModule()->getSubmodule("app", 0));
+    vim = check_and_cast<VirtualisationInfrastructureManagerDyn*>(getParentModule()->getParentModule()->getSubmodule("vim")->getSubmodule("app", 0));
     cModule* mecPlatform = getParentModule()->getSubmodule("mecPlatform");
     if(mecPlatform != nullptr && mecPlatform->findSubmodule("serviceRegistry") != -1)
     {
@@ -44,7 +44,6 @@ void MecPlatformManagerDyn::initialize(int stage)
     // Read parameters
     orchestratorAddress = inet::L3AddressResolver().resolve(par("mecOrchestratorAddress"));
     localAddress = inet::L3AddressResolver().resolve(par("localAddress"));
-
     orchestratorPort = par("mecOrchestratorPort");
     localPort = par("localPort");
 

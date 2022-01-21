@@ -31,7 +31,8 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
     EV << "VirtualisationInfrastructureManagerDyn::initialize - stage " << stage << endl;
 
     // Init parameters
-    vimHost = getParentModule();
+    vimHost = getParentModule()->getParentModule();
+
     // Init BUFFER
     bufferSize = par("bufferSize");
     totalBufferResources = new ResourceDescriptor();
@@ -69,6 +70,7 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         throw cRuntimeError("VirtualisationInfrastructureManagerDyn::initialize - \tFATAL! Cannot find static resource definition!");
 
     // Set up socket for communcation
+    std::cout << par("localAddress") << endl;
     localAddress = inet::L3AddressResolver().resolve(par("localAddress"));
     EV << "VirtualisationInfrastructureManagerDyn::initialize - localAddress " << localAddress << endl;
     int port = par("localPort");
@@ -79,9 +81,8 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         socket.bind(port);
     }
 
-
     // Graphic
-    color = getParentModule()->par("color").stringValue();
+    color = getParentModule()->getParentModule()->par("color").stringValue();
     cDisplayString& dispStr = getParentModule()->getDisplayString();
     dispStr.setTagArg("b", 0, 50);
     dispStr.setTagArg("b", 1, 50);
@@ -92,7 +93,6 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
     cMessage* print = new cMessage("Print");
     scheduleAt(simTime()+0.01, print);
 //    scheduleAt(simTime()+1.00, print);
-
 }
 
 void VirtualisationInfrastructureManagerDyn::handleMessage(cMessage *msg)
@@ -252,6 +252,10 @@ std::string VirtualisationInfrastructureManagerDyn::findBestHostDyn(double ram, 
         std::string key = it->first;
         HostDescriptor descriptor = (it->second);
 
+        if (!strcmp(it->first.c_str(), "LOCAL_ID")){
+            continue;
+        }
+
         bool available = ram < descriptor.totalAmount.ram - descriptor.usedAmount.ram
                     && disk < descriptor.totalAmount.disk - descriptor.usedAmount.disk
                     && cpu  < descriptor.totalAmount.cpu - descriptor.usedAmount.cpu;
@@ -272,16 +276,12 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(Cre
 
     Enter_Method_Silent();
 
-    inet::L3Address bestHostAddress = inet::L3Address();
+    std::string bestHostKey = findBestHostDyn(1,1,1);
+    HostDescriptor bestHost = handledHosts[bestHostKey];
+
+    inet::L3Address bestHostAddress = bestHost.address;
     int bestHostPort = 2222;
 
-    for(auto it = handledHosts.begin(); it != handledHosts.end(); ++it){
-        if (strcmp(it->first.c_str(), "LOCAL_ID")){
-            HostDescriptor descriptor = (it->second);
-            bestHostAddress = descriptor.address;
-            break;
-        }
-    }
 
     inet::Packet* packet = new inet::Packet("Instantiation");
     auto registrationpck = inet::makeShared<CreateAppMessage>();

@@ -16,6 +16,7 @@
 package simu5g.nodes.mec.Dynamic;
 import simu5g.nodes.mec.VirtualisationInfrastructure.VirtualisationInfrastructure;
 import simu5g.nodes.mec.VirtualisationInfrastructureManager.Dynamic.VirtualisationInfrastructureManagerHost;
+import simu5g.nodes.mec.MECPlatformManager.Dynamic.MecPlatformManagerHost;
 import simu5g.nodes.mec.MECPlatform.Dynamic.MECPlatformDyn;
 import simu5g.nodes.mec.MECPlatformManager.MecPlatformManager;
 import simu5g.nodes.Upf;
@@ -32,7 +33,7 @@ import simu5g.nodes.NR.NRUe;
 // - static 
 // - non static (this are managed by the Dynamic virutalisation infrastructure Manager)
 // Static resources are less if compared with a normal MEC Host
-module MECHostDyn extends NRUe
+module MECHostDyn
 {
     parameters:
         @display("i=device/mainframe;bgb=1036,665");
@@ -43,21 +44,21 @@ module MECHostDyn extends NRUe
         double localRam @unit("B") = default(32GB);
         double localDisk @unit("B") = default(100TB);
         double localCpuSpeed = default(300000); 	 // CPU's clock speed in Million Instruction per Seconds (MIPS)
-        
-        //Ethernet configuration
-        numEthInterfaces = 1;
-        eth[0].typename = "EthernetInterface";
-        
-        // Setup Mec components
-        numApps = 2;
-        
-        app[0].typename = "VirtualisationInfrastructureManagerDyn";
-        app[0].localPort = 3333;
-        
-        app[1].typename = "MecPlatformManagerDyn";
-        app[1].localPort = 3334;
-        
-        
+
+//        //Ethernet configuration
+//        numEthInterfaces = 1;
+//        eth[0].typename = "EthernetInterface";
+//        
+//        // Setup Mec components
+//        numApps = 2;
+//        
+//        app[0].typename = "VirtualisationInfrastructureManagerDyn";
+//        app[0].localPort = 3333;
+//        
+//        app[1].typename = "MecPlatformManagerDyn";
+//        app[1].localPort = 3334;
+
+
         // Graphic parameters
         string color = default("red");
 
@@ -67,11 +68,19 @@ module MECHostDyn extends NRUe
 
     submodules:
 
+        vim: VirtualisationInfrastructureManagerHost {
 
+            @display("p=235.488,184.64401");
+        }
+
+        mecpm: MecPlatformManagerHost {
+
+            @display("p=405.414,184.64401");
+        }
 
     connections allowunconnected:
-        
-		ethserver <--> eth[0].phys;
+
+//		ethserver <--> eth[0].phys;
 
 //        vimH.mm7GnB <--> Eth10G <--> ethAntenna++;
 //        mecPlatformD.ethExt <--> Eth10G <--> ethAntenna++;

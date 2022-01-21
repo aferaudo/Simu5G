@@ -13,25 +13,28 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
-package simu5g.nodes.cars;
+package simu5g.nodes.mec.MECPlatformManager.Dynamic;
+
 import simu5g.nodes.NR.NRUe;
 
-module MecCar extends NRUe
+//
+// TODO auto-generated type
+//
+module MecPlatformManagerHost extends NRUe
 {
     parameters:
-        @display("i=veins/node/car");
+        @networkNode();
+        @display("i=device/device");
+        
+        string networkLayerType = default("IPv4NetworkLayer");
 
-        // Available resources
-        double localRam @unit("B") = default(5GB);
-        double localDisk @unit("B") = default(1TB);
-        double localCpuSpeed = default(300000);
-
-        // App configuration
-//        numApps = 1;
-//        
-//        app[0].typename = "VirtualisationInfrastructureApp";
-//        app[0].localPort = 2222;
-
-    submodules:
-
+        //# Network Layer specs
+        *.routingTableModule = default(absPath(".ipv4.routingTable"));
+        *.interfaceTableModule = default(absPath(".interfaceTable"));
+        
+        //# App parameters
+        numApps = 1;
+       	app[0].typename = "MecPlatformManagerDyn";
+        app[0].localPort = 3334;
+        
 }
