@@ -15,11 +15,6 @@
 
 #include "ClientResourceApp.h"
 
-// simu5g http utils
-#include "nodes/mec/MECPlatform/MECServices/packets/HttpRequestMessage/HttpRequestMessage.h"
-#include "nodes/mec/MECPlatform/MECServices/packets/HttpResponseMessage/HttpResponseMessage.h"
-#include "nodes/mec/utils/httpUtils/httpUtils.h"
-
 #include "inet/applications/tcpapp/GenericAppMsg_m.h"
 #include "inet/common/TimeTag_m.h"
 
@@ -29,6 +24,7 @@ Define_Module(ClientResourceApp);
 ClientResourceApp::ClientResourceApp()
 {
     // Messages initialisation
+    currentHttpMessage = nullptr;
 }
 
 ClientResourceApp::~ClientResourceApp()
@@ -73,6 +69,39 @@ void ClientResourceApp::initialize(int stage)
     scheduleAt(simTime()+startTime, msg);
 }
 
+void ClientResourceApp::handleResponse(HttpResponseMessage* response)
+{
+    // Manage Replies
+    // Reward Reply
+    // Success Registration reply
+    // Error reply
+    int code = response->getCode();
+
+    if(code >= 400)
+    {
+        EV << "ClientResourceApp::handleResponse - Received reply with code: " << code << endl;
+    }
+    else if (code == 200) // TODO is this a good way to distinguish between replies?
+    {
+        nlohmann::json jsonResponseBody = nlohmann::json::parse(response->getBody());
+        EV << "ClientResourceApp::handleResponse - jsonobject: " << jsonResponseBody << endl;
+        // Apply some policy to Accept the reward
+        std::string reward = processRewards(jsonResponseBody);
+        if(!reward.empty())
+        {
+            EV << "ClientResourceApp::handleResponse - reward accepted: " << reward << endl;
+        }
+        else
+        {
+            EV << "ClientResourceApp::handleResponse - reward rejected" << endl;
+        }
+    }
+    else if (code == 201)
+    {
+        EV << "ClientResourceApp::handleResponse - registration OK!" << endl;
+    }
+
+}
 
 void ClientResourceApp::handleSelfMessage(cMessage *msg){
     
@@ -81,24 +110,10 @@ void ClientResourceApp::handleSelfMessage(cMessage *msg){
         EV << "ClientResourceApp::connecting...";
         connectToSRR();
         delete msg;
-    }else if (strcmp(msg->getName(), "send") == 0)
+    }else if (strcmp(msg->getName(), "resend") == 0)
     {
         delete msg;
-
-        long requestLength = par("requestLength");
-        long replyLength = par("replyLength");
-        EV << "ClientResourceApp::TCP SOCKET STATE: " << tcpSocket.getState() << endl;
-        EV << "ClientResourceApp::sending a message..." << endl;
-        const auto& payload = inet::makeShared<inet::GenericAppMsg>();
-        inet::Packet *packet = new inet::Packet(localIPAddress.str().data());
-        payload->setChunkLength(inet::B(requestLength));
-        payload->setExpectedReplyLength(inet::B(replyLength));
-        payload->setServerClose(false);
-        payload->addTag<inet::CreationTimeTag>()->setCreationTime(simTime());
-
-        packet->insertAtBack(payload);
-        tcpSocket.send(packet);
-        EV << "ClientResourceApp::MESSAGE SENT! <--------------------------------"<< endl;
+        sendRewardRequest();
 
     }
 }
@@ -115,10 +130,7 @@ void ClientResourceApp::connectToSRR()
     else {
         EV << "Connecting to " << destIPAddress << " port=" << destPort << endl;
         tcpSocket.connect(destIPAddress, destPort);
-//        // For testing: After a socket has been opened, a message containing the localIPAddress is sent
-//        // Consider that we need to wait until the socket is opened
-//        cMessage *msg = new cMessage("send");
-//        scheduleAt(simTime()+0.05, msg);
+
     }
 
 }
@@ -132,11 +144,15 @@ void ClientResourceApp::sendRewardRequest(){
     std::string params = ""; //no params needed
     if(tcpSocket.getState() == inet::TcpSocket::CONNECTED)
     {
+
         EV << "ClientResourceApp::Connected - sending httpRequest to " << host << endl;
         Http::sendGetRequest(&tcpSocket, host.c_str(), uri.c_str(), params.c_str());
+
     }else
     {
         // schedule another http request when connected
+        cMessage *msg = new cMessage("resend");
+        scheduleAt(simTime()+0.05, msg);
     }
 }
 
@@ -161,6 +177,28 @@ void ClientResourceApp::handleMessage(cMessage *msg)
 void ClientResourceApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent){
 
     EV << "ClientResourceApp::Reply received from the server" << packet->peekData() << endl;
+
+    std::vector<uint8_t> bytes =  packet->peekDataAsBytes()->getBytes();
+    std::string msg(bytes.begin(), bytes.end());
+
+    bool res = Http::parseReceivedMsg(msg, &buffer, &currentHttpMessage);
+    if(res)
+    {
+        if(currentHttpMessage->getType() == RESPONSE)
+        {
+            handleResponse(check_and_cast<HttpResponseMessage*>(currentHttpMessage));
+        }
+        else
+        {
+            EV_ERROR << "ClientResourceApp::HTTP message not recognised" << endl;
+        }
+    }
+    else
+    {
+        EV << "ClientResourceApp::Data arrived on socket (NO HTTP)" << endl;
+    }
+
+    delete packet;
 }
 
 void ClientResourceApp::socketEstablished(inet::TcpSocket *socket){
@@ -168,4 +206,24 @@ void ClientResourceApp::socketEstablished(inet::TcpSocket *socket){
     EV << "ClientResourceApp::connection established sending a message";
     // First request to send: which is the reward system?
     sendRewardRequest();
+}
+
+std::string ClientResourceApp::processRewards(nlohmann::json jsonResponseBody)
+{
+    std::string toReturn= "";
+
+    int thresholdReward = 14; //TODO Load minimum threshold from a ned file
+    nlohmann::json jsonRewardList = jsonResponseBody["rewardList"];
+
+    for(nlohmann::json::iterator it = jsonRewardList.begin(); it != jsonRewardList.end(); ++it)
+    {
+        if(it.value() >= thresholdReward)
+        {
+            thresholdReward = it.value();
+            toReturn = it.key();
+        }
+    }
+
+
+    return toReturn;
 }

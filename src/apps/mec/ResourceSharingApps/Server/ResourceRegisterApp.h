@@ -29,6 +29,7 @@
 #include "inet/networklayer/common/L3Address.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
 
+
 using namespace omnetpp;
 
 /**
@@ -36,18 +37,24 @@ using namespace omnetpp;
  * @author Angelo Feraudo
  */
 
-class ResourceRegisterThreadBase;
+class ResourceRegisterThread;
 
 class ResourceRegisterApp : public inet::ApplicationBase, public inet::TcpSocket::ICallback
 {
+    // Name of reward: reward
+    // for now rewards are represented by integer
+    // TODO Add dynamic rewards by using ned files
+    std::map <std::string, int> rewardMap_;
+
+    std::string baseUri_;
+    std::string host_;
+
     public:
         ResourceRegisterApp();
         virtual ~ResourceRegisterApp() { }
 
-//        virtual TcpSocket *getSocket() { return socket; }
-//        virtual void acceptSocket(TcpAvailableInfo *availableInfo);
-//
-
+        virtual std::string getBaseUri(){return baseUri_;}
+        virtual std::map<std::string, int> getRewardMap(){return rewardMap_;}
         
     protected:
 
@@ -56,36 +63,39 @@ class ResourceRegisterApp : public inet::ApplicationBase, public inet::TcpSocket
         inet::SocketMap socketMap; //Stores the connections
         inet::L3Address localIPAddress;
         
-        typedef std::set<ResourceRegisterThreadBase *> ThreadSet;
+        typedef std::set<ResourceRegisterThread *> ThreadSet;
         ThreadSet threadSet;
 
-        HttpBaseMessage* currentHttpMessage; // current HttpRequest
-        std::string buffer;
+//        HttpBaseMessage* currentHttpMessage; // current HttpRequest
+//        std::string buffer;
 
         int localPort;
-        double startTime;
-
-        std::string baseUri_;
-        std::string host_;
+        simtime_t startTime;
 
         virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
         virtual void initialize(int stage) override;
         //virtual void handleMessage(cMessage *msg) override;
 
 
+        // Other methods
+        void removeThread(ResourceRegisterThread *thread);
+        void initRewardSystem(){EV << "To implement" << endl;};
+
         // ApplicationBase Methods (AppliacationBase extends cSimpleModule and ILyfecycle (used to support application lyfecycle))
         virtual void handleMessageWhenUp(omnetpp::cMessage *msg) override;
         virtual void handleStartOperation(inet::LifecycleOperation *operation) override;
         virtual void handleStopOperation(inet::LifecycleOperation *operation) override;
-        virtual void handleCrashOperation(inet::LifecycleOperation *operation) override {EV << "ResourceRegisterApp::handleCrashOperation called now!" << endl;}
+        virtual void handleCrashOperation(inet::LifecycleOperation *operation) override;
+        virtual void finish() override;
+        virtual void refreshDisplay() const override;
 
 
         // Callback methods
         virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent) override {throw omnetpp::cRuntimeError("ResourceRegisterApp::Unexpected data"); };
         virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override;
-        virtual void socketEstablished(inet::TcpSocket *socket) override {EV << "Connection established" << endl;}
+        virtual void socketEstablished(inet::TcpSocket *socket) override {EV << "ResourceRegisterApp::Connection established" << endl;}
         virtual void socketPeerClosed(inet::TcpSocket *socket) override {}
-        virtual void socketClosed(inet::TcpSocket *socket) override {socket->close();}
+        virtual void socketClosed(inet::TcpSocket *socket) override {EV << "ResourceRegisterApp::SocketClosed callback - not managed" << endl;}
         virtual void socketFailure(inet::TcpSocket *socket, int code) override {}
         virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
         virtual void socketDeleted(inet::TcpSocket *socket) override {delete serverSocket;}

@@ -22,7 +22,7 @@
 
 #include "ResourceRegisterApp.h"
 
-#include "apps/mec/ResourceSharingApps/Server/ResourceRegisterThreadBase.h"
+#include "apps/mec/ResourceSharingApps/Server/ResourceRegisterThread.h"
 #include "nodes/mec/utils/httpUtils/httpUtils.h"
 
 Define_Module(ResourceRegisterApp);
@@ -30,8 +30,12 @@ Define_Module(ResourceRegisterApp);
 ResourceRegisterApp::ResourceRegisterApp()
 {
     serverSocket = nullptr;
-    currentHttpMessage = nullptr;
+    // currentHttpMessage = nullptr;
     baseUri_ = "/resourceRegisterApp/v1/";
+    // TODO fill this dynamically
+    rewardMap_.insert(std::pair<std::string, int>("reward1", 10));
+    rewardMap_.insert(std::pair<std::string, int>("reward2", 30));
+    rewardMap_.insert(std::pair<std::string, int>("reward3", 15));
 }
 
 void ResourceRegisterApp::initialize(int stage)
@@ -50,8 +54,16 @@ void ResourceRegisterApp::initialize(int stage)
 //       return;
 
     inet::ApplicationBase::initialize(stage);
+}
 
+void ResourceRegisterApp::removeThread(ResourceRegisterThread *thread)
+{
+    // remove socket
+    socketMap.removeSocket(thread->getSocket());
+    threadSet.erase(thread);
 
+    // remove thread object
+    thread->deleteModule();
 }
 
 void ResourceRegisterApp::handleStartOperation(inet::LifecycleOperation *operation){
@@ -107,8 +119,8 @@ void ResourceRegisterApp::socketAvailable(inet::TcpSocket *socket, inet::TcpAvai
     //newSocket->setCallback(this); // for now is this but it must be a thread!!!
 
     EV << "ResourceRegisterApp::Creating a dedicated thread for socket " << newSocket->getSocketId() << endl;
-    ResourceRegisterThreadBase *proc = new ResourceRegisterThreadBase();
-    proc->init(newSocket);
+    ResourceRegisterThread *proc = new ResourceRegisterThread();
+    proc->init(this, newSocket);
     newSocket->setCallback(proc);
 
     EV << "ResourceRegisterApp::Storing socket " << endl;
@@ -126,3 +138,41 @@ void ResourceRegisterApp::handleStopOperation(inet::LifecycleOperation *operatio
              thread->getSocket()->close();
     serverSocket->close();
 }
+
+void ResourceRegisterApp::handleCrashOperation(inet::LifecycleOperation *operation){
+    // remove and delete threads
+    while (!threadSet.empty()) {
+        auto thread = *threadSet.begin();
+        // TODO destroy!!!
+        thread->getSocket()->close();
+        removeThread(thread);
+    }
+    // TODO always?
+    if (operation->getRootModule() != getContainingNode(this))
+        serverSocket->destroy();
+}
+
+
+void ResourceRegisterApp::finish()
+{
+    // remove and delete threads
+    while (!threadSet.empty())
+        removeThread(*threadSet.begin());
+}
+
+void ResourceRegisterApp::refreshDisplay() const
+{
+    inet::ApplicationBase::refreshDisplay();
+
+    char buf[32];
+    sprintf(buf, "%d threads", socketMap.size());
+    getDisplayString().setTagArg("t", 0, buf);
+}
+
+
+
+
+
+
+
+

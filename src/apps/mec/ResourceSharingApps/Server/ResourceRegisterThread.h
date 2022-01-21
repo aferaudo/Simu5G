@@ -1,11 +1,11 @@
 /*
- * ResourceRegisterThreadBase.h
+ * ResourceRegisterThread.h
  *
  *  Created on 2022
  */
 
-#ifndef APPS_MEC_RESOURCESHARINGAPPS_SERVER_RESOURCEREGISTERTHREADBASE_H_
-#define APPS_MEC_RESOURCESHARINGAPPS_SERVER_RESOURCEREGISTERTHREADBASE_H_
+#ifndef APPS_MEC_RESOURCESHARINGAPPS_SERVER_RESOURCEREGISTERTHREAD_H_
+#define APPS_MEC_RESOURCESHARINGAPPS_SERVER_RESOURCEREGISTERTHREAD_H_
 
 #include <omnetpp.h>
 
@@ -13,15 +13,20 @@
 #include "nodes/mec/utils/httpUtils/httpUtils.h"
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpRequestMessage/HttpRequestMessage.h"
 
+#include "apps/mec/ResourceSharingApps/Server/ResourceRegisterApp.h"
+
 #include "inet/transportlayer/contract/tcp/TcpSocket.h"
 
 
 
 
-class ResourceRegisterThreadBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICallback {
+class ResourceRegisterThread : public omnetpp::cSimpleModule, public inet::TcpSocket::ICallback {
 
 
   protected:
+
+    ResourceRegisterApp *server; //Reference to the main server (this could be useful to manage a global state of the park)
+
     HttpBaseMessage* currentHttpMessage; // current HttpRequest
     std::string buffer;
 
@@ -37,22 +42,23 @@ class ResourceRegisterThreadBase : public omnetpp::cSimpleModule, public inet::T
     virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override { statusArrived(status); }
     virtual void socketDeleted(inet::TcpSocket *socket) override { if (socket == sock) sock = nullptr; }
 
-    virtual void refreshDisplay() const override {};
+    virtual void refreshDisplay() const override;
 
     //HttpMethods API
-    virtual void handleGETRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket) { EV << "To Be implemented"; };
-    virtual void handlePOSTRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket) { EV << "To Be implemented"; };
-    virtual void handlePUTRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket)    { EV << "To Be implemented"; };
-    virtual void handleDELETERequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket) { EV << "To Be implemented"; };
+    virtual void handleGETRequest(const HttpRequestMessage *currentRequestMessageServed);
+    virtual void handlePOSTRequest(const HttpRequestMessage *currentRequestMessageServed) { EV << "To Be implemented"; };
+    virtual void handlePUTRequest(const HttpRequestMessage *currentRequestMessageServed)    { EV << "To Be implemented"; };
+    virtual void handleDELETERequest(const HttpRequestMessage *currentRequestMessageServed) { EV << "To Be implemented"; };
+    virtual void handleRequest(const HttpRequestMessage *currentRequestMessageServed);
 
 
   public:
 
-    ResourceRegisterThreadBase() { sock = nullptr; currentHttpMessage = nullptr; }
-    virtual ~ResourceRegisterThreadBase() { delete sock; }
+    ResourceRegisterThread() { sock = nullptr; currentHttpMessage = nullptr; server = nullptr;}
+    virtual ~ResourceRegisterThread() { delete sock; }
 
     // internal: called by TcpServerHostApp after creating this module
-    virtual void init(inet::TcpSocket *socket) { sock = socket; }
+    virtual void init(ResourceRegisterApp *ser, inet::TcpSocket *socket) { sock = socket; server = ser;}
 
     /*
      * Returns the socket object
@@ -100,4 +106,4 @@ class ResourceRegisterThreadBase : public omnetpp::cSimpleModule, public inet::T
 };
 
 
-#endif /* APPS_MEC_RESOURCESHARINGAPPS_SERVER_RESOURCEREGISTERTHREADBASE_H_ */
+#endif /* APPS_MEC_RESOURCESHARINGAPPS_SERVER_RESOURCEREGISTERTHREAD_H_ */

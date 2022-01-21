@@ -21,12 +21,16 @@
 #include "inet/transportlayer/contract/tcp/TcpSocket.h"
 #include "inet/networklayer/common/L3Address.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
+#include "nodes/mec/utils/httpUtils/httpUtils.h"
+
+// simu5g httputils
+#include "nodes/mec/MECPlatform/MECServices/packets/HttpRequestMessage/HttpRequestMessage.h"
+#include "nodes/mec/MECPlatform/MECServices/packets/HttpResponseMessage/HttpResponseMessage.h"
+#include "nodes/mec/utils/httpUtils/httpUtils.h"
+#include "nodes/mec/utils/httpUtils/json.hpp"
 
 using namespace omnetpp;
 
-/**
- * TODO - Generated class
- */
 class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallback
 {
   public:
@@ -36,6 +40,9 @@ class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallbac
   protected:
 
       inet::TcpSocket tcpSocket;
+
+      HttpBaseMessage* currentHttpMessage;
+      std::string buffer;
 
       inet::L3Address localIPAddress;
       int localPort;
@@ -55,6 +62,8 @@ class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallbac
       virtual void connectToSRR();
       virtual void handleSelfMessage(cMessage *msg);
       virtual void sendRewardRequest();
+      virtual void handleResponse(HttpResponseMessage* response);
+      virtual std::string processRewards(nlohmann::json jsonResponseBody);
 
 
       // Callback methods
