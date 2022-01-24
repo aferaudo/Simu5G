@@ -17,7 +17,7 @@ package simu5g.nodes.mec.Dynamic;
 import simu5g.nodes.mec.VirtualisationInfrastructure.VirtualisationInfrastructure;
 import simu5g.nodes.mec.VirtualisationInfrastructureManager.Dynamic.VirtualisationInfrastructureManagerHost;
 import simu5g.nodes.mec.MECPlatformManager.Dynamic.MecPlatformManagerHost;
-import simu5g.nodes.mec.MECPlatform.Dynamic.MECPlatformDyn;
+import simu5g.nodes.mec.MECPlatform.Dynamic.MECPlatformHost;
 import simu5g.nodes.mec.MECPlatformManager.MecPlatformManager;
 import simu5g.nodes.Upf;
 import inet.node.ethernet.Eth10G;
@@ -70,12 +70,12 @@ module MECHostDyn
 
         vim: VirtualisationInfrastructureManagerHost {
 
-            @display("p=235.488,184.64401");
+            @display("p=235,184");
         }
 
-        mecpm: MecPlatformManagerHost {
+        mecPlatformManager: MecPlatformManagerHost {
 
-            @display("p=405.414,184.64401");
+            @display("p=405,184");
         }
 
     connections allowunconnected:
