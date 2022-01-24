@@ -83,7 +83,7 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 
     // Graphic
     color = getParentModule()->getParentModule()->par("color").stringValue();
-    cDisplayString& dispStr = getParentModule()->getDisplayString();
+    cDisplayString& dispStr = getParentModule()->getParentModule()->getDisplayString();
     dispStr.setTagArg("b", 0, 50);
     dispStr.setTagArg("b", 1, 50);
     dispStr.setTagArg("b", 2, "rect");
