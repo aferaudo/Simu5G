@@ -17,7 +17,6 @@
 #include <sstream>
 
 #include "VirtualisationInfrastructureApp.h"
-#include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
 
 Define_Module(VirtualisationInfrastructureApp);
 
@@ -52,6 +51,36 @@ void VirtualisationInfrastructureApp::initialize(int stage)
     EV << "VirtualisationInfrastructureApp::initialize - binding to port: local:" << localPort << " , dest: " << vimAddress.str() << ":" << vimPort << endl;
 
     appcounter = 0;
+    std::string schedulingMode = par("scheduling").stringValue();
+    if(std::strcmp(schedulingMode.c_str(), "segregation") == 0)
+    {
+        EV << "VirtualisationInfrastructureManager::initialize - scheduling mode is: segregation" << endl;
+        scheduling = SEGREGATION;
+    }
+    else if(std::strcmp(schedulingMode.c_str(), "fair") == 0)
+    {
+        EV << "VirtualisationInfrastructureManager::initialize - scheduling mode is: fair" << endl;
+        scheduling = FAIR_SHARING;
+    }
+    else
+    {
+        EV << "VirtualisationInfrastructureManager::initialize - scheduling mode: " << schedulingMode<< " not recognized. Using default mode: segregation" << endl;
+        scheduling = SEGREGATION;
+    }
+
+
+    cModule* modulewresdefinition = nullptr;
+    if(!std::strcmp(getParentModule()->getFullName(), "vim"))
+        modulewresdefinition = getParentModule()->getParentModule();
+    else
+        modulewresdefinition = getParentModule();
+
+    maxCpu = modulewresdefinition->par("localCpuSpeed").doubleValue();
+    maxRam = modulewresdefinition->par("localRam").doubleValue();
+    maxDisk = modulewresdefinition->par("localDisk").doubleValue();
+    allocatedCpu = 0.0;
+    allocatedRam = 0.0;
+    allocatedDisk = 0.0;
 
     // Init Graph
     cDisplayString& dispStr = getDisplayString();
@@ -130,4 +159,40 @@ void VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data
 //    module->buildInside();
 //    module->scheduleStart(simTime());
 //    module->callInitialize();
+
+    runningApp[data->getUeAppID()] = *data;
+    allocatedCpu += cpu;
+    allocatedRam += ram;
+    allocatedDisk += disk;
+}
+
+double VirtualisationInfrastructureApp::calculateProcessingTime(int ueAppID, int numOfInstructions)
+{
+    EV << "VirtualisationInfrastructureApp::calculateProcessingTime - (" << ueAppID << ", " << numOfInstructions << ")" << endl;
+
+    ASSERT(numOfInstructions >= 0);
+
+    auto ueApp = runningApp.find(ueAppID);
+    if(ueApp != runningApp.end())
+    {
+        double time;
+        if(scheduling == FAIR_SHARING)
+        {
+            double currentSpeed = ueApp->second.getRequiredCpu() *(maxCpu/allocatedCpu);
+            time = numOfInstructions/currentSpeed;
+        }
+        else
+        {
+            double currentSpeed = ueApp->second.getRequiredCpu();
+            time = numOfInstructions/currentSpeed;
+        }
+        EV << "VirtualisationInfrastructureApp::calculateProcessingTime - calculated time: " << time << endl;
+
+        return time;
+    }
+    else
+    {
+        EV << "VirtualisationInfrastructureApp::calculateProcessingTime - ZERO " << endl;
+        return 0;
+    }
 }

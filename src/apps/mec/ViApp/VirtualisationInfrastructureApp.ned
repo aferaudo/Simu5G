@@ -31,6 +31,8 @@ simple VirtualisationInfrastructureApp like IApp
     	string vimAddress;
     	int vimPort;
     	
+    	string scheduling = default("segregation");
+    	
    	gates:
         output socketOut;
         input socketIn;

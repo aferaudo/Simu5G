@@ -31,6 +31,7 @@
 #include <omnetpp.h>
 
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
+#include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h"
 
 using namespace omnetpp;
 
@@ -47,13 +48,27 @@ class VirtualisationInfrastructureApp : public cSimpleModule
 
     // Business logic parameters
     int appcounter;
+    std::list<std::string> managedApp;
+    std::map<int, CreateAppMessage> runningApp;
+    SchedulingMode scheduling;
+
+    double maxCpu;
+    double allocatedCpu;
+
+    double maxRam;
+    double allocatedRam;
+
+    double maxDisk;
+    double allocatedDisk;
 
     // Graphic parameters
     float posx;
     float posy;
 
     public:
-    VirtualisationInfrastructureApp();
+        VirtualisationInfrastructureApp();
+
+        double calculateProcessingTime(int ueAppID, int numOfInstructions);
 
     protected:
 

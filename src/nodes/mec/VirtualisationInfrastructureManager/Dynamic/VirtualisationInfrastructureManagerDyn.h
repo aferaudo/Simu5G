@@ -115,11 +115,6 @@ class VirtualisationInfrastructureManagerDyn : public cSimpleModule
         bool terminateEmulatedMEApp(DeleteAppMessage*);
 
         /*
-         * Logic for computing simulated processing time
-         */
-//        virtual double calculateProcessingTime(int  mecAppID, int numOfInstructions);
-
-        /*
          * Register new MecApp
          */
 //        bool registerMecApp(int mecAppID, int reqRam, int reqDisk, double reqCpu);
