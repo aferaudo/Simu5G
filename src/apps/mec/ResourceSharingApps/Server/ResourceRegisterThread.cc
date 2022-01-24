@@ -14,12 +14,20 @@ Register_Class(ResourceRegisterThread);
 Define_Module(ResourceRegisterThread);
 
 
+ResourceRegisterThread::~ResourceRegisterThread()
+{
+    delete sock;
+    delete currentHttpMessage;
+    //delete server;
+}
 void ResourceRegisterThread::dataArrived(inet::Packet *packet, bool urgent){
 
     EV << "ResourceRegisterThread::Received packet on socket: " << packet->peekData() << endl;
     packet->removeControlInfo();
 
     std::vector<uint8_t> bytes =  packet->peekDataAsBytes()->getBytes();
+    delete packet;
+
     std::string msg(bytes.begin(), bytes.end());
 
     EV << "ResourceRegisterThread::Packet bytes: " << msg;
@@ -35,7 +43,7 @@ void ResourceRegisterThread::dataArrived(inet::Packet *packet, bool urgent){
             *   - reward_list
             * Post Requests:
             *   - Register Resources
-            *   - Release Resources
+            *   - Release Resoures
             * */
             handleRequest(check_and_cast<HttpRequestMessage*>(currentHttpMessage));
         }
@@ -51,23 +59,34 @@ void ResourceRegisterThread::dataArrived(inet::Packet *packet, bool urgent){
         }
     }
 
-    delete packet;
+
 
 }
 
 void ResourceRegisterThread::established(){
-    EV << "To be implemented";
+    EV << "connected" <<endl;
 }
 
 
 void ResourceRegisterThread::failure(int code){
-    EV << "To be implemented";
+    EV << "ResourceRegisterThread::socket of " << getSocket()->getRemoteAddress() << " failed. Code: " << code << endl;
+    server->removeThread(this);
 }
 
 void ResourceRegisterThread::peerClosed(){
-    EV << "ResourceRegisterThread::Peer closed the connection" << sock->getRemoteAddress() << endl;
+    EV << "ResourceRegisterThread::Peer closed the connection " << sock->getRemoteAddress() << endl;
     sock->setState(inet::TcpSocket::PEER_CLOSED);
+    sock->close();
 }
+
+void ResourceRegisterThread::socketClosed(inet::TcpSocket *socket)
+{
+    EV << "ResourceRegisterThread::socket-closed" << endl;
+    sock->setState(inet::TcpSocket::CLOSED);
+    server->removeThread(this);
+}
+
+
 
 void ResourceRegisterThread::refreshDisplay() const
 {
@@ -80,6 +99,9 @@ void ResourceRegisterThread::handleRequest(const HttpRequestMessage *currentRequ
     if(std::strcmp(currentRequestMessageServed->getMethod(),"GET") == 0){
         handleGETRequest(currentRequestMessageServed);
     }
+    else if(std::strcmp(currentRequestMessageServed->getMethod(),"POST") == 0){
+        handlePOSTRequest(currentRequestMessageServed);
+    }
 }
 
 void ResourceRegisterThread::handleGETRequest(const HttpRequestMessage *currentRequestMessageServed){
@@ -88,7 +110,6 @@ void ResourceRegisterThread::handleGETRequest(const HttpRequestMessage *currentR
     if(uri.compare(server->getBaseUri() + "reward_list") == 0)
     {
         EV << "ResourceRegisterThread::handleGETRequest - reward requested" << endl;
-        // TODO reply with a json list containing rewards;
         std::map<std::string, int> rewards = server->getRewardMap();
 
         std::map<std::string, int>::iterator it;
@@ -110,4 +131,31 @@ void ResourceRegisterThread::handleGETRequest(const HttpRequestMessage *currentR
         Http::send404Response(sock); //no reply for this request
     }
 
+}
+
+void ResourceRegisterThread::handlePOSTRequest(const HttpRequestMessage *currentRequestMessageServed){
+    std::string uri = currentRequestMessageServed->getUri();
+
+    if(uri.compare(server->getBaseUri() + "register") == 0)
+    {
+
+        nlohmann::json jsonBody = nlohmann::json::parse(currentRequestMessageServed->getBody());
+        EV << "ResourceRegisterThread::post-request: " << jsonBody << endl;
+
+        std::pair<std::string, std::string> locHeader("Location: ", uri);
+
+        // Should we add other parameter (e.g. VIM address)
+        // Reply okay
+        Http::send201Response(sock, "{DONE}", locHeader);
+
+
+        // Send resources to the VIM (this operation should be managed by the initial server)
+        // After this should we close the connection?
+
+    }
+    else
+    {
+        // BAD URI
+        Http::send404Response(sock); //no reply for this request
+    }
 }

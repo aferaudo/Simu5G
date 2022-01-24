@@ -27,7 +27,7 @@ class ResourceRegisterThread : public omnetpp::cSimpleModule, public inet::TcpSo
 
     ResourceRegisterApp *server; //Reference to the main server (this could be useful to manage a global state of the park)
 
-    HttpBaseMessage* currentHttpMessage; // current HttpRequest
+    HttpBaseMessage *currentHttpMessage; // current HttpRequest
     std::string buffer;
 
     inet::TcpSocket *sock; // ptr into socketMap managed by TcpServerHostApp
@@ -37,7 +37,7 @@ class ResourceRegisterThread : public omnetpp::cSimpleModule, public inet::TcpSo
     virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override { socket->accept(availableInfo->getNewSocketId()); }
     virtual void socketEstablished(inet::TcpSocket *socket) override { established(); }
     virtual void socketPeerClosed(inet::TcpSocket *socket) override { peerClosed(); }
-    virtual void socketClosed(inet::TcpSocket *socket) override { sock->close(); }
+    virtual void socketClosed(inet::TcpSocket *socket) override;
     virtual void socketFailure(inet::TcpSocket *socket, int code) override { failure(code); }
     virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override { statusArrived(status); }
     virtual void socketDeleted(inet::TcpSocket *socket) override { if (socket == sock) sock = nullptr; }
@@ -46,8 +46,8 @@ class ResourceRegisterThread : public omnetpp::cSimpleModule, public inet::TcpSo
 
     //HttpMethods API
     virtual void handleGETRequest(const HttpRequestMessage *currentRequestMessageServed);
-    virtual void handlePOSTRequest(const HttpRequestMessage *currentRequestMessageServed) { EV << "To Be implemented"; };
-    virtual void handlePUTRequest(const HttpRequestMessage *currentRequestMessageServed)    { EV << "To Be implemented"; };
+    virtual void handlePOSTRequest(const HttpRequestMessage *currentRequestMessageServed);
+    virtual void handlePUTRequest(const HttpRequestMessage *currentRequestMessageServed) { Http::send404Response(sock, "PUT not implemented, yet"); };
     virtual void handleDELETERequest(const HttpRequestMessage *currentRequestMessageServed) { EV << "To Be implemented"; };
     virtual void handleRequest(const HttpRequestMessage *currentRequestMessageServed);
 
@@ -55,7 +55,7 @@ class ResourceRegisterThread : public omnetpp::cSimpleModule, public inet::TcpSo
   public:
 
     ResourceRegisterThread() { sock = nullptr; currentHttpMessage = nullptr; server = nullptr;}
-    virtual ~ResourceRegisterThread() { delete sock; }
+    virtual ~ResourceRegisterThread();
 
     // internal: called by TcpServerHostApp after creating this module
     virtual void init(ResourceRegisterApp *ser, inet::TcpSocket *socket) { sock = socket; server = ser;}
@@ -95,7 +95,7 @@ class ResourceRegisterThread : public omnetpp::cSimpleModule, public inet::TcpSo
      * Called when the connection breaks (TCP error). By default it deletes
      * this thread, but it can be redefined to do something different.
      */
-    virtual void failure(int code); // TODO to implement
+    virtual void failure(int code);
 
     /*
      * Called when a status arrives in response to getSocket()->getStatus().

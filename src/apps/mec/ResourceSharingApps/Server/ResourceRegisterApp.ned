@@ -27,6 +27,7 @@ simple ResourceRegisterApp like IApp
         @display("i=block/app");
         string localAddress = default("");
         int localPort = default(3000);
+        string  serverThreadClass = default("simu5g.apps.mec.ResourceSharingApps.Server.ResourceRegisterThread");
         
         // Client App port
         int destPort = default(3001); // Maybe this is not needed

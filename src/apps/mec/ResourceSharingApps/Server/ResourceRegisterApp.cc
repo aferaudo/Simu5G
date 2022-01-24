@@ -30,12 +30,18 @@ Define_Module(ResourceRegisterApp);
 ResourceRegisterApp::ResourceRegisterApp()
 {
     serverSocket = nullptr;
+
     // currentHttpMessage = nullptr;
     baseUri_ = "/resourceRegisterApp/v1/";
     // TODO fill this dynamically
     rewardMap_.insert(std::pair<std::string, int>("reward1", 10));
     rewardMap_.insert(std::pair<std::string, int>("reward2", 30));
     rewardMap_.insert(std::pair<std::string, int>("reward3", 15));
+}
+ResourceRegisterApp::~ResourceRegisterApp()
+{
+    socketMap.deleteSockets();
+    delete serverSocket;
 }
 
 void ResourceRegisterApp::initialize(int stage)
@@ -59,11 +65,14 @@ void ResourceRegisterApp::initialize(int stage)
 void ResourceRegisterApp::removeThread(ResourceRegisterThread *thread)
 {
     // remove socket
-    socketMap.removeSocket(thread->getSocket());
     threadSet.erase(thread);
+    socketMap.removeSocket(thread->getSocket());
+
 
     // remove thread object
+
     thread->deleteModule();
+
 }
 
 void ResourceRegisterApp::handleStartOperation(inet::LifecycleOperation *operation){
@@ -107,8 +116,10 @@ void ResourceRegisterApp::handleMessageWhenUp(cMessage *msg)
             else if (serverSocket->belongsToSocket(msg))
                 serverSocket->processMessage(msg);
         }
-        else
+        else{
             throw cRuntimeError("Unknown message");
+            delete msg;
+        }
     }
 }
 
@@ -116,15 +127,25 @@ void ResourceRegisterApp::socketAvailable(inet::TcpSocket *socket, inet::TcpAvai
 
     auto newSocket = new inet::TcpSocket(availableInfo);
     newSocket->setOutputGate(gate("socketOut")); //gate connection
-    //newSocket->setCallback(this); // for now is this but it must be a thread!!!
+
 
     EV << "ResourceRegisterApp::Creating a dedicated thread for socket " << newSocket->getSocketId() << endl;
-    ResourceRegisterThread *proc = new ResourceRegisterThread();
+    //ResourceRegisterThread *proc = new ResourceRegisterThread();
+
+    const char *serverThreadClass = par("serverThreadClass"); //static
+    cModuleType *moduleType = cModuleType::get(serverThreadClass);
+    char name[80];
+    sprintf(name, "thread_%i", newSocket->getSocketId());
+    ResourceRegisterThread *proc = check_and_cast<ResourceRegisterThread *>(moduleType->create(name, this));
+    proc->finalizeParameters();
+    proc->callInitialize();
+
     proc->init(this, newSocket);
     newSocket->setCallback(proc);
 
     EV << "ResourceRegisterApp::Storing socket " << endl;
     socketMap.addSocket(newSocket);
+    threadSet.insert(proc);
 
 
     serverSocket->accept(availableInfo->getNewSocketId());
@@ -169,7 +190,14 @@ void ResourceRegisterApp::refreshDisplay() const
     getDisplayString().setTagArg("t", 0, buf);
 }
 
-
+//void ResourceRegisterApp::closeSocket(ResourceRegisterThread *thread)
+//{
+//    EV << "ResourceRegisterApp::Closing socket " << thread->getSocket()->getSocketId() << endl;
+//    // Socket closing
+//    thread->getSocket()->close();
+//    // Removing socket from the socketMap and thread from the threadSet
+//    removeThread(thread);
+//}
 
 
 

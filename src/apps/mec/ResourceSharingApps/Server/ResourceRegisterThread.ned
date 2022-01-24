@@ -13,30 +13,11 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
-package simu5g.apps.mec.ResourceSharingApps.Client;
+package simu5g.apps.mec.ResourceSharingApps.Server;
 
-import inet.applications.contract.IApp;
-
-simple ClientResourceApp like IApp{
-	parameters:
-	    @display("i=block/app");
-	    // resources may be loaded from a json file
-	    // localAddress
-	    string localAddress = default("");
-	    int localPort = default(3001);
-	    
-	    string destAddress = default("");
-	    int destPort = default(3000);
-	   
-	    int minReward = default(15);
-	    
-	    double startTime @unit(s) = default(1s); 
-    	double stopTime @unit(s) = default(-1s); // behaviour to be defined
-	    
-	    
-	    
-	gates:
-	   	output socketOut;
-        input socketIn;
-
+//
+// TODO auto-generated type
+//
+simple ResourceRegisterThread
+{
 }

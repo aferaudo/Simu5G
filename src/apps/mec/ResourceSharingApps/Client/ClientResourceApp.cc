@@ -30,7 +30,7 @@ ClientResourceApp::ClientResourceApp()
 ClientResourceApp::~ClientResourceApp()
 {
     // Free memory (cancelAndDelete)
-
+    delete currentHttpMessage;
     //delete tcpSocket;
 }
 
@@ -49,6 +49,14 @@ void ClientResourceApp::initialize(int stage)
 
     localPort = par("localPort");
     
+    minReward = par("minReward");
+    host = getParentModule();
+
+    // Available resources
+    maxRam = host->par("localRam").doubleValue();
+    maxDisk = host->par("localDisk").doubleValue();
+    maxCPU = host->par("localCpuSpeed").doubleValue();
+
     // Socket local binding
     tcpSocket.setOutputGate(gate("socketOut"));
     tcpSocket.bind(localPort);
@@ -83,6 +91,8 @@ void ClientResourceApp::handleResponse(HttpResponseMessage* response)
     }
     else if (code == 200) // TODO is this a good way to distinguish between replies?
     {
+
+        EV << "ClientResourceApp:: Body not parsed: " << response->getBody();
         nlohmann::json jsonResponseBody = nlohmann::json::parse(response->getBody());
         EV << "ClientResourceApp::handleResponse - jsonobject: " << jsonResponseBody << endl;
         // Apply some policy to Accept the reward
@@ -90,15 +100,27 @@ void ClientResourceApp::handleResponse(HttpResponseMessage* response)
         if(!reward.empty())
         {
             EV << "ClientResourceApp::handleResponse - reward accepted: " << reward << endl;
+            EV << "ClientResourceApp:: Available resources - ram: " << maxRam << ", cpu: " << maxCPU << ", storage: " << maxDisk << endl;
+            choosenReward = reward;
+            sendRegisterRequest();
         }
         else
         {
             EV << "ClientResourceApp::handleResponse - reward rejected" << endl;
+            // Close socket - no interaction needed anymore
+            close();
+
         }
     }
     else if (code == 201)
     {
         EV << "ClientResourceApp::handleResponse - registration OK!" << endl;
+    }
+    else if (code == 404)
+    {
+        EV << "ClientResourceApp::handleResponse - URI ERROR!" << endl;
+        EV << "ClientResourceApp::nothing to do...closing socket";
+        close();
     }
 
 }
@@ -140,13 +162,13 @@ void ClientResourceApp::sendRewardRequest(){
 
     std::string uri("/resourceRegisterApp/v1/reward_list");
 
-    std::string host = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
+    std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
     std::string params = ""; //no params needed
     if(tcpSocket.getState() == inet::TcpSocket::CONNECTED)
     {
 
-        EV << "ClientResourceApp::Connected - sending httpRequest to " << host << endl;
-        Http::sendGetRequest(&tcpSocket, host.c_str(), uri.c_str(), params.c_str());
+        EV << "ClientResourceApp::Reward - sending http GET Request to " << serverHost << endl;
+        Http::sendGetRequest(&tcpSocket, serverHost.c_str(), uri.c_str(), params.c_str());
 
     }else
     {
@@ -154,6 +176,32 @@ void ClientResourceApp::sendRewardRequest(){
         cMessage *msg = new cMessage("resend");
         scheduleAt(simTime()+0.05, msg);
     }
+}
+
+void ClientResourceApp::sendRegisterRequest()
+{
+    EV << "ClientResourceApp::Sending Register request" << endl;
+
+    std::string uri("/resourceRegisterApp/v1/register");
+
+    std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
+
+    if(tcpSocket.getState() == inet::TcpSocket::CONNECTED)
+    {
+        nlohmann::json jsonBody = nlohmann::json::object();
+        jsonBody["deviceInfo"]["reward"] = choosenReward;
+        jsonBody["deviceInfo"]["ipAddress"] = localIPAddress.str();
+        jsonBody["deviceInfo"]["resourceInfo"]["maxRam"] = maxRam;
+        jsonBody["deviceInfo"]["resourceInfo"]["maxDisk"] = maxDisk;
+        jsonBody["deviceInfo"]["resourceInfo"]["maxCPU"] = maxCPU;
+
+        Http::sendPostRequest(&tcpSocket, jsonBody.dump().c_str(), serverHost.c_str(), uri.c_str());
+    }
+    else
+    {
+        EV_ERROR << "ClientResourceApp::sendRegisterRequest - internal error" << endl;
+    }
+
 }
 
 
@@ -196,6 +244,15 @@ void ClientResourceApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet 
     else
     {
         EV << "ClientResourceApp::Data arrived on socket (NO HTTP)" << endl;
+        // schedule another http request when connected
+//        cMessage *msg = new cMessage("resend");
+//        scheduleAt(simTime()+0.05, msg);
+    }
+
+    // After response has been processed it can be deleted
+    if(currentHttpMessage != nullptr)
+    {
+      currentHttpMessage = nullptr;
     }
 
     delete packet;
@@ -212,7 +269,7 @@ std::string ClientResourceApp::processRewards(nlohmann::json jsonResponseBody)
 {
     std::string toReturn= "";
 
-    int thresholdReward = 14; //TODO Load minimum threshold from a ned file
+    int thresholdReward = minReward;
     nlohmann::json jsonRewardList = jsonResponseBody["rewardList"];
 
     for(nlohmann::json::iterator it = jsonRewardList.begin(); it != jsonRewardList.end(); ++it)
@@ -226,4 +283,16 @@ std::string ClientResourceApp::processRewards(nlohmann::json jsonResponseBody)
 
 
     return toReturn;
+}
+
+void ClientResourceApp::close(){
+    EV_INFO << "ClientResourceApp::close - closing socket " << endl;
+    tcpSocket.close();
+}
+
+void ClientResourceApp::finish()
+{
+    if(tcpSocket.getState() == inet::TcpSocket::CONNECTED)
+        close();
+
 }

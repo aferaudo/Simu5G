@@ -51,23 +51,22 @@ class ResourceRegisterApp : public inet::ApplicationBase, public inet::TcpSocket
 
     public:
         ResourceRegisterApp();
-        virtual ~ResourceRegisterApp() { }
+        virtual ~ResourceRegisterApp();
 
         virtual std::string getBaseUri(){return baseUri_;}
         virtual std::map<std::string, int> getRewardMap(){return rewardMap_;}
+        virtual void removeThread(ResourceRegisterThread *thread);
         
     protected:
 
         inet::TcpSocket *serverSocket; // Listen incoming connections
-        inet::TcpSocket *vimSocket; //vim-server socket (used to sed new car registrations)
+        //inet::TcpSocket *vimSocket; //vim-server socket (used to sed new car registrations)
         inet::SocketMap socketMap; //Stores the connections
         inet::L3Address localIPAddress;
         
         typedef std::set<ResourceRegisterThread *> ThreadSet;
         ThreadSet threadSet;
 
-//        HttpBaseMessage* currentHttpMessage; // current HttpRequest
-//        std::string buffer;
 
         int localPort;
         simtime_t startTime;
@@ -78,8 +77,7 @@ class ResourceRegisterApp : public inet::ApplicationBase, public inet::TcpSocket
 
 
         // Other methods
-        void removeThread(ResourceRegisterThread *thread);
-        void initRewardSystem(){EV << "To implement" << endl;};
+        virtual void initRewardSystem(){EV << "To implement" << endl;};
 
         // ApplicationBase Methods (AppliacationBase extends cSimpleModule and ILyfecycle (used to support application lyfecycle))
         virtual void handleMessageWhenUp(omnetpp::cMessage *msg) override;
@@ -98,7 +96,7 @@ class ResourceRegisterApp : public inet::ApplicationBase, public inet::TcpSocket
         virtual void socketClosed(inet::TcpSocket *socket) override {EV << "ResourceRegisterApp::SocketClosed callback - not managed" << endl;}
         virtual void socketFailure(inet::TcpSocket *socket, int code) override {}
         virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
-        virtual void socketDeleted(inet::TcpSocket *socket) override {delete serverSocket;}
+        virtual void socketDeleted(inet::TcpSocket *socket) override {}
 
 };
 
