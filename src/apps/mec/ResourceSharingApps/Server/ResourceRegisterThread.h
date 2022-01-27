@@ -47,8 +47,8 @@ class ResourceRegisterThread : public omnetpp::cSimpleModule, public inet::TcpSo
     //HttpMethods API
     virtual void handleGETRequest(const HttpRequestMessage *currentRequestMessageServed);
     virtual void handlePOSTRequest(const HttpRequestMessage *currentRequestMessageServed);
-    virtual void handlePUTRequest(const HttpRequestMessage *currentRequestMessageServed) { Http::send404Response(sock, "PUT not implemented, yet"); };
-    virtual void handleDELETERequest(const HttpRequestMessage *currentRequestMessageServed) { EV << "To Be implemented"; };
+    virtual void handlePUTRequest(const HttpRequestMessage *currentRequestMessageServed) { Http::send404Response(sock, "PUT not supported"); };
+    virtual void handleDELETERequest(const HttpRequestMessage *currentRequestMessageServed);
     virtual void handleRequest(const HttpRequestMessage *currentRequestMessageServed);
 
 

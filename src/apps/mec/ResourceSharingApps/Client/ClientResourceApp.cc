@@ -30,8 +30,9 @@ ClientResourceApp::ClientResourceApp()
 ClientResourceApp::~ClientResourceApp()
 {
     // Free memory (cancelAndDelete)
-    delete currentHttpMessage;
+    // delete currentHttpMessage;
     //delete tcpSocket;
+
 }
 
 
@@ -45,17 +46,23 @@ void ClientResourceApp::initialize(int stage)
 
     // Get parameters
     startTime = par("startTime");
-    stopTime = par("stopTime");
+    parkTime = par("parkTime");
+    if (parkTime <= SIMTIME_ZERO)
+    {
+        parkTime = SimTime(2, SIMTIME_S); //default 2 seconds
+    }
 
     localPort = par("localPort");
     
     minReward = par("minReward");
     host = getParentModule();
 
+    appState = INIT;
+
     // Available resources
-    maxRam = host->par("localRam").doubleValue();
-    maxDisk = host->par("localDisk").doubleValue();
-    maxCPU = host->par("localCpuSpeed").doubleValue();
+    localResources.ram = host->par("localRam").doubleValue();
+    localResources.disk = host->par("localDisk").doubleValue();
+    localResources.cpu = host->par("localCpuSpeed").doubleValue();
 
     // Socket local binding
     tcpSocket.setOutputGate(gate("socketOut"));
@@ -70,8 +77,6 @@ void ClientResourceApp::initialize(int stage)
 
     EV << "ClientResourceApp::Client Address: " << localIPAddress.str() << endl;
 
-    if (stopTime >= SIMTIME_ZERO && stopTime < startTime)
-        throw cRuntimeError("Invalid startTime/stopTime parameters");
 
     cMessage *msg = new cMessage("connect");
     scheduleAt(simTime()+startTime, msg);
@@ -84,67 +89,101 @@ void ClientResourceApp::handleResponse(HttpResponseMessage* response)
     // Success Registration reply
     // Error reply
     int code = response->getCode();
-
-    if(code >= 400)
+    if (code >= 400)
     {
-        EV << "ClientResourceApp::handleResponse - Received reply with code: " << code << endl;
-    }
-    else if (code == 200) // TODO is this a good way to distinguish between replies?
-    {
-
-        EV << "ClientResourceApp:: Body not parsed: " << response->getBody();
-        nlohmann::json jsonResponseBody = nlohmann::json::parse(response->getBody());
-        EV << "ClientResourceApp::handleResponse - jsonobject: " << jsonResponseBody << endl;
-        // Apply some policy to Accept the reward
-        std::string reward = processRewards(jsonResponseBody);
-        if(!reward.empty())
-        {
-            EV << "ClientResourceApp::handleResponse - reward accepted: " << reward << endl;
-            EV << "ClientResourceApp:: Available resources - ram: " << maxRam << ", cpu: " << maxCPU << ", storage: " << maxDisk << endl;
-            choosenReward = reward;
-            sendRegisterRequest();
-        }
-        else
-        {
-            EV << "ClientResourceApp::handleResponse - reward rejected" << endl;
-            // Close socket - no interaction needed anymore
-            close();
-
-        }
-    }
-    else if (code == 201)
-    {
-        EV << "ClientResourceApp::handleResponse - registration OK!" << endl;
-    }
-    else if (code == 404)
-    {
-        EV << "ClientResourceApp::handleResponse - URI ERROR!" << endl;
+        EV << "ClientResourceApp::handleResponse - problem during the request: " << code <<endl;
         EV << "ClientResourceApp::nothing to do...closing socket";
         close();
+    }
+
+    switch(appState)
+    {
+        case INIT:
+        {
+            if (code == 200) // TODO is this a good way to distinguish between replies?
+            {
+
+                EV << "ClientResourceApp:: Body not parsed: " << response->getBody();
+                nlohmann::json jsonResponseBody = nlohmann::json::parse(response->getBody());
+                EV << "ClientResourceApp::handleResponse - jsonobject: " << jsonResponseBody << endl;
+                // Apply some policy to Accept the reward
+                std::string reward = processRewards(jsonResponseBody);
+                if(!reward.empty())
+                {
+                    EV << "ClientResourceApp::handleResponse - reward accepted: " << reward << endl;
+                    EV << "ClientResourceApp:: Available resources - ram: " << localResources.ram << ", cpu: " << localResources.cpu << ", storage: " << localResources.disk << endl;
+                    choosenReward = reward;
+                    sendRegisterRequest();
+                }
+                else
+                {
+                    EV << "ClientResourceApp::handleResponse - reward rejected" << endl;
+                    // Close socket - no interaction needed anymore
+                    close();
+
+                }
+            }
+            else if (code == 201)
+            {
+                EV << "ClientResourceApp::handleResponse - registration OK!" << endl;
+                // Car is going to park now, so socket can be closed and reopened when the car leaves the park
+                close();
+
+                simtime_t now = simTime(); // Time in which a car starts its parking period
+                // Scheduling exit from park
+                appState = RELEASING;
+                cMessage *msg = new cMessage("parkLeaving");
+                scheduleAt(simTime()+parkTime, msg);
+            }
+            else
+            {
+                EV << "ClientResourceApp::handleResponse - response code not recognised " << endl;
+                close();
+            }
+        }
+        case RELEASING:
+        {
+
+            if(code == 200)
+            {
+                EV << "ClientResourceApp::handleResponse - resource release status: SUCCESS" << endl;
+                // TODO should we do something else?
+            }
+            else if (code == 204)
+            {
+                EV << "ClientResourceApp::handleResponse - resource release status: FAILED - client not found" << endl;
+                // TODO should we do something else?
+            }
+            // Here socket should be closed;
+            EV << "ClientResourceApp::handleResponse - closing socket..bye" << endl;
+            close();
+        }
     }
 
 }
 
 void ClientResourceApp::handleSelfMessage(cMessage *msg){
     
-    if(strcmp(msg->getName(), "connect") == 0)
+    if(strcmp(msg->getName(), "connect") == 0 || strcmp(msg->getName(), "parkLeaving") == 0)
     {
-        EV << "ClientResourceApp::connecting...";
+        EV << "ClientResourceApp::connecting, state: " << appState << "..." << endl;
         connectToSRR();
-        delete msg;
-    }else if (strcmp(msg->getName(), "resend") == 0)
-    {
-        delete msg;
-        sendRewardRequest();
-
+        //delete msg;
     }
+
+//    else if (strcmp(msg->getName(), "resend") == 0)
+//    {
+//        //delete msg;
+//        sendRewardRequest();
+//
+//    }
+    delete msg;
 }
 
 // This method opens a tcp socket with the Server Resource Register
 void ClientResourceApp::connectToSRR()
 {
     tcpSocket.renewSocket();
-
     if (destIPAddress.isUnspecified()) {
         EV_ERROR << "Connecting to " << destIPAddress << " port=" << destPort << ": cannot resolve destination address\n";
         throw cRuntimeError("Server Resource Register address is unspecified!");
@@ -160,7 +199,7 @@ void ClientResourceApp::connectToSRR()
 void ClientResourceApp::sendRewardRequest(){
     EV << "ClientResourceApp::Sending Reward request" << endl;
 
-    std::string uri("/resourceRegisterApp/v1/reward_list");
+    std::string uri("/resourceRegisterApp/v1/rewardList");
 
     std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
     std::string params = ""; //no params needed
@@ -173,8 +212,9 @@ void ClientResourceApp::sendRewardRequest(){
     }else
     {
         // schedule another http request when connected
-        cMessage *msg = new cMessage("resend");
-        scheduleAt(simTime()+0.05, msg);
+//        cMessage *msg = new cMessage("resend");
+//        scheduleAt(simTime()+0.05, msg);
+        EV << "ClientResourceApp::RewardRequest - not connected yet" << endl;
     }
 }
 
@@ -182,18 +222,19 @@ void ClientResourceApp::sendRegisterRequest()
 {
     EV << "ClientResourceApp::Sending Register request" << endl;
 
-    std::string uri("/resourceRegisterApp/v1/register");
+    std::string uri("/resourceRegisterApp/v1/availableResources");
 
     std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
 
     if(tcpSocket.getState() == inet::TcpSocket::CONNECTED)
     {
         nlohmann::json jsonBody = nlohmann::json::object();
+        jsonBody["deviceInfo"]["deviceId"] = getId();
         jsonBody["deviceInfo"]["reward"] = choosenReward;
         jsonBody["deviceInfo"]["ipAddress"] = localIPAddress.str();
-        jsonBody["deviceInfo"]["resourceInfo"]["maxRam"] = maxRam;
-        jsonBody["deviceInfo"]["resourceInfo"]["maxDisk"] = maxDisk;
-        jsonBody["deviceInfo"]["resourceInfo"]["maxCPU"] = maxCPU;
+        jsonBody["deviceInfo"]["resourceInfo"]["maxRam"] = localResources.ram;
+        jsonBody["deviceInfo"]["resourceInfo"]["maxDisk"] = localResources.disk;
+        jsonBody["deviceInfo"]["resourceInfo"]["maxCPU"] = localResources.cpu;
 
         Http::sendPostRequest(&tcpSocket, jsonBody.dump().c_str(), serverHost.c_str(), uri.c_str());
     }
@@ -227,6 +268,8 @@ void ClientResourceApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet 
     EV << "ClientResourceApp::Reply received from the server" << packet->peekData() << endl;
 
     std::vector<uint8_t> bytes =  packet->peekDataAsBytes()->getBytes();
+    delete packet;
+
     std::string msg(bytes.begin(), bytes.end());
 
     bool res = Http::parseReceivedMsg(msg, &buffer, &currentHttpMessage);
@@ -234,7 +277,8 @@ void ClientResourceApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet 
     {
         if(currentHttpMessage->getType() == RESPONSE)
         {
-            handleResponse(check_and_cast<HttpResponseMessage*>(currentHttpMessage));
+            HttpResponseMessage * response = dynamic_cast<HttpResponseMessage*> (currentHttpMessage);
+            handleResponse(response);
         }
         else
         {
@@ -255,14 +299,40 @@ void ClientResourceApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet 
       currentHttpMessage = nullptr;
     }
 
-    delete packet;
+
 }
 
 void ClientResourceApp::socketEstablished(inet::TcpSocket *socket){
 
     EV << "ClientResourceApp::connection established sending a message";
     // First request to send: which is the reward system?
-    sendRewardRequest();
+    switch(appState)
+    {
+        case INIT:
+            sendRewardRequest();
+            break;
+        case RELEASING:
+        {
+            EV << "Release state behaviour to be defined!" << endl;
+            sendReleaseMessage();
+            break;
+        }
+        default:
+            throw cRuntimeError("ClientResourceApp::Error in app state");
+    }
+
+}
+
+void ClientResourceApp::close(){
+    EV_INFO << "ClientResourceApp::close - closing socket " << endl;
+    tcpSocket.close();
+}
+
+void ClientResourceApp::finish()
+{
+    if(tcpSocket.getState() == inet::TcpSocket::CONNECTED)
+        close();
+
 }
 
 std::string ClientResourceApp::processRewards(nlohmann::json jsonResponseBody)
@@ -285,14 +355,14 @@ std::string ClientResourceApp::processRewards(nlohmann::json jsonResponseBody)
     return toReturn;
 }
 
-void ClientResourceApp::close(){
-    EV_INFO << "ClientResourceApp::close - closing socket " << endl;
-    tcpSocket.close();
-}
-
-void ClientResourceApp::finish()
+void ClientResourceApp::sendReleaseMessage()
 {
-    if(tcpSocket.getState() == inet::TcpSocket::CONNECTED)
-        close();
+    EV << "ClientResourceApp::Sending Reward request" << endl;
+
+    std::string uri = "/resourceRegisterApp/v1/availableResources/" + std::to_string(getId());
+    std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
+
+    Http::sendDeleteRequest(&tcpSocket, serverHost.c_str(), uri.c_str());
 
 }
+

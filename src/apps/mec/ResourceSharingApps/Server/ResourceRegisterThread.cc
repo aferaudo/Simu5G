@@ -17,7 +17,7 @@ Define_Module(ResourceRegisterThread);
 ResourceRegisterThread::~ResourceRegisterThread()
 {
     delete sock;
-    delete currentHttpMessage;
+    //delete currentHttpMessage;
     //delete server;
 }
 void ResourceRegisterThread::dataArrived(inet::Packet *packet, bool urgent){
@@ -40,12 +40,13 @@ void ResourceRegisterThread::dataArrived(inet::Packet *packet, bool urgent){
         {
            /*
             * Get Requests:
-            *   - reward_list
+            *   - rewardList
             * Post Requests:
             *   - Register Resources
             *   - Release Resoures
             * */
-            handleRequest(check_and_cast<HttpRequestMessage*>(currentHttpMessage));
+            HttpRequestMessage *request = check_and_cast<HttpRequestMessage*>(currentHttpMessage);
+            handleRequest(request);
         }
         else
         {
@@ -64,7 +65,7 @@ void ResourceRegisterThread::dataArrived(inet::Packet *packet, bool urgent){
 }
 
 void ResourceRegisterThread::established(){
-    EV << "connected" <<endl;
+    EV << "connected" << endl;
 }
 
 
@@ -96,18 +97,28 @@ void ResourceRegisterThread::refreshDisplay() const
 void ResourceRegisterThread::handleRequest(const HttpRequestMessage *currentRequestMessageServed){
     EV << "ResourceRegisterThread::handleRequest - request method " << currentRequestMessageServed->getMethod() << endl;
 
-    if(std::strcmp(currentRequestMessageServed->getMethod(),"GET") == 0){
+    if(std::strcmp(currentRequestMessageServed->getMethod(),"GET") == 0)
+    {
         handleGETRequest(currentRequestMessageServed);
     }
-    else if(std::strcmp(currentRequestMessageServed->getMethod(),"POST") == 0){
+    else if(std::strcmp(currentRequestMessageServed->getMethod(),"POST") == 0)
+    {
         handlePOSTRequest(currentRequestMessageServed);
+    }
+    else if(std::strcmp(currentRequestMessageServed->getMethod(),"DELETE") == 0)
+    {
+        handleDELETERequest(currentRequestMessageServed);
+    }
+    else
+    {
+        handlePUTRequest(currentRequestMessageServed);
     }
 }
 
 void ResourceRegisterThread::handleGETRequest(const HttpRequestMessage *currentRequestMessageServed){
     std::string uri = currentRequestMessageServed->getUri();
 
-    if(uri.compare(server->getBaseUri() + "reward_list") == 0)
+    if(uri.compare(server->getBaseUri() + "rewardList") == 0)
     {
         EV << "ResourceRegisterThread::handleGETRequest - reward requested" << endl;
         std::map<std::string, int> rewards = server->getRewardMap();
@@ -131,22 +142,42 @@ void ResourceRegisterThread::handleGETRequest(const HttpRequestMessage *currentR
         Http::send404Response(sock); //no reply for this request
     }
 
+
 }
 
 void ResourceRegisterThread::handlePOSTRequest(const HttpRequestMessage *currentRequestMessageServed){
     std::string uri = currentRequestMessageServed->getUri();
 
-    if(uri.compare(server->getBaseUri() + "register") == 0)
+    if(uri.compare(server->getBaseUri() + "availableResources") == 0)
     {
 
         nlohmann::json jsonBody = nlohmann::json::parse(currentRequestMessageServed->getBody());
         EV << "ResourceRegisterThread::post-request: " << jsonBody << endl;
 
-        std::pair<std::string, std::string> locHeader("Location: ", uri);
+        ClientResourceEntry entry;
+        entry.clientId = jsonBody["deviceInfo"]["deviceId"];
 
+
+//        std::string reward_str = jsonBody["deviceInfo"]["reward"];
+//        entry.reward = reward_str.c_str();
+        entry.reward = jsonBody["deviceInfo"]["reward"];
+
+        std::string ipAddress_str = jsonBody["deviceInfo"]["ipAddress"];
+        entry.ipAddress = inet::L3Address(ipAddress_str.c_str());
+
+        entry.resources.ram = jsonBody["deviceInfo"]["resourceInfo"]["maxRam"];
+        entry.resources.disk = jsonBody["deviceInfo"]["resourceInfo"]["maxDisk"];
+        entry.resources.cpu = jsonBody["deviceInfo"]["resourceInfo"]["maxCPU"];
+
+        EV << "ResourceRegisterThread::post-request - saving resources" << endl;
+
+        server->insertClientResourceEntry(entry);
+//
+        std::pair<std::string, std::string> locHeader("Location: ", uri);
         // Should we add other parameter (e.g. VIM address)
         // Reply okay
         Http::send201Response(sock, "{DONE}", locHeader);
+
 
 
         // Send resources to the VIM (this operation should be managed by the initial server)
@@ -156,6 +187,39 @@ void ResourceRegisterThread::handlePOSTRequest(const HttpRequestMessage *current
     else
     {
         // BAD URI
-        Http::send404Response(sock); //no reply for this request
+        Http::send404Response(sock);
+    }
+}
+
+void ResourceRegisterThread::handleDELETERequest(const HttpRequestMessage *currentRequestMessageServed)
+{
+    // URI example: /resourceRegisterApp/v1/availableResources/256
+    // We need the last code in order to update the map
+
+    std::string uri = currentRequestMessageServed->getUri();
+    std::string delimeter("availableResources");
+
+    // valid uri: /resourceRegisterApp/v1/availableResources
+    std::string uriToCheck = uri.substr(0, uri.find(delimeter) + delimeter.length());
+    if(uriToCheck.compare(server->getBaseUri() + "availableResources") == 0)
+    {
+        uri.erase(0, uri.find(delimeter) + delimeter.length()+1);
+        int clientId = std::atoi(uri.c_str());
+        if(server->getAvailableResources().count(clientId) == 1)
+        {
+            // client resources exist we can remove them
+            server->deleteClientResourceEntry(clientId);
+            Http::send200Response(sock, "{DONE}");
+        }
+        else
+        {
+            // No content
+            Http::send204Response(sock);
+        }
+    }
+    else
+    {
+        // BAD URI
+        Http::send404Response(sock);
     }
 }

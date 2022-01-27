@@ -31,16 +31,21 @@ ResourceRegisterApp::ResourceRegisterApp()
 {
     serverSocket = nullptr;
 
-    // currentHttpMessage = nullptr;
     baseUri_ = "/resourceRegisterApp/v1/";
-    // TODO fill this dynamically
+
+    // TODO fill reward map dynamically
     rewardMap_.insert(std::pair<std::string, int>("reward1", 10));
     rewardMap_.insert(std::pair<std::string, int>("reward2", 30));
     rewardMap_.insert(std::pair<std::string, int>("reward3", 15));
+
+    availableResources_.clear(); //operations on this map should be mutually exclusive
 }
+
 ResourceRegisterApp::~ResourceRegisterApp()
 {
-    socketMap.deleteSockets();
+//    socketMap.deleteSockets();
+    availableResources_.clear();
+    rewardMap_.clear();
     delete serverSocket;
 }
 
@@ -70,7 +75,6 @@ void ResourceRegisterApp::removeThread(ResourceRegisterThread *thread)
 
 
     // remove thread object
-
     thread->deleteModule();
 
 }
@@ -190,14 +194,45 @@ void ResourceRegisterApp::refreshDisplay() const
     getDisplayString().setTagArg("t", 0, buf);
 }
 
-//void ResourceRegisterApp::closeSocket(ResourceRegisterThread *thread)
-//{
-//    EV << "ResourceRegisterApp::Closing socket " << thread->getSocket()->getSocketId() << endl;
-//    // Socket closing
-//    thread->getSocket()->close();
-//    // Removing socket from the socketMap and thread from the threadSet
-//    removeThread(thread);
-//}
+void ResourceRegisterApp::insertClientResourceEntry(ClientResourceEntry c)
+{
+    // For the amount of nodes we manage this may not be needed
+    mtx_write.lock();
+    availableResources_.insert(std::pair<int, ClientResourceEntry>(c.clientId, c));
+    mtx_write.unlock();
+
+    // Printing available resources updated
+    printAvailableResources();
+
+}
+
+void ResourceRegisterApp::deleteClientResourceEntry(int clientId)
+{
+    mtx_write.lock();
+    availableResources_.erase(clientId);
+    mtx_write.unlock();
+
+    // Printing available resources updated
+    printAvailableResources();
+}
+
+void ResourceRegisterApp::printAvailableResources()
+{
+    EV << "ResourceRegisterApp::Available Resources Updated" << endl;
+    EV << "#################################################" << endl;
+    std::map<int, ClientResourceEntry>::iterator it;
+    for(it = availableResources_.begin(); it != availableResources_.end(); it ++){
+        EV << "Client: " << it->first << endl;
+        EV << "IP Address: " << it->second.ipAddress << endl;
+        EV << "Reward: " << it->second.reward << endl;
+        EV << "RAM: " << it->second.resources.ram << endl;
+        EV << "Disk: " << it->second.resources.disk << endl;
+        EV << "CPU: " << it->second.resources.cpu << endl;
+        EV << "-------------------------------------------------" << endl;
+    }
+    EV << "#################################################" << endl;
+}
+
 
 
 

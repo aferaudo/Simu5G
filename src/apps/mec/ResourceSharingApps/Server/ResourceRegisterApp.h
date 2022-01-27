@@ -17,6 +17,7 @@
 #define __SIMU5G_RESOURCEREGISTERAPP_H_
 
 #include <omnetpp.h>
+#include <mutex>
 
 // Utils HTTP
 #include "nodes/mec/utils/httpUtils/httpUtils.h"
@@ -29,6 +30,8 @@
 #include "inet/networklayer/common/L3Address.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
 
+#include "nodes/mec/utils/MecCommon.h"
+
 
 using namespace omnetpp;
 
@@ -36,6 +39,14 @@ using namespace omnetpp;
  * @author Alessandro Calvio
  * @author Angelo Feraudo
  */
+
+struct ClientResourceEntry
+{
+    int clientId;
+    inet::L3Address ipAddress;
+    ResourceDescriptor resources;
+    std::string reward;
+};
 
 class ResourceRegisterThread;
 
@@ -46,15 +57,31 @@ class ResourceRegisterApp : public inet::ApplicationBase, public inet::TcpSocket
     // TODO Add dynamic rewards by using ned files
     std::map <std::string, int> rewardMap_;
 
+    // Map with client resource info
+    // key = client id
+    // value = ClientResourceEntry;
+    std::map <int, ClientResourceEntry> availableResources_;
+
     std::string baseUri_;
     std::string host_;
+
+    std::mutex mtx_write; // Maybe not needed
+
 
     public:
         ResourceRegisterApp();
         virtual ~ResourceRegisterApp();
 
+        //set
+        virtual void insertClientResourceEntry(ClientResourceEntry c);
+        virtual void deleteClientResourceEntry(int clientId);
+
+        // get
         virtual std::string getBaseUri(){return baseUri_;}
-        virtual std::map<std::string, int> getRewardMap(){return rewardMap_;}
+        virtual std::map<std::string, int> getRewardMap() {return rewardMap_;}
+        virtual std::map<int, ClientResourceEntry> getAvailableResources() {return availableResources_;}
+
+        // other methods
         virtual void removeThread(ResourceRegisterThread *thread);
         
     protected:
@@ -78,6 +105,7 @@ class ResourceRegisterApp : public inet::ApplicationBase, public inet::TcpSocket
 
         // Other methods
         virtual void initRewardSystem(){EV << "To implement" << endl;};
+        virtual void printAvailableResources();
 
         // ApplicationBase Methods (AppliacationBase extends cSimpleModule and ILyfecycle (used to support application lyfecycle))
         virtual void handleMessageWhenUp(omnetpp::cMessage *msg) override;

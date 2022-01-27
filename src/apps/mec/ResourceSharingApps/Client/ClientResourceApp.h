@@ -29,15 +29,23 @@
 #include "nodes/mec/utils/httpUtils/httpUtils.h"
 #include "nodes/mec/utils/httpUtils/json.hpp"
 
+#include "nodes/mec/utils/MecCommon.h"
+
 using namespace omnetpp;
+
+enum State {INIT, RELEASING};
 
 class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallback
 {
+
   public:
     ClientResourceApp();
     virtual ~ClientResourceApp();
 
+
   protected:
+
+      State appState;
 
       // Network communication
       inet::TcpSocket tcpSocket;
@@ -53,7 +61,7 @@ class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallbac
 
       // App execution time
       simtime_t startTime;
-      simtime_t stopTime;
+      simtime_t parkTime;
 
       // Other app parameters
       int minReward;
@@ -62,9 +70,8 @@ class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallbac
       // Available resources
       // Loaded from the host
       cModule* host; // any device host this application needs to provide some resources
-      double maxRam;
-      double maxDisk;
-      double maxCPU;
+      ResourceDescriptor localResources;
+
 
 
       virtual void initialize(int stage) override;
@@ -75,8 +82,9 @@ class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallbac
       /*Utility methods*/
       virtual void connectToSRR();
       virtual void handleSelfMessage(cMessage *msg);
-      virtual void sendRewardRequest();
-      virtual void sendRegisterRequest();
+      virtual void sendRewardRequest(); // GET Request
+      virtual void sendRegisterRequest(); // POST Request
+      virtual void sendReleaseMessage(); // DELETE Request
       virtual void handleResponse(HttpResponseMessage* response);
       virtual std::string processRewards(nlohmann::json jsonResponseBody);
       virtual void close();

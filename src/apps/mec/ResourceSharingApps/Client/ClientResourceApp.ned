@@ -31,7 +31,7 @@ simple ClientResourceApp like IApp{
 	    int minReward = default(15);
 	    
 	    double startTime @unit(s) = default(1s); 
-    	double stopTime @unit(s) = default(-1s); // behaviour to be defined
+    	double parkTime @unit(s) = default(-1s); // for how long a car will be parked
 	    
 	    
 	    
