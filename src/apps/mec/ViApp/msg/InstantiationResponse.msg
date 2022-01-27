@@ -13,15 +13,16 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
+//
+// TODO generated message class
+//
+
 import inet.common.INETDefs;
 import inet.common.packet.chunk.Chunk;
 import inet.networklayer.common.L3Address;
 
-class RegistrationPacket extends inet::FieldsChunk {
-    double ram;
-    double cpu;
-    double disk;
+class InstantiationResponse extends inet::FieldsChunk {
     
-    inet::L3Address address;
-    int port;
+    int ueAppID;
+    int allocatedPort;
 }

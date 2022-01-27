@@ -24,6 +24,8 @@
 //INET
 #include "inet/networklayer/common/L3Address.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
+#include "inet/networklayer/common/L3AddressTag_m.h"
+#include "inet/transportlayer/common/L4PortTag_m.h"
 
 #include "nodes/mec/utils/MecCommon.h"
 
@@ -32,6 +34,8 @@
 
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
 #include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h"
+#include "apps/mec/ViApp/msg/InstantiationResponse_m.h"
+
 
 using namespace omnetpp;
 
@@ -48,6 +52,7 @@ class VirtualisationInfrastructureApp : public cSimpleModule
 
     // Business logic parameters
     int appcounter;
+    int portCounter = 10000;    // counter to assign port to app
     std::list<std::string> managedApp;
     std::map<int, CreateAppMessage> runningApp;
     SchedulingMode scheduling;
@@ -80,7 +85,7 @@ class VirtualisationInfrastructureApp : public cSimpleModule
 
     private:
 
-        void handleInstantiation(CreateAppMessage* data);
+        bool handleInstantiation(CreateAppMessage* data);
 
 };
 

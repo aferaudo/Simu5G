@@ -106,10 +106,36 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
                 throw cRuntimeError("VirtualisationInfrastructureApp::handleMessage - FATAL! Error when casting to inet packet");
 
             auto data = pPacket->peekData<CreateAppMessage>();
+//            CreateAppMessage * createAppMsg = new CreateAppMessage();
+//            createAppMsg->setUeAppID(data->getUeAppID());
+//            createAppMsg->setMEModuleName(data->getMEModuleName());
+//            createAppMsg->setMEModuleType(data->getMEModuleType());
+//
+//            createAppMsg->setRequiredCpu(data->getRequiredCpu());
+//            createAppMsg->setRequiredRam(data->getRequiredRam());
+//            createAppMsg->setRequiredDisk(data->getRequiredDisk());
+//
+//            createAppMsg->setRequiredService(data->getRequiredService());
+//            createAppMsg->setContextId(data->getContextId());
 
-            appcounter++;
+            bool res = handleInstantiation(const_cast<CreateAppMessage*>(data.get()));
+//            bool res = handleInstantiation(createAppMsg);
 
-            handleInstantiation(const_cast<CreateAppMessage*>(data.get()));
+            if(res){
+                // send response back to vim
+                inet::L3Address vimAddress = pPacket->getTag<inet::L3AddressInd>()->getSrcAddress();
+                int vimPort = pPacket->getTag<inet::L4PortInd>()->getSrcPort();
+                inet::Packet* packet = new inet::Packet("InstantiationResponse");
+                auto responsepck = inet::makeShared<InstantiationResponse>();
+                responsepck->setAllocatedPort(portCounter);
+                responsepck->setUeAppID(data->getUeAppID());
+                responsepck->setChunkLength(inet::B(100));
+                packet->insertAtBack(responsepck);
+                socket.sendTo(packet, vimAddress, vimPort);
+
+                EV << "VirtualisationInfrastructureApp::handleMessage - sending back to " << vimAddress << ":" << vimPort << endl;
+
+            }
 
         }
     }
@@ -117,14 +143,17 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
     delete msg;
 }
 
-void VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data)
+bool VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data)
 {
     EV << "VirtualisationInfrastructureApp::handleInstantiation - " << data << endl;
 
+    appcounter++;
+    portCounter++;
+
     // Creation of requested app
     char* meModuleName = (char*)data->getMEModuleName();
-    cModuleType *moduleType = cModuleType::get(data->getMEModuleType());
-    cModule *module = moduleType->create(meModuleName, getParentModule());
+    cModuleType* moduleType = cModuleType::get(data->getMEModuleType());
+    cModule* module = moduleType->create(meModuleName, getParentModule());
     std::stringstream appName;
     appName << meModuleName << "[" <<  data->getContextId() << "]";
     module->setName(appName.str().c_str());
@@ -143,7 +172,7 @@ void VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data
     module->par("requiredRam") = ram;
     module->par("requiredDisk") = disk;
     module->par("requiredCpu") = cpu;
-    module->par("localUePort") = 1;
+    module->par("localUePort") = portCounter;
     module->par("mp1Address") = "mechost";
     module->par("mp1Port") = 3333;
 
@@ -164,6 +193,8 @@ void VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data
     allocatedCpu += cpu;
     allocatedRam += ram;
     allocatedDisk += disk;
+
+    return true;
 }
 
 double VirtualisationInfrastructureApp::calculateProcessingTime(int ueAppID, int numOfInstructions)

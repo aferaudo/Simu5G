@@ -27,6 +27,7 @@
 #include <inet/transportlayer/contract/udp/UdpSocket.h>
 
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
+#include "apps/mec/ViApp/msg/InstantiationResponse_m.h"
 
 //###########################################################################
 //data structures and values
@@ -42,15 +43,16 @@ struct HostDescriptor // CarDescriptor
     ResourceDescriptor usedAmount;
     int numRunningApp;
     inet::L3Address address;
+    int viPort;
 };
 
-struct AppDescriptor
+struct MecAppEntryDyn
 {
+    int ueAppID;
     ResourceDescriptor usedResources;
-    inet::L3Address address;
-    int port;
-    std::string name;
-    std::string hostingHost;
+    SockAddr endpoint;
+    std::string moduleName;
+    std::string moduleType;
     bool isBuffered;
 };
 
@@ -77,10 +79,11 @@ class VirtualisationInfrastructureManagerDyn : public cSimpleModule
     inet::L3Address localAddress;
 
     std::map<std::string, HostDescriptor> handledHosts; // Resource Handling
-    std::map<std::string, AppDescriptor> handledApp; //App Handling
+    std::map<std::string, MecAppEntryDyn> handledApp; // App Handling
+    std::map<std::string, MecAppEntryDyn> waitingInstantiationRequests; // vim waits for response from cars on which have requested instantiation
 
-    // counter to generate host ids
-    int hostCounter = 0;
+    int hostCounter = 0;    // counter to generate host ids
+    int requestCounter = 0;
 
     // buffer
     double bufferSize;
@@ -163,6 +166,10 @@ class VirtualisationInfrastructureManagerDyn : public cSimpleModule
 //        ResourceDescriptor getAvailableResources() const ;
 
         void printResources();
+
+        void printHandledApp();
+
+        void printRequests();
 
         /*
          * Allocate resources on MecHost and car(?)

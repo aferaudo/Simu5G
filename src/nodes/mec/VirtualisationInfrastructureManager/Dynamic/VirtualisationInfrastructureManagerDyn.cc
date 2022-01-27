@@ -61,6 +61,7 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         descriptor->usedAmount = *usedResources;
         descriptor->numRunningApp = 0;
         descriptor->address = inet::L3Address("127.0.0.1");
+        descriptor->viPort = 2222;
 
         // TODO Quale chiave inserire? l'indirizzo IP dell'host?
         std::string key = "LOCAL_ID";
@@ -70,7 +71,6 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         throw cRuntimeError("VirtualisationInfrastructureManagerDyn::initialize - \tFATAL! Cannot find static resource definition!");
 
     // Set up socket for communcation
-    std::cout << par("localAddress") << endl;
     localAddress = inet::L3AddressResolver().resolve(par("localAddress"));
     EV << "VirtualisationInfrastructureManagerDyn::initialize - localAddress " << localAddress << endl;
     int port = par("localPort");
@@ -112,18 +112,51 @@ void VirtualisationInfrastructureManagerDyn::handleMessage(cMessage *msg)
     }else{
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - other message received!" << endl;
 
-        inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
-        if (pPacket == 0)
-            throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
+        if (!strcmp(msg->getName(), "Register")){
+            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: Register" << endl;
 
-        auto data = pPacket->peekData<RegistrationPacket>();
-//        inet::PacketPrinter printer;
-//        printer.printPacket(std::cout, pPacket);
+            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+            if (pPacket == 0)
+               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
 
-        registerHost(data->getRam(),data->getDisk(),data->getCpu(),data->getAddress());
+            auto data = pPacket->peekData<RegistrationPacket>();
+            //        inet::PacketPrinter printer;
+            //        printer.printPacket(std::cout, pPacket);
 
-        getParentModule()->bubble("Host Registrato");
+            registerHost(data->getRam(),data->getDisk(),data->getCpu(),data->getAddress());
+
+            getParentModule()->bubble("Host Registrato");
+        }
+        if (!strcmp(msg->getName(), "InstantiationResponse")){
+            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: InstantiationResponse" << endl;
+
+            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+            if (pPacket == 0)
+               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
+
+            auto data = pPacket->peekData<InstantiationResponse>();
+//            inet::PacketPrinter printer;
+//            printer.printPacket(std::cout, pPacket);
+
+            int ueAppID = data->getUeAppID();
+            int port = data->getAllocatedPort();
+
+            auto it = waitingInstantiationRequests.find(std::to_string(ueAppID));
+            if(it == waitingInstantiationRequests.end()){
+                throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - InstantiationResponse - cannot find registered app");
+            }
+
+            MecAppEntryDyn entry = it->second;
+            entry.endpoint.port = port;
+            handledApp[std::to_string(ueAppID)] = entry;
+            waitingInstantiationRequests.erase(it);
+
+//            printRequests();
+//            printHandledApp();
+        }
     }
+
+    delete msg;
 }
 
 std::string VirtualisationInfrastructureManagerDyn::registerHost(double ram, double disk, double cpu, inet::L3Address ip_addr)
@@ -156,6 +189,7 @@ std::string VirtualisationInfrastructureManagerDyn::registerHost(double ram, dou
     descriptor->usedAmount = *usedResources;
     descriptor->numRunningApp = 0;
     descriptor->address = ip_addr;
+    descriptor->viPort = 2222;
 
     handledHosts[host_id] = *descriptor;
 
@@ -163,7 +197,6 @@ std::string VirtualisationInfrastructureManagerDyn::registerHost(double ram, dou
 
     // Add circle around host
     cModule* module = inet::L3AddressResolver().findHostWithAddress(ip_addr);
-    std::cout << "module: " << module << endl;
     if(module != nullptr){
         cDisplayString& dispStr = module->getDisplayString();
         dispStr.setTagArg("b", 0, 50);
@@ -280,7 +313,7 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(Cre
     HostDescriptor bestHost = handledHosts[bestHostKey];
 
     inet::L3Address bestHostAddress = bestHost.address;
-    int bestHostPort = 2222;
+    int bestHostPort = bestHost.viPort;
 
 
     inet::Packet* packet = new inet::Packet("Instantiation");
@@ -299,9 +332,32 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(Cre
 
     EV << "VirtualisationInfrastructureManagerDyn:: instantiateMEApp - sending to " << bestHostAddress << ":" << bestHostPort << endl;
 
+    // request registration
+    requestCounter++;
+    MecAppEntryDyn newAppEntry;
+
+    newAppEntry.isBuffered = false;
+    newAppEntry.moduleName = msg->getMEModuleName();
+    newAppEntry.moduleType = msg->getMEModuleType();
+    newAppEntry.endpoint.addr = bestHostAddress;
+    newAppEntry.endpoint.port = -1;
+    newAppEntry.ueAppID = msg->getUeAppID();
+    newAppEntry.usedResources.ram  = msg->getRequiredRam();
+    newAppEntry.usedResources.disk = msg->getRequiredDisk();
+    newAppEntry.usedResources.cpu  = msg->getRequiredCpu();
+    waitingInstantiationRequests[std::to_string(msg->getUeAppID())] = newAppEntry;
+
     socket.sendTo(packet, bestHostAddress, bestHostPort);
 
-    return new MecAppInstanceInfo();
+    MecAppInstanceInfo* appInfo = new MecAppInstanceInfo();
+    appInfo->status = true;
+    appInfo->instanceId = msg->getMEModuleName(); //TODO Cambiare con un id dell'istanza creata (?)
+    appInfo->endPoint.addr = bestHostAddress;
+    appInfo->endPoint.port = bestHostPort;
+
+//    printRequests();
+
+    return appInfo;
 }
 
 bool VirtualisationInfrastructureManagerDyn::instantiateEmulatedMEApp(CreateAppMessage*)
@@ -328,7 +384,7 @@ bool VirtualisationInfrastructureManagerDyn::terminateEmulatedMEApp(DeleteAppMes
 
 void VirtualisationInfrastructureManagerDyn::printResources()
 {
-    EV << "VirtualisationInfrastructureManagerDyn:: printing..." << endl;
+    EV << "VirtualisationInfrastructureManagerDyn::printResources" << endl;
     for(auto it = handledHosts.begin(); it != handledHosts.end(); ++it){
         std::string key = it->first;
         HostDescriptor descriptor = (it->second);
@@ -344,6 +400,35 @@ void VirtualisationInfrastructureManagerDyn::printResources()
     EV << "VirtualisationInfrastructureManagerDyn::printResources - allocated Ram: " << usedBufferResources->ram << " / " << totalBufferResources->ram << endl;
     EV << "VirtualisationInfrastructureManagerDyn::printResources - allocated Disk: " << usedBufferResources->disk << " / " << totalBufferResources->disk << endl;
     EV << "VirtualisationInfrastructureManagerDyn::printResources - allocated CPU: " << usedBufferResources->cpu << " / " << totalBufferResources->cpu << endl;
+}
+
+void VirtualisationInfrastructureManagerDyn::printHandledApp()
+{
+    EV << "VirtualisationInfrastructureManagerDyn::printHandledApp" << endl;
+    for(auto it = handledApp.begin(); it != handledApp.end(); ++it){
+        std::string key = it->first;
+        MecAppEntryDyn entry = (it->second);
+
+        EV << "VirtualisationInfrastructureManagerDyn::printHandledApp - APP ID: " << key << endl;
+        EV << "VirtualisationInfrastructureManagerDyn::printHandledApp - Endpoint: " << entry.endpoint.str() << endl;
+        EV << "VirtualisationInfrastructureManagerDyn::printHandledApp - Module name: " << entry.moduleName << endl;
+        EV << "VirtualisationInfrastructureManagerDyn::printHandledApp - Buffered: " << entry.isBuffered << endl;
+    }
+}
+
+void VirtualisationInfrastructureManagerDyn::printRequests()
+{
+    EV << "VirtualisationInfrastructureManagerDyn::printRequests" << endl;
+    for(auto it = waitingInstantiationRequests.begin(); it != waitingInstantiationRequests.end(); ++it){
+        std::string key = it->first;
+        MecAppEntryDyn entry = (it->second);
+
+        EV << "VirtualisationInfrastructureManagerDyn::printRequests - APP ID: " << key << endl;
+        EV << "VirtualisationInfrastructureManagerDyn::printRequests - Endpoint: " << entry.endpoint.str() << endl;
+        EV << "VirtualisationInfrastructureManagerDyn::printRequests - Module name: " << entry.moduleName << endl;
+        EV << "VirtualisationInfrastructureManagerDyn::printRequests - Buffered: " << entry.isBuffered << endl;
+    }
+
 }
 
 
