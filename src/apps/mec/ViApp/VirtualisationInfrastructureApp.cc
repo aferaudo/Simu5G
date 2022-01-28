@@ -97,6 +97,11 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
     {
         EV << "VirtualisationInfrastructureApp::handleMessage - self message received!" << endl;
 
+        cModule* module = getParentModule()->getSubmodule("MECWarningAlertApp[0]");
+        std::cout << module << endl;
+//        module->callFinish();
+        module->deleteModule();
+
     }else{
         EV << "VirtualisationInfrastructureApp::handleMessage - other message received!" << endl;
 
@@ -136,6 +141,9 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
                 EV << "VirtualisationInfrastructureApp::handleMessage - sending back to " << vimAddress << ":" << vimPort << endl;
 
             }
+
+            cMessage* message = new cMessage("Terminazione");
+            scheduleAt(simTime()+0.2, message);
 
         }
     }
@@ -185,9 +193,9 @@ bool VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data
     newAtOutGate->connectTo(module->gate("socketIn"));
     module->gate("socketOut")->connectTo(newAtInGate);
 
-//    module->buildInside();
-//    module->scheduleStart(simTime());
-//    module->callInitialize();
+    module->buildInside();
+    module->scheduleStart(simTime());
+    module->callInitialize();
 
     runningApp[data->getUeAppID()] = *data;
     allocatedCpu += cpu;
