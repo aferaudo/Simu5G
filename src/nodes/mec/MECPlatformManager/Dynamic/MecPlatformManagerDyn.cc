@@ -70,7 +70,6 @@ void MecPlatformManagerDyn::handleMessage(cMessage *msg)
             throw cRuntimeError("MecPlatformManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
 
         if (!strcmp(msg->getName(), "Instantiation")){
-            std::cout << "Richiesta instanziazione ricevuta" << endl;
             auto data = pPacket->peekData<CreateAppMessage>();
             inet::PacketPrinter printer;
             printer.printPacket(std::cout, pPacket);
@@ -91,16 +90,29 @@ void MecPlatformManagerDyn::handleMessage(cMessage *msg)
             instantiateMEApp(createAppMsg);
 
             getParentModule()->bubble("Richiesta di instanziazione ricevuta");
-        }else{
+        }
+        else if(!strcmp(msg->getName(), "Termination")){
+
+            auto data = pPacket->peekData<DeleteAppMessage>();
+//            inet::PacketPrinter printer;
+//            printer.printPacket(std::cout, pPacket);
+
+            // Ricostruzione pacchetto TODO cambiare
+            DeleteAppMessage * deleteAppMsg = new DeleteAppMessage();
+            deleteAppMsg->setUeAppID(data->getUeAppID());
+
+            terminateMEApp(deleteAppMsg);
+        }
+        else{
             EV << "MecPlatformManagerDyn::handleMessage - unknown package" << endl;
         }
 
 //        std::cout << "IP received " << pPacket->getTag<inet::L3AddressInd>()->getSrcAddress() << endl;
 //        std::cout << "NAME received " << msg->getName() << endl;
 
-        delete msg;
     }
 
+    delete msg;
 }
 
 MecAppInstanceInfo* MecPlatformManagerDyn::instantiateMEApp(CreateAppMessage* msg)
