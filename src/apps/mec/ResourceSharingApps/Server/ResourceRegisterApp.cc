@@ -132,6 +132,7 @@ void ResourceRegisterApp::socketAvailable(inet::TcpSocket *socket, inet::TcpAvai
     auto newSocket = new inet::TcpSocket(availableInfo);
     newSocket->setOutputGate(gate("socketOut")); //gate connection
 
+    EV << "ResourceRegisterApp::AvailableInfo " << availableInfo << endl;
 
     EV << "ResourceRegisterApp::Creating a dedicated thread for socket " << newSocket->getSocketId() << endl;
     //ResourceRegisterThread *proc = new ResourceRegisterThread();

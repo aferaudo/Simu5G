@@ -13,37 +13,19 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
-package simu5g.apps.mec.ResourceSharingApps.Server;
+package simu5g.apps.mec.ResourceSharingApps.PubSub;
 
 import inet.applications.contract.IApp;
-
 //
-// @author Alessandro Calvio
-// @author Angelo Feraudo
+// TODO auto-generated module
 //
-simple ResourceRegisterApp like IApp
+simple HttpBrokerApp like IApp
 {
     parameters:
-        @display("i=block/app");
         string localAddress = default("");
-        int localPort = default(3000);
-        // string brokerAddress = default("127.0.0.1");
+        int localPort = default(3005);
         
-        string  serverThreadClass = default("simu5g.apps.mec.ResourceSharingApps.Server.ResourceRegisterThread");
-        
-        // Client App port
-        int destPort = default(3001); // Maybe this is not needed
-                
-        double startTime @unit(s) = default(1s);
-        
-        
-
-		
-		// Reward system
-		string rewardSystem = default("");
-	
-	gates:
-	    output socketOut;
+    gates:
         input socketIn;
-	    
+        output socketOut;
 }
