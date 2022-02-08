@@ -538,6 +538,7 @@ void VirtualisationInfrastructureManagerDyn::manageNotification(int type)
             EV << "VirtualisationInfrastructureManagerDyn::ram: " << (*it)["ram"] << endl;
             EV << "VirtualisationInfrastructureManagerDyn::disk: " << (*it)["disk"] << endl;
             EV << "VirtualisationInfrastructureManagerDyn::cpu: " << (*it)["cpu"] << endl;
+            std::string ipAddress_str = (*it)["ipAddress"];
             registerHost((*it)["ram"], (*it)["disk"], (*it)["cpu"], inet::L3Address(ipAddress_str.c_str()));
         }
         else
