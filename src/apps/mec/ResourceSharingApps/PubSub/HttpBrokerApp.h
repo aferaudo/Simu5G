@@ -30,12 +30,17 @@
 // Json
 #include "nodes/mec/utils/httpUtils/json.hpp"
 
+// ResourceDescriptor struct
+#include "nodes/mec/utils/MecCommon.h"
+
 // inet
 #include "inet/transportlayer/contract/tcp/TcpSocket.h"
 #include "inet/networklayer/common/L3Address.h"
+#include "inet/networklayer/common/L3AddressResolver.h"
 #include "inet/common/socket/SocketMap.h"
 #include "inet/applications/base/ApplicationBase.h"
 #include "inet/common/geometry/common/Coord.h"
+
 
 
 
@@ -57,9 +62,12 @@ struct ClientResourceEntry
 {
     int clientId;
     inet::L3Address ipAddress;
-//    ResourceDescriptor resources;
+    int viPort; // used by the VIM to allocate new app
+    ResourceDescriptor resources;
     std::string reward;
     // TODO add zone coordinates
+    bool allocated;
+    bool operator < (const ClientResourceEntry &other) const {return clientId < other.clientId;}
 };
 
 struct SubscriberEntry
@@ -72,6 +80,7 @@ struct SubscriberEntry
     std::string clientWebHook;
     inet::Coord subscriberPos;
     double subscriberRadius;
+    bool operator < (const SubscriberEntry &other) const {return clientId < other.clientId;}
 };
 
 class HttpBrokerApp : public inet::ApplicationBase, public inet::TcpSocket::ICallback
@@ -86,20 +95,26 @@ class HttpBrokerApp : public inet::ApplicationBase, public inet::TcpSocket::ICal
 
   std::string baseUri;
 
-  // Map with client resource info
-  // key = client id
+  // Set with client resource info
   // value = ClientResourceEntry;
-  std::map <int, ClientResourceEntry> availableResources_;
+  typedef std::set<ClientResourceEntry *> Resources;
+  Resources totalResources;
 
-  // Map subscribers
-  // key = socket id
-  // value = SubscriberBase
-  std::map <int, SubscriberEntry> subscriptions_;
+  // List of subscribers
+  // value = SubscriberEntry
+  typedef std::set<SubscriberEntry> SubscriberSet;
+  SubscriberSet subscribers;
+
+  // Map used to get the socket id from clientId
+  // key = clientId
+  // value = socketId
+  std::map <int, int> clientSocketMap;
 
   HttpBaseMessage *currentHttpMessage; // current HttpRequest
   std::string buffer;
 
 
+  virtual void mockResources();
 
   protected:
     virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
@@ -116,7 +131,7 @@ class HttpBrokerApp : public inet::ApplicationBase, public inet::TcpSocket::ICal
     // internal: TcpSocket::ICallback methods
     virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool urgent) override;
     virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override;
-    virtual void socketEstablished(inet::TcpSocket *socket) override {}
+    virtual void socketEstablished(inet::TcpSocket *socket) override {EV << "HttpBrokerApp::Connected!"<<endl;}
     virtual void socketPeerClosed(inet::TcpSocket *socket) override {}
     virtual void socketClosed(inet::TcpSocket *socket) override {}
     virtual void socketFailure(inet::TcpSocket *socket, int code) override { }
@@ -129,12 +144,36 @@ class HttpBrokerApp : public inet::ApplicationBase, public inet::TcpSocket::ICal
     virtual void handleDELETERequest(const HttpRequestMessage *currentRequestMessageServed) {EV << "Not implemented yet" << endl;}
     virtual void handleRequest(const HttpRequestMessage *currentRequestMessageServed);
 
+    // Add resources to the map of available resources
+    virtual void publish(ClientResourceEntry *c);
+
+    /*
+     * send notification based on subscribers position
+     */
+    virtual void sendNotification();
+
+    /*
+     * Send response after first subscription
+     */
+    virtual void sendResponse(inet::TcpSocket *sock, SubscriberEntry *s);
+
+    virtual void printSubscribers();
+
+    // compute resources to send to a particular subscriber based on its position
+    // This method is called when a new subscriber is added
+    virtual nlohmann::json filterInitialResourcesToSend(inet::Coord, double radius);
+
+    /*
+     * This method compute the subscribers that need to be notified
+     */
+    virtual SubscriberEntry filterSubscribers(ClientResourceEntry *c);
+
   public:
     HttpBrokerApp();
     ~HttpBrokerApp();
     //virtual void init(int port, inet::L3Address ipAddress) { localPort = port; localIPAddress = ipAddress;}
 
-    virtual void publish(ClientResourceEntry c);
+
 };
 
 #endif

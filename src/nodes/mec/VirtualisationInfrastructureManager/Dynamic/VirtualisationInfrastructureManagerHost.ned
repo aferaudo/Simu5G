@@ -51,7 +51,7 @@ module VirtualisationInfrastructureManagerHost extends NRUe
         //# App parameters
         numApps = 2;
         app[0].typename = "VirtualisationInfrastructureManagerDyn";
-        app[0].localPort = 3333;
+        //app[0].localPort = 3333;
         app[1].typename = "VirtualisationInfrastructureApp";
 		app[1].localPort = 2222;
 
@@ -63,7 +63,7 @@ module VirtualisationInfrastructureManagerHost extends NRUe
         
         // to server
         inout ethiface;
-
+        
     submodules:
        	// ethernet interface used for communicating with Server
         serverEth: <default("EthernetInterface")> like IEthernetInterface {
@@ -72,11 +72,15 @@ module VirtualisationInfrastructureManagerHost extends NRUe
         }
         
     connections allowunconnected:
-
+//
         nl.out++ --> serverEth.upperLayerIn;
         nl.in++ <-- serverEth.upperLayerOut;
         
 		ethiface <--> serverEth.phys;
+		
+//		nl.out++ --> ethOut;
+//		nl.in++ <-- ethIn;
+		
 
 
 }

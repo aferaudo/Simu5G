@@ -26,13 +26,23 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
     parameters:
     	@class(VirtualisationInfrastructureManagerDyn);
     	
-    	int localPort = default(3333);
+    	int localPort = default(3333); // port for UDP communications VIM <--> VI
+    	
 //    	string destAddress;
-        string localAddress;
-        string serverDestAddress; // used to communicate with the server 
+        string localAddress; // address used for local binding
+        
+        //broker parameters
+       	string brokerAddress; // address for notification system
+       	int localBrokerPort = default(3334); // port for TCP communications VIM <--> Broker
+    	int brokerPort = default(3005); // destination broker port
+    	double radius = default(150); //radius in meters
+    	
+        string serverDestAddress; // used to communicate with the server (it can be removed)
     	double bufferSize = default(0.15);				// Percentage value of resources buffer
     
     gates:
         output socketOut;
         input socketIn;
+        output socketBrokerOut;
+        input socketBrokerIn;
 }

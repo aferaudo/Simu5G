@@ -30,6 +30,7 @@
 #include "inet/networklayer/common/L3Address.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
 
+// ResourceDescriptor struct
 #include "nodes/mec/utils/MecCommon.h"
 
 

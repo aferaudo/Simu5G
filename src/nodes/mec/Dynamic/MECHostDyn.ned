@@ -22,6 +22,7 @@ import simu5g.nodes.mec.MECPlatformManager.MecPlatformManager;
 import simu5g.nodes.Upf;
 import inet.node.ethernet.Eth10G;
 import inet.applications.contract.IApp;
+import inet.linklayer.contract.IEthernetInterface;
 import simu5g.nodes.NR.NRUe;
 
 //
@@ -75,12 +76,15 @@ module MECHostDyn
 
         mecPlatformManager: MecPlatformManagerHost {
 
-            @display("p=405,184");
+            @display("p=899.13605,183.306");
         }
+        
 
     connections allowunconnected:
-
-//		ethserver <--> eth[0].phys;
+	
+       
+       ethserver <--> vim.ethiface;
+		//ethserver <--> eth[0].phys;
 
 //        vimH.mm7GnB <--> Eth10G <--> ethAntenna++;
 //        mecPlatformD.ethExt <--> Eth10G <--> ethAntenna++;

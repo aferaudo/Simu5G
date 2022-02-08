@@ -28,8 +28,10 @@
 #include "inet/common/geometry/common/Coord.h"
 #include "inet/mobility/contract/IMobility.h"
 
-// Utility
+// Utility: from Simu5G
 #include "nodes/mec/utils/httpUtils/httpUtils.h"
+#include "nodes/mec/MECPlatform/MECServices/packets/HttpRequestMessage/HttpRequestMessage.h"
+#include "nodes/mec/MECPlatform/MECServices/packets/HttpResponseMessage/HttpResponseMessage.h"
 #include "nodes/mec/utils/httpUtils/json.hpp"
 
 #include <omnetpp.h>
@@ -38,7 +40,7 @@ using namespace omnetpp;
 
 
 
-class SubscriberBase : public inet::ApplicationBase, public inet::TcpSocket::ICallback
+class SubscriberBase: public inet::ApplicationBase, public inet::TcpSocket::ICallback
 {
 
   std::string subscriptionUri;
@@ -50,6 +52,10 @@ class SubscriberBase : public inet::ApplicationBase, public inet::TcpSocket::ICa
   protected:
 
     cModule* host;
+
+    // HttpMessageManagement
+    HttpBaseMessage* currentHttpMessage;
+    std::string buffer;
 
     std::string webHook;
     inet::Coord center; // This is a fixed node so we consider it as a center of a circle
@@ -77,7 +83,7 @@ class SubscriberBase : public inet::ApplicationBase, public inet::TcpSocket::ICa
     virtual void refreshDisplay() const override {};
 
     // TcpSocketCallback methods
-    virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent) override {};
+    virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent) override;
     virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override{};
     virtual void socketEstablished(inet::TcpSocket *socket) override;
     virtual void socketPeerClosed(inet::TcpSocket *socket) override {}
@@ -85,6 +91,8 @@ class SubscriberBase : public inet::ApplicationBase, public inet::TcpSocket::ICa
     virtual void socketFailure(inet::TcpSocket *socket, int code) override {}
     virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
     virtual void socketDeleted(inet::TcpSocket *socket) override {}
+
+    virtual void manageNotification(int type) = 0;
 };
 
 #endif

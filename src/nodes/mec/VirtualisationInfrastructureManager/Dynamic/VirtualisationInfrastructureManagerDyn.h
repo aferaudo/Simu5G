@@ -15,6 +15,7 @@
 #include "common/LteCommon.h"
 #include "common/binder/Binder.h"
 #include "inet/networklayer/common/InterfaceTable.h"
+#include "apps/mec/ResourceSharingApps/PubSub/Subscriber/SubscriberBase.h"
 
 //INET
 #include "inet/networklayer/common/L3Address.h"
@@ -69,7 +70,7 @@ struct MecAppEntryDyn
 class CreateAppMessage;
 class DeleteAppMessage;
 
-class VirtualisationInfrastructureManagerDyn : public cSimpleModule
+class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 {
     // Reference to other modules
     cModule* vimHost;
@@ -149,11 +150,13 @@ class VirtualisationInfrastructureManagerDyn : public cSimpleModule
 
     protected:
 
-        virtual int numInitStages() const { return inet::NUM_INIT_STAGES; }
+        virtual void initialize(int stage) override;
+        //virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
 
-        void initialize(int stage);
+        //virtual void handleMessage(cMessage *msg);
+        virtual void handleMessageWhenUp(omnetpp::cMessage *msg) override;
+        virtual void handleStartOperation(inet::LifecycleOperation *operation) override;
 
-        virtual void handleMessage(cMessage *msg);
 
         /*
          * Find a MecService on the Host
@@ -185,6 +188,13 @@ class VirtualisationInfrastructureManagerDyn : public cSimpleModule
          * Find the best managed host on which allocate App according to several metrics
          */
         std::string findBestHostDyn(double ram, double disk, double cpu);
+
+        /*
+         * Manage HTTP Notification
+         * - Response: List of available resources in that zone
+         * - Request: Notification of new available resources
+         */
+        virtual void manageNotification(int type) override;
 
     private:
 

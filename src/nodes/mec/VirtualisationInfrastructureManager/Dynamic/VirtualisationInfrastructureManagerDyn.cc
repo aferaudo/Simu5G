@@ -24,53 +24,84 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
     cSimpleModule::initialize(stage);
 
     // avoid multiple initializations
-    if (stage!=inet::INITSTAGE_APPLICATION_LAYER-1){
-        return;
+//    if (stage!=inet::INITSTAGE_APPLICATION_LAYER-1){
+//        return;
+//    }
+
+    if (stage == inet::INITSTAGE_LOCAL) {
+
+        EV << "VirtualisationInfrastructureManagerDyn::initialize - stage " << stage << endl;
+
+        // Init parameters
+        vimHost = getParentModule()->getParentModule();
+        host = getParentModule(); // Used to add brokerGates
+
+        //Broker settings
+        brokerPort = par("brokerPort");
+        localToBrokerPort = par("localBrokerPort");
+        radius = par("radius");
+
+        // Init BUFFER
+        bufferSize = par("bufferSize");
+        totalBufferResources = new ResourceDescriptor();
+        totalBufferResources->ram = vimHost->par("localRam").doubleValue() * bufferSize;
+        totalBufferResources->cpu = vimHost->par("localCpuSpeed").doubleValue() * bufferSize;
+        totalBufferResources->disk = vimHost->par("localDisk").doubleValue() * bufferSize;
+
+        usedBufferResources = new ResourceDescriptor();
+        usedBufferResources->ram = 0;
+        usedBufferResources->cpu = 0;
+        usedBufferResources->disk = 0;
+
+        if(vimHost->hasPar("localRam") && vimHost->hasPar("localDisk") && vimHost->hasPar("localCpuSpeed")){
+            HostDescriptor* descriptor = new HostDescriptor();
+            ResourceDescriptor* totalResources = new ResourceDescriptor();
+            totalResources->ram = vimHost->par("localRam").doubleValue() * (1-bufferSize);
+            totalResources->cpu = vimHost->par("localCpuSpeed").doubleValue() * (1-bufferSize);
+            totalResources->disk = vimHost->par("localDisk").doubleValue() * (1-bufferSize);
+
+            ResourceDescriptor* usedResources = new ResourceDescriptor();
+            usedResources->ram = 0;
+            usedResources->cpu = 0;
+            usedResources->disk = 0;
+
+            descriptor->totalAmount = *totalResources;
+            descriptor->usedAmount = *usedResources;
+            descriptor->numRunningApp = 0;
+            descriptor->address = inet::L3Address("127.0.0.1");
+            descriptor->viPort = 2222;
+
+            // TODO Quale chiave inserire? l'indirizzo IP dell'host?
+            std::string key = "LOCAL_ID";
+            handledHosts[key] = *descriptor;
+        }
+        else
+            throw cRuntimeError("VirtualisationInfrastructureManagerDyn::initialize - \tFATAL! Cannot find static resource definition!");
+
+        // Graphic
+        color = getParentModule()->getParentModule()->par("color").stringValue();
+//        cDisplayString& dispStr = getParentModule()->getParentModule()->getDisplayString();
+//        dispStr.setTagArg("b", 0, 50);
+//        dispStr.setTagArg("b", 1, 50);
+//        dispStr.setTagArg("b", 2, "rect");
+//        dispStr.setTagArg("b", 3, color.c_str());
+//        dispStr.setTagArg("b", 4, "black");
+
+        //std::string drawing= "p=" + std::to_string(center.getX()) + "," + std::to_string(center.getY()) + ";r=" + std::to_string(radius);
+        //vimHost->getDisplayString().parse(drawing.c_str());
+
     }
 
-    EV << "VirtualisationInfrastructureManagerDyn::initialize - stage " << stage << endl;
 
-    // Init parameters
-    vimHost = getParentModule()->getParentModule();
 
-    // Init BUFFER
-    bufferSize = par("bufferSize");
-    totalBufferResources = new ResourceDescriptor();
-    totalBufferResources->ram = vimHost->par("localRam").doubleValue() * bufferSize;
-    totalBufferResources->cpu = vimHost->par("localCpuSpeed").doubleValue() * bufferSize;
-    totalBufferResources->disk = vimHost->par("localDisk").doubleValue() * bufferSize;
+    inet::ApplicationBase::initialize(stage);
+}
 
-    usedBufferResources = new ResourceDescriptor();
-    usedBufferResources->ram = 0;
-    usedBufferResources->cpu = 0;
-    usedBufferResources->disk = 0;
+void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::LifecycleOperation *operation)
+{
+    EV << "VirtualisationInfrastructureManagerDyn::START.." << endl;
 
-    if(vimHost->hasPar("localRam") && vimHost->hasPar("localDisk") && vimHost->hasPar("localCpuSpeed")){
-        HostDescriptor* descriptor = new HostDescriptor();
-        ResourceDescriptor* totalResources = new ResourceDescriptor();
-        totalResources->ram = vimHost->par("localRam").doubleValue() * (1-bufferSize);
-        totalResources->cpu = vimHost->par("localCpuSpeed").doubleValue() * (1-bufferSize);
-        totalResources->disk = vimHost->par("localDisk").doubleValue() * (1-bufferSize);
-
-        ResourceDescriptor* usedResources = new ResourceDescriptor();
-        usedResources->ram = 0;
-        usedResources->cpu = 0;
-        usedResources->disk = 0;
-
-        descriptor->totalAmount = *totalResources;
-        descriptor->usedAmount = *usedResources;
-        descriptor->numRunningApp = 0;
-        descriptor->address = inet::L3Address("127.0.0.1");
-        descriptor->viPort = 2222;
-
-        // TODO Quale chiave inserire? l'indirizzo IP dell'host?
-        std::string key = "LOCAL_ID";
-        handledHosts[key] = *descriptor;
-    }
-    else
-        throw cRuntimeError("VirtualisationInfrastructureManagerDyn::initialize - \tFATAL! Cannot find static resource definition!");
-
-    // Set up socket for communcation
+    // Set up UDP socket for communcation
     localAddress = inet::L3AddressResolver().resolve(par("localAddress"));
     EV << "VirtualisationInfrastructureManagerDyn::initialize - localAddress " << localAddress << endl;
     int port = par("localPort");
@@ -81,24 +112,31 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         socket.bind(port);
     }
 
-    // Graphic
-    color = getParentModule()->getParentModule()->par("color").stringValue();
-    cDisplayString& dispStr = getParentModule()->getParentModule()->getDisplayString();
-    dispStr.setTagArg("b", 0, 50);
-    dispStr.setTagArg("b", 1, 50);
-    dispStr.setTagArg("b", 2, "rect");
-    dispStr.setTagArg("b", 3, color.c_str());
-    dispStr.setTagArg("b", 4, "black");
 
-    cMessage* print = new cMessage("Print");
-    scheduleAt(simTime()+0.01, print);
-//    scheduleAt(simTime()+1.00, print);
+    // Broker settings
+    brokerIPAddress = inet::L3AddressResolver().resolve(par("brokerAddress").stringValue());
+
+    // Adding new gates and connect
+    // TODO can we use the same socketIn/out gate, instead of creating new ones?
+    cModule *at = host->getSubmodule("at");
+    cGate* newAtInGate = at->getOrCreateFirstUnconnectedGate("in", 0, false, true);
+    cGate* newAtOutGate = at->getOrCreateFirstUnconnectedGate("out", 0, false, true);
+    gate("socketBrokerOut")->connectTo(newAtInGate);
+    newAtOutGate->connectTo(gate("socketBrokerIn"));
+
+    // Print message
+    cMessage *print = new cMessage("print");
+    scheduleAt(simTime()+0.1, print);
+
+    // set tcp socket VIM <--> Broker
+    SubscriberBase::handleStartOperation(operation);
+
 }
 
-void VirtualisationInfrastructureManagerDyn::handleMessage(cMessage *msg)
+void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessage *msg)
 {
     EV << "VirtualisationInfrastructureManagerDyn::handleMessage - message received!" << endl;
-    if (msg->isSelfMessage())
+    if (msg->isSelfMessage() && strcmp(msg->getName(), "print") == 0)
     {
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - self message received!" << endl;
         printResources();
@@ -109,58 +147,62 @@ void VirtualisationInfrastructureManagerDyn::handleMessage(cMessage *msg)
         std::string addedHostId = registerHost(2222,2222,2222,inet::L3Address("192.168.10.10"));
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - bestHost " << findBestHostDyn(1000,1000,1000) << endl;
         unregisterHost(addedHostId);
+        delete msg;
     }else{
-        EV << "VirtualisationInfrastructureManagerDyn::handleMessage - other message received!" << endl;
-
-        if (!strcmp(msg->getName(), "Register")){
-            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: Register" << endl;
-
-            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
-            if (pPacket == 0)
-               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
-
-            auto data = pPacket->peekData<RegistrationPacket>();
-            //        inet::PacketPrinter printer;
-            //        printer.printPacket(std::cout, pPacket);
-
-            registerHost(data->getRam(),data->getDisk(),data->getCpu(),data->getAddress());
-
-            getParentModule()->bubble("Host Registrato");
-        }
-        if (!strcmp(msg->getName(), "InstantiationResponse")){
-            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: InstantiationResponse" << endl;
-
-            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
-            if (pPacket == 0)
-               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
-
-            auto data = pPacket->peekData<InstantiationResponse>();
-//            inet::PacketPrinter printer;
-//            printer.printPacket(std::cout, pPacket);
-
-            int ueAppID = data->getUeAppID();
-            int port = data->getAllocatedPort();
-
-            auto it = waitingInstantiationRequests.find(std::to_string(ueAppID));
-            if(it == waitingInstantiationRequests.end()){
-                throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - InstantiationResponse - cannot find registered app");
-            }
-
-            MecAppEntryDyn entry = it->second;
-            entry.endpoint.port = port;
-            handledApp[std::to_string(ueAppID)] = entry;
-            waitingInstantiationRequests.erase(it);
-
-//            printRequests();
-//            printHandledApp();
-        }
+        SubscriberBase::handleMessageWhenUp(msg);
     }
-
-    delete msg;
+//        EV << "VirtualisationInfrastructureManagerDyn::handleMessage - other message received!" << endl;
+//
+//        if (!strcmp(msg->getName(), "Register")){
+//            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: Register" << endl;
+//
+//            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+//            if (pPacket == 0)
+//               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
+//
+//            auto data = pPacket->peekData<RegistrationPacket>();
+//            //        inet::PacketPrinter printer;
+//            //        printer.printPacket(std::cout, pPacket);
+//
+//            registerHost(data->getRam(),data->getDisk(),data->getCpu(),data->getAddress());
+//
+//            getParentModule()->bubble("Host Registrato");
+//        }
+//        if (!strcmp(msg->getName(), "InstantiationResponse")){
+//            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: InstantiationResponse" << endl;
+//
+//            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+//            if (pPacket == 0)
+//               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
+//
+//            auto data = pPacket->peekData<InstantiationResponse>();
+////            inet::PacketPrinter printer;
+////            printer.printPacket(std::cout, pPacket);
+//
+//            int ueAppID = data->getUeAppID();
+//            int port = data->getAllocatedPort();
+//
+//            auto it = waitingInstantiationRequests.find(std::to_string(ueAppID));
+//            if(it == waitingInstantiationRequests.end()){
+//                throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - InstantiationResponse - cannot find registered app");
+//            }
+//
+//            MecAppEntryDyn entry = it->second;
+//            entry.endpoint.port = port;
+//            handledApp[std::to_string(ueAppID)] = entry;
+//            waitingInstantiationRequests.erase(it);
+//
+////            printRequests();
+////            printHandledApp();
+//        }
+//    }
+//
+//    delete msg;
 }
 
 std::string VirtualisationInfrastructureManagerDyn::registerHost(double ram, double disk, double cpu, inet::L3Address ip_addr)
 {
+    // TODO add viPort
     EV << "VirtualisationInfrastructureManagerDyn::registerHost" << endl;
 
     hostCounter += 1;
@@ -451,6 +493,62 @@ bool VirtualisationInfrastructureManagerDyn::isAllocableOnBuffer(double ram, dou
     return  ram < totalBufferResources->ram - usedBufferResources->ram
             && disk < totalBufferResources->disk - usedBufferResources->disk
             && cpu  < totalBufferResources->cpu - usedBufferResources->cpu;
+}
+
+
+void VirtualisationInfrastructureManagerDyn::manageNotification(int type)
+{
+    if(type == RESPONSE)
+    {
+        HttpResponseMessage *response = dynamic_cast<HttpResponseMessage*> (currentHttpMessage);
+        EV << "VIM received a response - resources available for my zone" << endl;
+        //EV << "VIM::Response received: " << response->getBody() << endl;
+        nlohmann::json jsonResponseBody = nlohmann::json::parse(response->getBody());
+        // We may have multiple clients
+        for(nlohmann::json::iterator it = jsonResponseBody.begin(); it != jsonResponseBody.end(); ++it)
+        {
+            // Client
+            EV << "VirtualisationInfrastructureManagerDyn::ClientID: " << it.key() << endl;
+            EV << "VirtualisationInfrastructureManagerDyn::IP addr: " << (*it)["ipAddress"] << endl;
+            EV << "VirtualisationInfrastructureManagerDyn::vi port: " << (*it)["viPort"] << endl;
+            EV << "VirtualisationInfrastructureManagerDyn::ram: " << (*it)["ram"] << endl;
+            EV << "VirtualisationInfrastructureManagerDyn::disk: " << (*it)["disk"] << endl;
+            EV << "VirtualisationInfrastructureManagerDyn::cpu: " << (*it)["cpu"] << endl;
+            std::string ipAddress_str = (*it)["ipAddress"];
+            registerHost((*it)["ram"], (*it)["disk"], (*it)["cpu"], inet::L3Address(ipAddress_str.c_str()));
+
+        }
+    }
+    else if(type == REQUEST)
+    {
+        HttpRequestMessage *request = dynamic_cast<HttpRequestMessage*> (currentHttpMessage);
+        EV << "VIM::received a request - new resource available" << endl;
+        //EV << "VIM::Request received: " << request->getBody() << endl;
+        std::string uri = request->getUri();
+        // TODO only post request
+        // use webhook
+        if(uri.compare(webHook) == 0 && std::strcmp(request->getMethod(),"POST") == 0)
+        {
+            nlohmann::json jsonBody = nlohmann::json::parse(request->getBody());
+            nlohmann::json::iterator it = jsonBody.begin(); // just one element (TODO change without using iterator)
+            EV << "VIM::Correct WebHook - registering resources" << endl;
+            EV << "VirtualisationInfrastructureManagerDyn::ClientID: " << it.key() << endl;
+            EV << "VirtualisationInfrastructureManagerDyn::IP addr: " << (*it)["ipAddress"] << endl;
+            EV << "VirtualisationInfrastructureManagerDyn::vi port: " << (*it)["viPort"] << endl;
+            EV << "VirtualisationInfrastructureManagerDyn::ram: " << (*it)["ram"] << endl;
+            EV << "VirtualisationInfrastructureManagerDyn::disk: " << (*it)["disk"] << endl;
+            EV << "VirtualisationInfrastructureManagerDyn::cpu: " << (*it)["cpu"] << endl;
+            registerHost((*it)["ram"], (*it)["disk"], (*it)["cpu"], inet::L3Address(ipAddress_str.c_str()));
+        }
+        else
+        {
+            EV << "VIM:: Not recognised uri ignore..." << uri << endl;
+        }
+    }
+    else
+    {
+        EV << "VIM::not recognised HTTP message" << endl;
+    }
 }
 
 

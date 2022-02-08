@@ -15,36 +15,32 @@
 
 #include "SubscriberBase.h"
 
-Define_Module(SubscriberBase);
+//Define_Module(SubscriberBase);
 
 
 SubscriberBase::SubscriberBase()
 {
-    subscriptionUri = "/broker/subscribe";
+    subscriptionUri = "/broker/subscribe/";
     webHook = "/newresources/"; // TODO should we load it from a NED File?
+    currentHttpMessage = nullptr;
 }
 
 void SubscriberBase::initialize(int stage)
 {
-    if(stage != inet::INITSTAGE_APPLICATION_LAYER)
-        return;
+    if (stage == inet::INITSTAGE_LOCAL)
+    {
+        EV << "SubscriberBase::initialising parameters" << endl;
+    }
 
-    EV << "SubscriberBase::Initialization" << endl;
+    EV << "SubscriberBase::Initialisation" << endl;
 
-//    brokerPort = par("brokerPort");
-//    localPort = par("localPort");
-//
-//
-//    // remote connection
-//    brokerIPAddress = inet::L3AddressResolver().resolve(par("brokerAddress").stringValue());
     inet::ApplicationBase::initialize(stage);
 
 }
 
 void SubscriberBase::handleStartOperation(inet::LifecycleOperation *operation)
 {
-    host = getParentModule();
-
+    EV <<"SubscriberBase::local binding and position computation"<<endl;
     inet::IMobility *mod = check_and_cast<inet::IMobility *>(host->getSubmodule("mobility"));
     center = mod->getCurrentPosition();
 
@@ -53,19 +49,33 @@ void SubscriberBase::handleStartOperation(inet::LifecycleOperation *operation)
     tcpSocket.bind(localToBrokerPort);
     tcpSocket.setCallback(this);
 
-    connectToBroker();
+    // drawing a cricle
+//    host->getParentModule()->getDisplayString().setTagArg("p", 0, center.getX());
+//    host->getParentModule()->getDisplayString().setTagArg("p", 1, center.getY());
+//    host->getParentModule()->getDisplayString().setTagArg("r", 0, radius);
+
+    cMessage* msg = new cMessage("connect");
+    scheduleAt(simTime()+0.01, msg);
 }
 
 void SubscriberBase::handleMessageWhenUp(omnetpp::cMessage *msg)
 {
-    if(msg->arrivedOn("socketIn"))
+    if(msg->isSelfMessage() && strcmp(msg->getName(), "connect") == 0)
     {
-        if (tcpSocket.belongsToSocket(msg))
-            tcpSocket.processMessage(msg);
+        EV << "SubscriberBase:: connecting to the broker" << endl;
+        connectToBroker();
     }
-    else{
-        throw cRuntimeError("Unknown message");
-        delete msg;
+    else
+    {
+        if(msg->arrivedOn("socketBrokerIn"))
+        {
+            if (tcpSocket.belongsToSocket(msg))
+                tcpSocket.processMessage(msg);
+        }
+        else{
+            throw cRuntimeError("Unknown message");
+            delete msg;
+        }
     }
 
 }
@@ -86,9 +96,8 @@ void SubscriberBase::connectToBroker()
 void SubscriberBase::socketEstablished(inet::TcpSocket *socket)
 {
     EV << "SubscriberBase::connection established!" << endl;
-    EV << "SubscriberBase::sendSubscription" << endl;
+    EV << "SubscriberBase::subscribing" << endl;
     sendSubscription();
-
 }
 
 void SubscriberBase::sendSubscription()
@@ -127,5 +136,52 @@ nlohmann::json SubscriberBase::infoToJson()
 
     return jsonObj;
 }
+
+void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent)
+{
+    /*
+     * Two types of messages:
+     * - Response --> After first subscription
+     * - Request --> notification that something happened
+     */
+
+    EV << "SubscriberBase:: message received from the broker..." << endl;
+
+    std::vector<uint8_t> bytes =  packet->peekDataAsBytes()->getBytes();
+    delete packet;
+
+    std::string msg(bytes.begin(), bytes.end());
+
+    bool res = Http::parseReceivedMsg(msg, &buffer, &currentHttpMessage);
+
+    if(res)
+    {
+        if(currentHttpMessage->getType() == RESPONSE || currentHttpMessage->getType() == REQUEST)
+        {
+            manageNotification(currentHttpMessage->getType());
+        }
+        else
+        {
+            EV << "SubscriberBase::Not recognised message..."<<endl;
+        }
+    }
+
+    if(currentHttpMessage != nullptr)
+    {
+        currentHttpMessage = nullptr;
+    }
+
+}
+//
+//void SubscriberBase::refreshDisplay() const
+//{
+//    // Drawing circle
+//    cOvalFigure *figure = new cOvalFigure("circle");
+//    figure->setBounds(cFigure::Rectangle(100,100, radius, radius));
+//    figure->setLineWidth(2);
+//    figure->setLineStyle(cFigure::LINE_DOTTED);
+//    figure->setPosition(cFigure::Point(center.getX(), center.getY()), cFigure::ANCHOR_CENTER);
+//
+//}
 
 
