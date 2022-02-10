@@ -35,9 +35,20 @@
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
 #include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h"
 #include "apps/mec/ViApp/msg/InstantiationResponse_m.h"
+#include "apps/mec/ViApp/msg/TerminationResponse_m.h"
 
 
 using namespace omnetpp;
+
+struct RunningAppEntry
+{
+    int ueAppID;
+    ResourceDescriptor resources;
+    std::string moduleName;
+    std::string moduleType;
+    std::string requiredService;
+    cModule* module;
+};
 
 class VirtualisationInfrastructureApp : public cSimpleModule
 {
@@ -54,7 +65,7 @@ class VirtualisationInfrastructureApp : public cSimpleModule
     int appcounter;
     int portCounter = 10000;    // counter to assign port to app
     std::list<std::string> managedApp;
-    std::map<int, CreateAppMessage> runningApp;
+    std::map<int, RunningAppEntry> runningApp;
     SchedulingMode scheduling;
 
     double maxCpu;
@@ -86,6 +97,7 @@ class VirtualisationInfrastructureApp : public cSimpleModule
     private:
 
         bool handleInstantiation(CreateAppMessage* data);
+        bool handleTermination(DeleteAppMessage* data);
 
 };
 

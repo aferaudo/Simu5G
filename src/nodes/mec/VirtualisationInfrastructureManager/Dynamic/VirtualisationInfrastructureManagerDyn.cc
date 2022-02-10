@@ -23,11 +23,6 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 {
     cSimpleModule::initialize(stage);
 
-    // avoid multiple initializations
-//    if (stage!=inet::INITSTAGE_APPLICATION_LAYER-1){
-//        return;
-//    }
-
     if (stage == inet::INITSTAGE_LOCAL) {
 
         EV << "VirtualisationInfrastructureManagerDyn::initialize - stage " << stage << endl;
@@ -80,16 +75,12 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 
         // Graphic
         color = getParentModule()->getParentModule()->par("color").stringValue();
-//        cDisplayString& dispStr = getParentModule()->getParentModule()->getDisplayString();
-//        dispStr.setTagArg("b", 0, 50);
-//        dispStr.setTagArg("b", 1, 50);
-//        dispStr.setTagArg("b", 2, "rect");
-//        dispStr.setTagArg("b", 3, color.c_str());
-//        dispStr.setTagArg("b", 4, "black");
-
-        //std::string drawing= "p=" + std::to_string(center.getX()) + "," + std::to_string(center.getY()) + ";r=" + std::to_string(radius);
-        //vimHost->getDisplayString().parse(drawing.c_str());
-
+        cDisplayString& dispStr = getParentModule()->getParentModule()->getDisplayString();
+        dispStr.setTagArg("b", 0, 50);
+        dispStr.setTagArg("b", 1, 50);
+        dispStr.setTagArg("b", 2, "rect");
+        dispStr.setTagArg("b", 3, color.c_str());
+        dispStr.setTagArg("b", 4, "black");
     }
 
 
@@ -129,13 +120,13 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
     scheduleAt(simTime()+0.1, print);
 
     // set tcp socket VIM <--> Broker
-    SubscriberBase::handleStartOperation(operation);
+//    SubscriberBase::handleStartOperation(operation);
 
 }
 
 void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessage *msg)
 {
-    EV << "VirtualisationInfrastructureManagerDyn::handleMessage - message received!" << endl;
+    EV << "VirtualisationInfrastructureManagerDyn::handleMessage - message received! " << msg->getName() << endl;
     if (msg->isSelfMessage() && strcmp(msg->getName(), "print") == 0)
     {
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - self message received!" << endl;
@@ -148,55 +139,64 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - bestHost " << findBestHostDyn(1000,1000,1000) << endl;
         unregisterHost(addedHostId);
         delete msg;
-    }else{
+    }
+    else if(!msg->isSelfMessage() &&  socket.belongsToSocket(msg)){
+        EV << "VirtualisationInfrastructureManagerDyn::handleMessage - other message received!" << endl;
+
+           // TODO remove after the implementation of the publisher
+        if (!strcmp(msg->getName(), "Register")){
+            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: Register" << endl;
+
+            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+            if (pPacket == 0)
+               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
+
+            auto data = pPacket->peekData<RegistrationPacket>();
+            //        inet::PacketPrinter printer;
+            //        printer.printPacket(std::cout, pPacket);
+
+            registerHost(data->getRam(),data->getDisk(),data->getCpu(),data->getAddress());
+
+            getParentModule()->bubble("Host Registrato");
+            delete msg;
+        }else if (!strcmp(msg->getName(), "InstantiationResponse")){
+            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: InstantiationResponse" << endl;
+
+            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+            if (pPacket == 0)
+               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
+
+            auto data = pPacket->peekData<InstantiationResponse>();
+//            inet::PacketPrinter printer;
+//            printer.printPacket(std::cout, pPacket);
+
+            int ueAppID = data->getUeAppID();
+            int port = data->getAllocatedPort();
+
+            auto it = waitingInstantiationRequests.find(std::to_string(ueAppID));
+            if(it == waitingInstantiationRequests.end()){
+                throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - InstantiationResponse - cannot find registered app");
+            }
+
+            MecAppEntryDyn entry = it->second;
+            entry.endpoint.port = port;
+            handledApp[std::to_string(ueAppID)] = entry;
+            waitingInstantiationRequests.erase(it);
+
+//            printRequests();
+//            printHandledApp();
+            delete msg;
+        }else if (!strcmp(msg->getName(), "TerminationResponse")){
+            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: TerminationResponse" << endl;
+
+            delete msg;
+        }
+    }
+    else{
+        EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TCP message received!" << endl;
         SubscriberBase::handleMessageWhenUp(msg);
     }
-//        EV << "VirtualisationInfrastructureManagerDyn::handleMessage - other message received!" << endl;
-//
-//        if (!strcmp(msg->getName(), "Register")){
-//            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: Register" << endl;
-//
-//            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
-//            if (pPacket == 0)
-//               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
-//
-//            auto data = pPacket->peekData<RegistrationPacket>();
-//            //        inet::PacketPrinter printer;
-//            //        printer.printPacket(std::cout, pPacket);
-//
-//            registerHost(data->getRam(),data->getDisk(),data->getCpu(),data->getAddress());
-//
-//            getParentModule()->bubble("Host Registrato");
-//        }
-//        if (!strcmp(msg->getName(), "InstantiationResponse")){
-//            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: InstantiationResponse" << endl;
-//
-//            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
-//            if (pPacket == 0)
-//               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
-//
-//            auto data = pPacket->peekData<InstantiationResponse>();
-////            inet::PacketPrinter printer;
-////            printer.printPacket(std::cout, pPacket);
-//
-//            int ueAppID = data->getUeAppID();
-//            int port = data->getAllocatedPort();
-//
-//            auto it = waitingInstantiationRequests.find(std::to_string(ueAppID));
-//            if(it == waitingInstantiationRequests.end()){
-//                throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - InstantiationResponse - cannot find registered app");
-//            }
-//
-//            MecAppEntryDyn entry = it->second;
-//            entry.endpoint.port = port;
-//            handledApp[std::to_string(ueAppID)] = entry;
-//            waitingInstantiationRequests.erase(it);
-//
-////            printRequests();
-////            printHandledApp();
-//        }
-//    }
-//
+
 //    delete msg;
 }
 
@@ -409,9 +409,35 @@ bool VirtualisationInfrastructureManagerDyn::instantiateEmulatedMEApp(CreateAppM
     return true;
 }
 
-bool VirtualisationInfrastructureManagerDyn::terminateMEApp(DeleteAppMessage*)
+bool VirtualisationInfrastructureManagerDyn::terminateMEApp(DeleteAppMessage* msg)
 {
     EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp" << endl;
+
+    Enter_Method_Silent();
+
+
+    inet::Packet* packet = new inet::Packet("Termination");
+    auto terminationpck = inet::makeShared<DeleteAppMessage>();
+
+    int ueAppID = msg->getUeAppID();
+    EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp - looking for " << ueAppID << " ID" << endl;
+    auto it = handledApp.find(std::to_string(ueAppID));
+    if(it == handledApp.end()){
+        EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp - App not found" << endl;
+        return false;
+    }
+
+    MecAppEntryDyn instantiatedApp = it->second;
+    inet::L3Address address = instantiatedApp.endpoint.addr;
+    int port = 2222;
+
+    terminationpck->setUeAppID(ueAppID);
+    terminationpck->setChunkLength(inet::B(2000));
+    packet->insertAtBack(terminationpck);
+
+    EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp - sending to " << address << ":" << port <<endl;
+
+    socket.sendTo(packet, address, port);
 
     return true;
 }

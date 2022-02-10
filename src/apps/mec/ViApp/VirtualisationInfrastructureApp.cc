@@ -142,9 +142,29 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
 
             }
 
-            cMessage* message = new cMessage("Terminazione");
-            scheduleAt(simTime()+0.2, message);
+//            cMessage* message = new cMessage("Terminazione");
+//            scheduleAt(simTime()+0.2, message);
 
+        }
+        else if (!strcmp(msg->getName(), "Termination")){
+            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+            if (pPacket == 0)
+                throw cRuntimeError("VirtualisationInfrastructureApp::handleMessage - FATAL! Error when casting to inet packet");
+
+            auto data = pPacket->peekData<DeleteAppMessage>();
+
+            bool res = handleTermination(const_cast<DeleteAppMessage*>(data.get()));
+
+            inet::L3Address vimAddress = pPacket->getTag<inet::L3AddressInd>()->getSrcAddress();
+            int vimPort = pPacket->getTag<inet::L4PortInd>()->getSrcPort();
+            inet::Packet* packet = new inet::Packet("TerminationResponse");
+            auto responsepck = inet::makeShared<TerminationResponse>();
+            responsepck->setResponse(res);
+            responsepck->setChunkLength(inet::B(100));
+            packet->insertAtBack(responsepck);
+            socket.sendTo(packet, vimAddress, vimPort);
+
+            EV << "VirtualisationInfrastructureApp::handleMessage - sending back to " << vimAddress << ":" << vimPort << endl;
         }
     }
 
@@ -197,10 +217,36 @@ bool VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data
     module->scheduleStart(simTime());
     module->callInitialize();
 
-    runningApp[data->getUeAppID()] = *data;
+    RunningAppEntry* entry = new RunningAppEntry();
+    entry->module = module;
+    entry->ueAppID = data->getUeAppID();
+    entry->moduleName = data->getMEModuleName();
+    entry->moduleType = data->getMEModuleType();
+    entry->requiredService = data->getRequiredService();
+    entry->resources.cpu = data->getRequiredCpu();
+    entry->resources.ram = data->getRequiredRam();
+    entry->resources.disk = data->getRequiredDisk();
+    runningApp[data->getUeAppID()] = *entry;
     allocatedCpu += cpu;
     allocatedRam += ram;
     allocatedDisk += disk;
+
+    return true;
+}
+
+bool VirtualisationInfrastructureApp::handleTermination(DeleteAppMessage* data)
+{
+    EV << "VirtualisationInfrastructureApp::handleTermination - " << data << endl;
+
+    auto it = runningApp.find(data->getUeAppID());
+    if(it == runningApp.end())
+        return false;
+
+    RunningAppEntry entry = it->second;
+    cModule* module = entry.module;
+    std::cout << module << endl;
+//        module->callFinish();
+    module->deleteModule();
 
     return true;
 }
@@ -217,12 +263,12 @@ double VirtualisationInfrastructureApp::calculateProcessingTime(int ueAppID, int
         double time;
         if(scheduling == FAIR_SHARING)
         {
-            double currentSpeed = ueApp->second.getRequiredCpu() *(maxCpu/allocatedCpu);
+            double currentSpeed = ueApp->second.resources.cpu *(maxCpu/allocatedCpu);
             time = numOfInstructions/currentSpeed;
         }
         else
         {
-            double currentSpeed = ueApp->second.getRequiredCpu();
+            double currentSpeed = ueApp->second.resources.cpu;
             time = numOfInstructions/currentSpeed;
         }
         EV << "VirtualisationInfrastructureApp::calculateProcessingTime - calculated time: " << time << endl;

@@ -303,7 +303,7 @@ void HttpBrokerApp::sendNotification()
     std::string webhookHost = s.clientAddress.str() + ":" + std::to_string(s.clientPort);
 
     nlohmann::json jsonObj = nlohmann::json::object();
-    jsonObj[std::to_string(c->clientId)]["address"] = c->ipAddress.str();
+    jsonObj[std::to_string(c->clientId)]["ipAddress"] = c->ipAddress.str();
     jsonObj[std::to_string(c->clientId)]["viPort"] = c->viPort;
     jsonObj[std::to_string(c->clientId)]["ram"] = c->resources.ram;
     jsonObj[std::to_string(c->clientId)]["disk"] = c->resources.disk;
