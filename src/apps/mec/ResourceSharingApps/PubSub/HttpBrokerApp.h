@@ -46,6 +46,11 @@
 
 
 using namespace omnetpp;
+/*
+ * Authors
+ * Alessandro Calvio
+ * Angelo Feraudo
+ */
 
 /*
  * HTTP Publish-Subscribe Server
@@ -66,7 +71,7 @@ struct ClientResourceEntry
     ResourceDescriptor resources;
     std::string reward;
     // TODO add zone coordinates
-    bool allocated;
+    mutable int vimId = -1;
     bool operator < (const ClientResourceEntry &other) const {return clientId < other.clientId;}
 };
 
@@ -83,10 +88,13 @@ struct SubscriberEntry
     bool operator < (const SubscriberEntry &other) const {return clientId < other.clientId;}
 };
 
+enum Notification {NEW, RELEASE};
+
 class HttpBrokerApp : public inet::ApplicationBase, public inet::TcpSocket::ICallback
 {
 
   int localPort;
+
 
   inet::TcpSocket *serverSocket; // Listen incoming connections
   inet::SocketMap socketMap; //Stores the connections
@@ -97,12 +105,19 @@ class HttpBrokerApp : public inet::ApplicationBase, public inet::TcpSocket::ICal
 
   // Set with client resource info
   // value = ClientResourceEntry;
-  typedef std::set<ClientResourceEntry *> Resources;
+
+  // std::vector<ClientResourceEntry> resourceNewQueue; - not needed single thread
+  int currentResourceNewId;
+  int currentResourceReleaseId; // ok because monothread
+
+  typedef std::map<int, ClientResourceEntry> Resources;
   Resources totalResources;
+
+
 
   // List of subscribers
   // value = SubscriberEntry
-  typedef std::set<SubscriberEntry> SubscriberSet;
+  typedef std::map<int, SubscriberEntry> SubscriberSet;
   SubscriberSet subscribers;
 
   // Map used to get the socket id from clientId
@@ -131,26 +146,34 @@ class HttpBrokerApp : public inet::ApplicationBase, public inet::TcpSocket::ICal
     // internal: TcpSocket::ICallback methods
     virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool urgent) override;
     virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override;
-    virtual void socketEstablished(inet::TcpSocket *socket) override {EV << "HttpBrokerApp::Connected!"<<endl;}
-    virtual void socketPeerClosed(inet::TcpSocket *socket) override {}
-    virtual void socketClosed(inet::TcpSocket *socket) override {}
-    virtual void socketFailure(inet::TcpSocket *socket, int code) override { }
+    virtual void socketEstablished(inet::TcpSocket *socket) override {EV << "HttpBrokerApp::Connected - with " << socket->getRemoteAddress().str() <<endl;}
+    virtual void socketPeerClosed(inet::TcpSocket *socket) override;
+    virtual void socketClosed(inet::TcpSocket *socket) override;
+    virtual void socketFailure(inet::TcpSocket *socket, int code) override;
     virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
     virtual void socketDeleted(inet::TcpSocket *socket) override {}
 
     //HttpMethods API
     virtual void handlePOSTRequest(const HttpRequestMessage *currentRequestMessageServed);
     virtual void handlePUTRequest(const HttpRequestMessage *currentRequestMessageServed) { }//Http::send404Response(sock, "PUT not supported"); };
-    virtual void handleDELETERequest(const HttpRequestMessage *currentRequestMessageServed) {EV << "Not implemented yet" << endl;}
+    virtual void handleDELETERequest(const HttpRequestMessage *currentRequestMessageServed);
     virtual void handleRequest(const HttpRequestMessage *currentRequestMessageServed);
 
-    // Add resources to the map of available resources
-    virtual void publish(ClientResourceEntry *c);
 
     /*
-     * send notification based on subscribers position
+     * this method Calls the most appropriate method based on the notification type
      */
-    virtual void sendNotification();
+    virtual void sendNotification(Notification type);
+
+    /*
+     * send notification about new resources based on subscribers position
+     */
+    virtual void notifyNewResources();
+
+    /*
+     * send notification about resources release
+     */
+    virtual void notifyResourceRelease();
 
     /*
      * Send response after first subscription
@@ -158,15 +181,24 @@ class HttpBrokerApp : public inet::ApplicationBase, public inet::TcpSocket::ICal
     virtual void sendResponse(inet::TcpSocket *sock, SubscriberEntry *s);
 
     virtual void printSubscribers();
+    virtual void printAvailableResources();
 
     // compute resources to send to a particular subscriber based on its position
     // This method is called when a new subscriber is added
-    virtual nlohmann::json filterInitialResourcesToSend(inet::Coord, double radius);
+    virtual nlohmann::json filterInitialResourcesToSend(int vimId, inet::Coord, double radius);
 
     /*
      * This method compute the subscribers that need to be notified
      */
     virtual SubscriberEntry filterSubscribers(ClientResourceEntry *c);
+
+
+    /*
+     * Unregister a subscriber
+     * true - found
+     * false - not found (so publisher)
+     */
+    virtual bool unregisterSubscriber(int sockId, int subId = -1);
 
   public:
     HttpBrokerApp();

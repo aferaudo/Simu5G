@@ -27,18 +27,15 @@ simple ResourceRegisterApp like IApp
         @display("i=block/app");
         string localAddress = default("");
         int localPort = default(3000);
-        // string brokerAddress = default("127.0.0.1");
+        int localBrokerPort = default(3333);
+        
+        int brokerPort = default(3005);
+        string brokerAddress = default("127.0.0.1");
         
         string  serverThreadClass = default("simu5g.apps.mec.ResourceSharingApps.Server.ResourceRegisterThread");
-        
-        // Client App port
-        int destPort = default(3001); // Maybe this is not needed
-                
+                        
         double startTime @unit(s) = default(1s);
         
-        
-
-		
 		// Reward system
 		string rewardSystem = default("");
 	

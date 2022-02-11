@@ -79,7 +79,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     inet::L3Address destAddress;
     inet::L3Address localAddress;
 
-    std::map<std::string, HostDescriptor> handledHosts; // Resource Handling
+    std::map<int, HostDescriptor> handledHosts; // Resource Handling
     std::map<std::string, MecAppEntryDyn> handledApp; // App Handling
     std::map<std::string, MecAppEntryDyn> waitingInstantiationRequests; // vim waits for response from cars on which have requested instantiation
 
@@ -131,12 +131,12 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         /*
          * Add a new Host to those managed by VIM
          */
-        std::string registerHost(double ram, double disk, double cpu, inet::L3Address ip_addr);
+        int registerHost(int host_id, double ram, double disk, double cpu, inet::L3Address ip_addr, int viPort);
 
         /*
          * Remove managed host
          */
-        void unregisterHost(std::string host_id);
+        void unregisterHost(int host_id);
 
         /*
          * Check if a MecApp is allocable according to available resources among the cars
@@ -177,24 +177,24 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         /*
          * Allocate resources on MecHost and car(?)
          */
-        void allocateResources(double ram, double disk, double cpu, std::string hostId);
+        void allocateResources(double ram, double disk, double cpu, int hostId);
 
         /*
          * Deallocate resources on MecHost and car(?)
          */
-        void deallocateResources(double ram, double disk, double cpu, std::string hostId);
+        void deallocateResources(double ram, double disk, double cpu, int hostId);
 
         /*
          * Find the best managed host on which allocate App according to several metrics
          */
-        std::string findBestHostDyn(double ram, double disk, double cpu);
+        int findBestHostDyn(double ram, double disk, double cpu);
 
         /*
          * Manage HTTP Notification
          * - Response: List of available resources in that zone
          * - Request: Notification of new available resources
          */
-        virtual void manageNotification(int type) override;
+        virtual void manageNotification() override;
 
     private:
 

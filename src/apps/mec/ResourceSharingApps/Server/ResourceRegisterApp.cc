@@ -38,13 +38,15 @@ ResourceRegisterApp::ResourceRegisterApp()
     rewardMap_.insert(std::pair<std::string, int>("reward2", 30));
     rewardMap_.insert(std::pair<std::string, int>("reward3", 15));
 
-    availableResources_.clear(); //operations on this map should be mutually exclusive
+//    availableResources_.clear(); //operations on this map should be mutually exclusive
+    clientRewards_.clear();
 }
 
 ResourceRegisterApp::~ResourceRegisterApp()
 {
 //    socketMap.deleteSockets();
-    availableResources_.clear();
+//    availableResources_.clear();
+    clientRewards_.clear();
     rewardMap_.clear();
     delete serverSocket;
 }
@@ -58,7 +60,9 @@ void ResourceRegisterApp::initialize(int stage)
         EV << "ResourceRegisterApp::initialize" << endl;
         startTime = par("startTime");
         localPort = par("localPort");
-
+        // broker parameters
+        localToBrokerPort = par("localBrokerPort");
+        brokerPort = par("brokerPort");
         // Do we need other parameters?
     }
 //    if(stage != inet::INITSTAGE_APPLICATION_LAYER)
@@ -87,6 +91,9 @@ void ResourceRegisterApp::handleStartOperation(inet::LifecycleOperation *operati
     localIPAddress = inet::L3AddressResolver().resolve(localAddress);
     EV << "ResourceRegisterApp::handleStartOperation - local Address resolved: "<< localIPAddress << endl;
 
+    EV << "ResourceRegisterApp::initialising broker addres" << endl;
+    brokerIpAddress = inet::L3AddressResolver().resolve(par("brokerAddress"));
+
     host_ = baseUri_ + ":" + std::to_string(localPort);
 
     serverSocket = new inet::TcpSocket();
@@ -98,6 +105,8 @@ void ResourceRegisterApp::handleStartOperation(inet::LifecycleOperation *operati
 
     cMessage *msg = new cMessage("listen");
     scheduleAt(simTime()+startTime, msg);
+
+    PublisherBase::handleStartOperation(operation);
 
 }
 
@@ -111,14 +120,27 @@ void ResourceRegisterApp::handleMessageWhenUp(cMessage *msg)
         serverSocket->listen();
         delete msg;
     }
+    else if(msg->isSelfMessage() && strcmp(msg->getName(), "connect") == 0)
+    {
+        delete msg;
+        PublisherBase::connectToBroker();
+    }
     else{
         if(msg->arrivedOn("socketIn"))
         {
             inet::TcpSocket *socket = check_and_cast_nullable<inet::TcpSocket *>(socketMap.findSocketFor(msg));
             if (socket)
+            {
                 socket->processMessage(msg);
+            }
             else if (serverSocket->belongsToSocket(msg))
+            {
                 serverSocket->processMessage(msg);
+            }
+            else
+            {
+                PublisherBase::handleMessageWhenUp(msg);
+            }
         }
         else{
             throw cRuntimeError("Unknown message");
@@ -195,41 +217,74 @@ void ResourceRegisterApp::refreshDisplay() const
     getDisplayString().setTagArg("t", 0, buf);
 }
 
-void ResourceRegisterApp::insertClientResourceEntry(ClientResourceEntry c)
+void ResourceRegisterApp::insertClientEntry(ClientEntry c)
 {
     // For the amount of nodes we manage this may not be needed
     mtx_write.lock();
-    availableResources_.insert(std::pair<int, ClientResourceEntry>(c.clientId, c));
+//    availableResources_.insert(std::pair<int, ClientEntry>(c.clientId, c));
+    clientRewards_.insert(std::pair<int, std::string>(c.clientId, c.reward));
+    nlohmann::json jsonBody = nlohmann::json::object();
+    jsonBody["id"] = c.clientId;
+    jsonBody["ipAddress"] = c.ipAddress.str();
+    jsonBody["ram"] = c.resources.ram;
+    jsonBody["disk"] = c.resources.disk;
+    jsonBody["cpu"] = c.resources.cpu;
+    jsonBody["viPort"] = c.viPort;
+    publish("POST", jsonBody.dump().c_str());
     mtx_write.unlock();
 
-    // Printing available resources updated
-    printAvailableResources();
+    // Printing reward seleceted
+//    printAvailableResources();
+    printSelectedRewards();
 
 }
 
-void ResourceRegisterApp::deleteClientResourceEntry(int clientId)
+void ResourceRegisterApp::deleteClientEntry(int clientId)
 {
     mtx_write.lock();
-    availableResources_.erase(clientId);
+//    availableResources_.erase(clientId);
+    clientRewards_.erase(clientId);
+    publish("DELETE", "{}", clientId);
     mtx_write.unlock();
 
-    // Printing available resources updated
-    printAvailableResources();
+    // Printing rewards selected
+    printSelectedRewards();
 }
 
-void ResourceRegisterApp::printAvailableResources()
+void ResourceRegisterApp::publish(const char* type, const char *body, int id)
 {
-    EV << "ResourceRegisterApp::Available Resources Updated" << endl;
+
+    std::string brokerHost = brokerIpAddress.str() + ":" + std::to_string(brokerPort);
+
+    if(std::strcmp(type, "POST") == 0)
+    {
+        EV << "ResourceregisterApp:: publishing - " << body << endl;
+
+
+        Http::sendPostRequest(&brokerSocket, body, brokerHost.c_str(), publishURI.c_str());
+    }
+    else if(std::strcmp(type, "DELETE") == 0)
+    {
+        if(id == -1)
+        {
+            EV_ERROR << "ResourceRegisterApp::cannot delete published content - id (-1)" << endl;
+            return;
+        }
+
+        EV << "ResourceregisterApp:: publishing - delete " << id << endl;
+        std::string uri = publishURI + std::to_string(id);
+        Http::sendDeleteRequest(&brokerSocket, brokerHost.c_str(), uri.c_str());
+    }
+}
+
+void ResourceRegisterApp::printSelectedRewards()
+{
+    EV << "ResourceRegisterApp::Rewards Selected" << endl;
     EV << "#################################################" << endl;
-    std::map<int, ClientResourceEntry>::iterator it;
-    for(it = availableResources_.begin(); it != availableResources_.end(); it ++){
-        EV << "Client: " << it->first << endl;
-        EV << "IP Address: " << it->second.ipAddress << endl;
-        EV << "Reward: " << it->second.reward << endl;
-        EV << "RAM: " << it->second.resources.ram << endl;
-        EV << "Disk: " << it->second.resources.disk << endl;
-        EV << "CPU: " << it->second.resources.cpu << endl;
-        EV << "-------------------------------------------------" << endl;
+    std::map<int, std::string>::iterator it;
+    for(it = clientRewards_.begin(); it != clientRewards_.end(); ++it)
+    {
+        EV << "Client id: " << std::to_string(it->first) << ", reward selected: " << it->second << endl;
     }
     EV << "#################################################" << endl;
 }

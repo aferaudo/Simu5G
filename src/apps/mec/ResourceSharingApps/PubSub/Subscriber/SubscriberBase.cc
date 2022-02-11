@@ -20,7 +20,7 @@
 
 SubscriberBase::SubscriberBase()
 {
-    subscriptionUri = "/broker/subscribe/";
+    subscribeURI = "/broker/subscribe/";
     webHook = "/newresources/"; // TODO should we load it from a NED File?
     currentHttpMessage = nullptr;
 }
@@ -45,9 +45,11 @@ void SubscriberBase::handleStartOperation(inet::LifecycleOperation *operation)
     center = mod->getCurrentPosition();
 
     // Socket local binding
-    tcpSocket.setOutputGate(gate("socketBrokerOut"));
+    tcpSocket.setOutputGate(gate("socketOut"));
     tcpSocket.bind(localToBrokerPort);
     tcpSocket.setCallback(this);
+
+    appState = SUB;
 
     // drawing a cricle
 //    host->getParentModule()->getDisplayString().setTagArg("p", 0, center.getX());
@@ -64,10 +66,17 @@ void SubscriberBase::handleMessageWhenUp(omnetpp::cMessage *msg)
     {
         EV << "SubscriberBase:: connecting to the broker" << endl;
         connectToBroker();
+        delete msg;
+    }
+    else if (msg->isSelfMessage() && strcmp(msg->getName(), "unsub") == 0)
+    {
+        EV << "SubscriberBase:: received unsub" << endl;
+        unsubscribe();
+        delete msg;
     }
     else
     {
-        if(msg->arrivedOn("socketBrokerIn"))
+        if(msg->arrivedOn("socketIn"))
         {
             if (tcpSocket.belongsToSocket(msg))
                 tcpSocket.processMessage(msg);
@@ -84,14 +93,15 @@ void SubscriberBase::connectToBroker()
 {
     tcpSocket.renewSocket();
     if (brokerIPAddress.isUnspecified()) {
-        EV_ERROR << "Connecting to " << brokerIPAddress << " port=" << brokerPort << ": cannot resolve destination address\n";
+        EV_ERROR << "SubscriberBase::Connecting to " << brokerIPAddress << " port=" << brokerPort << ": cannot resolve destination address\n";
         throw cRuntimeError("Broker address is unspecified!");
     }
     else {
-        EV << "Connecting to " << brokerIPAddress << " port=" << brokerPort << endl;
+        EV << "SubscriberBase::Connecting to " << brokerIPAddress << " port=" << brokerPort << endl;
         tcpSocket.connect(brokerIPAddress, brokerPort);
     }
 }
+
 
 void SubscriberBase::socketEstablished(inet::TcpSocket *socket)
 {
@@ -107,7 +117,7 @@ void SubscriberBase::sendSubscription()
 
     std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
 
-    Http::sendPostRequest(&tcpSocket, jsonBody.dump().c_str(), serverHost.c_str(), subscriptionUri.c_str());
+    Http::sendPostRequest(&tcpSocket, jsonBody.dump().c_str(), serverHost.c_str(), subscribeURI.c_str());
 
 }
 
@@ -141,8 +151,11 @@ void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *pa
 {
     /*
      * Two types of messages:
-     * - Response --> After first subscription
-     * - Request --> notification that something happened
+     * subscription phase
+     *  - Response --> After first subscription
+     *  - Request --> notification that something happened
+     * unsubscription phase
+     *  - Response --> how delete went;
      */
 
     EV << "SubscriberBase:: message received from the broker..." << endl;
@@ -156,13 +169,34 @@ void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *pa
 
     if(res)
     {
-        if(currentHttpMessage->getType() == RESPONSE || currentHttpMessage->getType() == REQUEST)
+        switch(appState)
         {
-            manageNotification(currentHttpMessage->getType());
-        }
-        else
-        {
-            EV << "SubscriberBase::Not recognised message..."<<endl;
+            case SUB:
+            {
+                if(currentHttpMessage->getType() == RESPONSE || currentHttpMessage->getType() == REQUEST)
+                {
+                    manageNotification();
+                }
+                else
+                {
+                    EV << "SubscriberBase::Not recognised message (state = SUB)..."<<endl;
+                }
+                break;
+            }
+            case UNSUB:
+            {
+                if(currentHttpMessage->getType() == RESPONSE)
+                {
+                    HttpResponseMessage *response = dynamic_cast<HttpResponseMessage*> (currentHttpMessage);
+                    EV << "SubscriberBase::Results unsubscription: " << std::to_string(response->getCode()) << endl;
+                }
+                else
+                {
+                    EV << "SubscriberBase::Not Recognised message (state = UNSUB)..." << endl;
+                }
+                EV << "SubscriberBase::Closing socket with the broker after unsubscription.. bye" << endl;
+                tcpSocket.close();
+            }
         }
     }
 
@@ -172,6 +206,32 @@ void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *pa
     }
 
 }
+
+void SubscriberBase::handleCrashOperation(inet::LifecycleOperation *operation)
+{
+    if (operation->getRootModule() != getContainingNode(this))
+        tcpSocket.destroy();
+}
+
+void SubscriberBase::handleStopOperation(inet::LifecycleOperation *operation)
+{
+    if (tcpSocket.getState() == inet::TcpSocket::CONNECTED || tcpSocket.getState() == inet::TcpSocket::CONNECTING || tcpSocket.getState() == inet::TcpSocket::PEER_CLOSED)
+        tcpSocket.close();
+}
+
+void SubscriberBase::unsubscribe()
+{
+    appState = UNSUB;
+    EV << "SubscriberBase::called method unsubscribe - send delete request!" << endl;
+
+    std::string uri = subscribeURI + std::to_string(getId());
+    EV << "SubscriberBase::delete URI" << uri << endl;
+    std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
+
+    Http::sendDeleteRequest(&tcpSocket, serverHost.c_str(), uri.c_str());
+
+}
+
 //
 //void SubscriberBase::refreshDisplay() const
 //{

@@ -38,18 +38,19 @@
 
 using namespace omnetpp;
 
-
+enum SubscriberState {SUB, UNSUB};
 
 class SubscriberBase: public inet::ApplicationBase, public inet::TcpSocket::ICallback
 {
-
-  std::string subscriptionUri;
 
    public:
       SubscriberBase();
       ~SubscriberBase(){};
 
   protected:
+    std::string subscribeURI;
+
+    SubscriberState appState;
 
     cModule* host;
 
@@ -66,33 +67,39 @@ class SubscriberBase: public inet::ApplicationBase, public inet::TcpSocket::ICal
     int brokerPort;
     int localToBrokerPort;
 
-    // other methods
+    // utility methods
     virtual void connectToBroker();
     virtual void sendSubscription();
     virtual nlohmann::json infoToJson();
 
+    /*
+     * This method sends a DELETE request to the broker
+     * with its component id
+     */
+    virtual void unsubscribe();
+
     virtual void initialize(int stage) override;
-    //virtual void handleMessage(cMessage *msg) override;
     virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
 
     virtual void handleMessageWhenUp(omnetpp::cMessage *msg) override;
     virtual void handleStartOperation(inet::LifecycleOperation *operation)override;
-    virtual void handleStopOperation(inet::LifecycleOperation *operation) override {};
-    virtual void handleCrashOperation(inet::LifecycleOperation *operation) override {};
-    virtual void finish() override {};
-    virtual void refreshDisplay() const override {};
+    virtual void handleStopOperation(inet::LifecycleOperation *operation) override;
+    virtual void handleCrashOperation(inet::LifecycleOperation *operation) override;
+//    virtual void finish() override {};
+//    virtual void refreshDisplay() const override {};
 
     // TcpSocketCallback methods
     virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent) override;
     virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override{};
     virtual void socketEstablished(inet::TcpSocket *socket) override;
-    virtual void socketPeerClosed(inet::TcpSocket *socket) override {}
-    virtual void socketClosed(inet::TcpSocket *socket) override {}
+    virtual void socketPeerClosed(inet::TcpSocket *socket) override {tcpSocket.close();}
+    virtual void socketClosed(inet::TcpSocket *socket) override {EV << "SubscriberBase::connection closed" << endl;}
     virtual void socketFailure(inet::TcpSocket *socket, int code) override {}
     virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
     virtual void socketDeleted(inet::TcpSocket *socket) override {}
 
-    virtual void manageNotification(int type) = 0;
+    // Abstract methods
+    virtual void manageNotification() = 0;
 };
 
 #endif

@@ -58,6 +58,7 @@ class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallbac
       inet::L3Address destIPAddress;
       int destPort;
 
+      int viPort;
 
       // App execution time
       simtime_t startTime;
@@ -94,8 +95,8 @@ class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallbac
       virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent) override;
       virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override{EV << "ClientResourceApp::SocketAvailable" << endl;};
       virtual void socketEstablished(inet::TcpSocket *socket) override;
-      virtual void socketPeerClosed(inet::TcpSocket *socket) override {}
-      virtual void socketClosed(inet::TcpSocket *socket) override {close();}
+      virtual void socketPeerClosed(inet::TcpSocket *socket) override {close();}
+      virtual void socketClosed(inet::TcpSocket *socket) override {EV << "ClientResourceApp::connection closed" << endl;}
       virtual void socketFailure(inet::TcpSocket *socket, int code) override {}
       virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
       virtual void socketDeleted(inet::TcpSocket *socket) override {}

@@ -19,16 +19,12 @@
 #include <omnetpp.h>
 #include <mutex>
 
-// Utils HTTP
-#include "nodes/mec/utils/httpUtils/httpUtils.h"
-#include "nodes/mec/MECPlatform/MECServices/packets/HttpRequestMessage/HttpRequestMessage.h"
-
 // Inet
 #include "inet/common/socket/SocketMap.h"
-#include "inet/applications/base/ApplicationBase.h"
-#include "inet/transportlayer/contract/tcp/TcpSocket.h"
 #include "inet/networklayer/common/L3Address.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
+
+#include "apps/mec/ResourceSharingApps/PubSub/Publisher/PublisherBase.h"
 
 // ResourceDescriptor struct
 #include "nodes/mec/utils/MecCommon.h"
@@ -41,17 +37,21 @@ using namespace omnetpp;
  * @author Angelo Feraudo
  */
 
-struct ClientResourceEntry
+struct ClientEntry
 {
+    // TODO
+    // This structure will be used to dynamically change
+    // the kind of reward available
     int clientId;
     inet::L3Address ipAddress;
     ResourceDescriptor resources;
     std::string reward;
+    int viPort;
 };
 
 class ResourceRegisterThread;
 
-class ResourceRegisterApp : public inet::ApplicationBase, public inet::TcpSocket::ICallback
+class ResourceRegisterApp : public PublisherBase
 {
     // Name of reward: reward
     // for now rewards are represented by integer
@@ -60,8 +60,13 @@ class ResourceRegisterApp : public inet::ApplicationBase, public inet::TcpSocket
 
     // Map with client resource info
     // key = client id
-    // value = ClientResourceEntry;
-    std::map <int, ClientResourceEntry> availableResources_;
+    // value = ClientEntry;
+//    std::map <int, ClientEntry> availableResources_;
+
+    /*
+     * Map containing the clientid and its selected reward
+     */
+    std::map <int, std::string> clientRewards_;
 
     std::string baseUri_;
     std::string host_;
@@ -74,13 +79,14 @@ class ResourceRegisterApp : public inet::ApplicationBase, public inet::TcpSocket
         virtual ~ResourceRegisterApp();
 
         //set
-        virtual void insertClientResourceEntry(ClientResourceEntry c);
-        virtual void deleteClientResourceEntry(int clientId);
+        virtual void insertClientEntry(ClientEntry c);
+        virtual void deleteClientEntry(int clientId);
 
         // get
         virtual std::string getBaseUri(){return baseUri_;}
         virtual std::map<std::string, int> getRewardMap() {return rewardMap_;}
-        virtual std::map<int, ClientResourceEntry> getAvailableResources() {return availableResources_;}
+//        virtual std::map<int, ClientEntry> getAvailableResources() {return availableResources_;}
+        virtual std::map<int, std::string> getClientRewards() {return clientRewards_;}
 
         // other methods
         virtual void removeThread(ResourceRegisterThread *thread);
@@ -106,7 +112,7 @@ class ResourceRegisterApp : public inet::ApplicationBase, public inet::TcpSocket
 
         // Other methods
         virtual void initRewardSystem(){EV << "To implement" << endl;};
-        virtual void printAvailableResources();
+        virtual void printSelectedRewards();
 
         // ApplicationBase Methods (AppliacationBase extends cSimpleModule and ILyfecycle (used to support application lyfecycle))
         virtual void handleMessageWhenUp(omnetpp::cMessage *msg) override;
@@ -118,15 +124,17 @@ class ResourceRegisterApp : public inet::ApplicationBase, public inet::TcpSocket
 
 
         // Callback methods
-        virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent) override {throw omnetpp::cRuntimeError("ResourceRegisterApp::Unexpected data"); };
+        //virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent) override {throw omnetpp::cRuntimeError("ResourceRegisterApp::Unexpected data"); };
         virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override;
         virtual void socketEstablished(inet::TcpSocket *socket) override {EV << "ResourceRegisterApp::Connection established" << endl;}
         virtual void socketPeerClosed(inet::TcpSocket *socket) override {}
         virtual void socketClosed(inet::TcpSocket *socket) override {EV << "ResourceRegisterApp::SocketClosed callback - not managed" << endl;}
         virtual void socketFailure(inet::TcpSocket *socket, int code) override {}
         virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
-        virtual void socketDeleted(inet::TcpSocket *socket) override {}
+        virtual void socketDeleted(inet::TcpSocket *socket) override {EV << "ResourceRegisterApp::Socket " << std::to_string(socket->getSocketId()) << " deleted!" << endl;}
 
+        // Abstract methods
+        virtual void publish(const char* type, const char *body, int id=-1) override;
 };
 
 #endif

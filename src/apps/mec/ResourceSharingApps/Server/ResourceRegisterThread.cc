@@ -118,7 +118,7 @@ void ResourceRegisterThread::handleRequest(const HttpRequestMessage *currentRequ
 void ResourceRegisterThread::handleGETRequest(const HttpRequestMessage *currentRequestMessageServed){
     std::string uri = currentRequestMessageServed->getUri();
 
-    if(uri.compare(server->getBaseUri() + "rewardList") == 0)
+    if(uri.compare(server->getBaseUri() + "rewardList/") == 0)
     {
         EV << "ResourceRegisterThread::handleGETRequest - reward requested" << endl;
         std::map<std::string, int> rewards = server->getRewardMap();
@@ -148,13 +148,13 @@ void ResourceRegisterThread::handleGETRequest(const HttpRequestMessage *currentR
 void ResourceRegisterThread::handlePOSTRequest(const HttpRequestMessage *currentRequestMessageServed){
     std::string uri = currentRequestMessageServed->getUri();
 
-    if(uri.compare(server->getBaseUri() + "availableResources") == 0)
+    if(uri.compare(server->getBaseUri() + "availableResources/") == 0)
     {
 
         nlohmann::json jsonBody = nlohmann::json::parse(currentRequestMessageServed->getBody());
         EV << "ResourceRegisterThread::post-request: " << jsonBody << endl;
 
-        ClientResourceEntry entry;
+        ClientEntry entry;
         entry.clientId = jsonBody["deviceInfo"]["deviceId"];
 
 
@@ -168,10 +168,11 @@ void ResourceRegisterThread::handlePOSTRequest(const HttpRequestMessage *current
         entry.resources.ram = jsonBody["deviceInfo"]["resourceInfo"]["maxRam"];
         entry.resources.disk = jsonBody["deviceInfo"]["resourceInfo"]["maxDisk"];
         entry.resources.cpu = jsonBody["deviceInfo"]["resourceInfo"]["maxCPU"];
+        entry.viPort = jsonBody["deviceInfo"]["viPort"];
 
         EV << "ResourceRegisterThread::post-request - saving resources" << endl;
 
-        server->insertClientResourceEntry(entry);
+        server->insertClientEntry(entry);
 //
         std::pair<std::string, std::string> locHeader("Location: ", uri);
         // Should we add other parameter (e.g. VIM address)
@@ -205,21 +206,21 @@ void ResourceRegisterThread::handleDELETERequest(const HttpRequestMessage *curre
     {
         uri.erase(0, uri.find(delimeter) + delimeter.length()+1);
         int clientId = std::atoi(uri.c_str());
-        if(server->getAvailableResources().count(clientId) == 1)
+        if(server->getClientRewards().find(clientId) != server->getClientRewards().end())
         {
             // client resources exist we can remove them
-            server->deleteClientResourceEntry(clientId);
-            Http::send200Response(sock, "{DONE}");
+            server->deleteClientEntry(clientId);
+            Http::send204Response(sock);
         }
         else
         {
-            // No content
-            Http::send204Response(sock);
+            // Not found
+            Http::send404Response(sock);
         }
     }
     else
     {
         // BAD URI
-        Http::send404Response(sock);
+        Http::send400Response(sock);
     }
 }

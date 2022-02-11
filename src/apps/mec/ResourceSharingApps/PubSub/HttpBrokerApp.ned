@@ -22,6 +22,7 @@ import inet.applications.contract.IApp;
 simple HttpBrokerApp like IApp
 {
     parameters:
+        @display("i=block/app");
         string localAddress = default("");
         int localPort = default(3005);
         

@@ -53,11 +53,12 @@ void ClientResourceApp::initialize(int stage)
     }
 
     localPort = par("localPort");
+    viPort = par("viPort");
     
     minReward = par("minReward");
     host = getParentModule();
 
-    appState = INIT;
+
 
     // Available resources
     localResources.ram = host->par("localRam").doubleValue();
@@ -129,9 +130,9 @@ void ClientResourceApp::handleResponse(HttpResponseMessage* response)
                 // Car is going to park now, so socket can be closed and reopened when the car leaves the park
                 close();
 
+
                 simtime_t now = simTime(); // Time in which a car starts its parking period
                 // Scheduling exit from park
-                appState = RELEASING;
                 cMessage *msg = new cMessage("parkLeaving");
                 scheduleAt(simTime()+parkTime, msg);
             }
@@ -140,16 +141,17 @@ void ClientResourceApp::handleResponse(HttpResponseMessage* response)
                 EV << "ClientResourceApp::handleResponse - response code not recognised " << endl;
                 close();
             }
+            break;
         }
         case RELEASING:
         {
 
-            if(code == 200)
+            if(code == 200 || code == 204)
             {
                 EV << "ClientResourceApp::handleResponse - resource release status: SUCCESS" << endl;
                 // TODO should we do something else?
             }
-            else if (code == 204)
+            else
             {
                 EV << "ClientResourceApp::handleResponse - resource release status: FAILED - client not found" << endl;
                 // TODO should we do something else?
@@ -157,6 +159,8 @@ void ClientResourceApp::handleResponse(HttpResponseMessage* response)
             // Here socket should be closed;
             EV << "ClientResourceApp::handleResponse - closing socket..bye" << endl;
             close();
+
+            break;
         }
     }
 
@@ -164,12 +168,20 @@ void ClientResourceApp::handleResponse(HttpResponseMessage* response)
 
 void ClientResourceApp::handleSelfMessage(cMessage *msg){
     
-    if(strcmp(msg->getName(), "connect") == 0 || strcmp(msg->getName(), "parkLeaving") == 0)
+    if(strcmp(msg->getName(), "connect") == 0)
     {
+        appState = INIT;
         EV << "ClientResourceApp::connecting, state: " << appState << "..." << endl;
-        connectToSRR();
+
         //delete msg;
     }
+    else if (strcmp(msg->getName(), "parkLeaving") == 0)
+    {
+        appState = RELEASING;
+        EV << "ClientResourceApp::connecting, state: " << appState << "..." << endl;
+    }
+
+    connectToSRR();
 
 //    else if (strcmp(msg->getName(), "resend") == 0)
 //    {
@@ -199,7 +211,7 @@ void ClientResourceApp::connectToSRR()
 void ClientResourceApp::sendRewardRequest(){
     EV << "ClientResourceApp::Sending Reward request" << endl;
 
-    std::string uri("/resourceRegisterApp/v1/rewardList");
+    std::string uri("/resourceRegisterApp/v1/rewardList/");
 
     std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
     std::string params = ""; //no params needed
@@ -222,7 +234,7 @@ void ClientResourceApp::sendRegisterRequest()
 {
     EV << "ClientResourceApp::Sending Register request" << endl;
 
-    std::string uri("/resourceRegisterApp/v1/availableResources");
+    std::string uri("/resourceRegisterApp/v1/availableResources/");
 
     std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
 
@@ -235,6 +247,7 @@ void ClientResourceApp::sendRegisterRequest()
         jsonBody["deviceInfo"]["resourceInfo"]["maxRam"] = localResources.ram;
         jsonBody["deviceInfo"]["resourceInfo"]["maxDisk"] = localResources.disk;
         jsonBody["deviceInfo"]["resourceInfo"]["maxCPU"] = localResources.cpu;
+        jsonBody["deviceInfo"]["viPort"] = viPort;
 
         Http::sendPostRequest(&tcpSocket, jsonBody.dump().c_str(), serverHost.c_str(), uri.c_str());
     }

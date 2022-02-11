@@ -66,8 +66,8 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
             descriptor->address = inet::L3Address("127.0.0.1");
             descriptor->viPort = 2222;
 
-            // TODO Quale chiave inserire? l'indirizzo IP dell'host?
-            std::string key = "LOCAL_ID";
+            // using unique componentId - omnet++ feature
+            int key = getId();
             handledHosts[key] = *descriptor;
         }
         else
@@ -107,20 +107,16 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
     // Broker settings
     brokerIPAddress = inet::L3AddressResolver().resolve(par("brokerAddress").stringValue());
 
-    // Adding new gates and connect
-    // TODO can we use the same socketIn/out gate, instead of creating new ones?
-    cModule *at = host->getSubmodule("at");
-    cGate* newAtInGate = at->getOrCreateFirstUnconnectedGate("in", 0, false, true);
-    cGate* newAtOutGate = at->getOrCreateFirstUnconnectedGate("out", 0, false, true);
-    gate("socketBrokerOut")->connectTo(newAtInGate);
-    newAtOutGate->connectTo(gate("socketBrokerIn"));
-
     // Print message
     cMessage *print = new cMessage("print");
     scheduleAt(simTime()+0.1, print);
 
+    // unsub message - TEST
+    cMessage *unsub = new cMessage("unsub");
+    scheduleAt(simTime()+2, unsub);
+
     // set tcp socket VIM <--> Broker
-//    SubscriberBase::handleStartOperation(operation);
+    SubscriberBase::handleStartOperation(operation);
 
 }
 
@@ -131,11 +127,11 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
     {
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - self message received!" << endl;
         printResources();
-        allocateResources(1000,1000,1000, "LOCAL_ID");
+        allocateResources(1000,1000,1000, getId());
         printResources();
-        deallocateResources(1000,1000,1000, "LOCAL_ID");
+        deallocateResources(1000,1000,1000, getId());
         printResources();
-        std::string addedHostId = registerHost(2222,2222,2222,inet::L3Address("192.168.10.10"));
+        int addedHostId = registerHost(5555,2222,2222,2222,inet::L3Address("192.168.10.10"), 7890);
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - bestHost " << findBestHostDyn(1000,1000,1000) << endl;
         unregisterHost(addedHostId);
         delete msg;
@@ -144,22 +140,22 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - other message received!" << endl;
 
            // TODO remove after the implementation of the publisher
-        if (!strcmp(msg->getName(), "Register")){
-            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: Register" << endl;
-
-            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
-            if (pPacket == 0)
-               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
-
-            auto data = pPacket->peekData<RegistrationPacket>();
-            //        inet::PacketPrinter printer;
-            //        printer.printPacket(std::cout, pPacket);
-
-            registerHost(data->getRam(),data->getDisk(),data->getCpu(),data->getAddress());
-
-            getParentModule()->bubble("Host Registrato");
-            delete msg;
-        }else if (!strcmp(msg->getName(), "InstantiationResponse")){
+//        if (!strcmp(msg->getName(), "Register")){
+//            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: Register" << endl;
+//
+//            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+//            if (pPacket == 0)
+//               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
+//
+//            auto data = pPacket->peekData<RegistrationPacket>();
+//            //        inet::PacketPrinter printer;
+//            //        printer.printPacket(std::cout, pPacket);
+//
+//            registerHost(data->getRam(),data->getDisk(),data->getCpu(),data->getAddress());
+//
+//            getParentModule()->bubble("Host Registrato");
+//            delete msg;
+        if (!strcmp(msg->getName(), "InstantiationResponse")){
             EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: InstantiationResponse" << endl;
 
             inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
@@ -200,20 +196,15 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
 //    delete msg;
 }
 
-std::string VirtualisationInfrastructureManagerDyn::registerHost(double ram, double disk, double cpu, inet::L3Address ip_addr)
+int VirtualisationInfrastructureManagerDyn::registerHost(int host_id, double ram, double disk, double cpu, inet::L3Address ip_addr, int viPort)
 {
     // TODO add viPort
     EV << "VirtualisationInfrastructureManagerDyn::registerHost" << endl;
 
-    hostCounter += 1;
-    std::stringstream ss;
-    ss << hostCounter << "_" << ip_addr;
-    std::string host_id = ss.str();
-
     auto it = handledHosts.find(host_id);
     if(it != handledHosts.end()){
         EV << "VirtualisationInfrastructureManagerDyn::registerHost - Host already exists!" << endl;
-        return "";
+        return -1;
     }
 
     HostDescriptor* descriptor = new HostDescriptor();
@@ -231,7 +222,7 @@ std::string VirtualisationInfrastructureManagerDyn::registerHost(double ram, dou
     descriptor->usedAmount = *usedResources;
     descriptor->numRunningApp = 0;
     descriptor->address = ip_addr;
-    descriptor->viPort = 2222;
+    descriptor->viPort = viPort;
 
     handledHosts[host_id] = *descriptor;
 
@@ -254,12 +245,13 @@ std::string VirtualisationInfrastructureManagerDyn::registerHost(double ram, dou
     return host_id;
 }
 
-void VirtualisationInfrastructureManagerDyn::unregisterHost(std::string host_id)
+void VirtualisationInfrastructureManagerDyn::unregisterHost(int host_id)
 {
     EV << "VirtualisationInfrastructureManagerDyn::unregisterHost" << endl;
     auto it = handledHosts.find(host_id);
     if(it == handledHosts.end()){
-        EV << "VirtualisationInfrastructureManagerDyn::unregisterHost - Host doesn't exists!" << endl;
+        EV_ERROR << "VirtualisationInfrastructureManagerDyn::unregisterHost - Host doesn't exists!" << endl;
+        return;
     }
 
     printResources();
@@ -289,7 +281,7 @@ bool VirtualisationInfrastructureManagerDyn::isAllocable(double ram, double disk
     return available;
 }
 
-void VirtualisationInfrastructureManagerDyn::allocateResources(double ram, double disk, double cpu, std::string hostId)
+void VirtualisationInfrastructureManagerDyn::allocateResources(double ram, double disk, double cpu, int hostId)
 {
     auto it = handledHosts.find(hostId);
     if(it == handledHosts.end()){
@@ -304,7 +296,7 @@ void VirtualisationInfrastructureManagerDyn::allocateResources(double ram, doubl
     host->usedAmount.cpu += cpu;
 }
 
-void VirtualisationInfrastructureManagerDyn::deallocateResources(double ram, double disk, double cpu, std::string hostId)
+void VirtualisationInfrastructureManagerDyn::deallocateResources(double ram, double disk, double cpu, int hostId)
 {
     auto it = handledHosts.find(hostId);
     if(it == handledHosts.end()){
@@ -319,15 +311,15 @@ void VirtualisationInfrastructureManagerDyn::deallocateResources(double ram, dou
     host->usedAmount.cpu -= cpu;
 }
 
-std::string VirtualisationInfrastructureManagerDyn::findBestHostDyn(double ram, double disk, double cpu)
+int VirtualisationInfrastructureManagerDyn::findBestHostDyn(double ram, double disk, double cpu)
 {
     EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn - Start" << endl;
 
     for(auto it = handledHosts.begin(); it != handledHosts.end(); ++it){
-        std::string key = it->first;
+        int key = it->first;
         HostDescriptor descriptor = (it->second);
 
-        if (!strcmp(it->first.c_str(), "LOCAL_ID")){
+        if (it->first == getId()){
             continue;
         }
 
@@ -342,7 +334,7 @@ std::string VirtualisationInfrastructureManagerDyn::findBestHostDyn(double ram, 
     }
 
     EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn - Best host not found!" << endl;
-    return "";
+    return -1;
 }
 
 MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(CreateAppMessage* msg)
@@ -351,7 +343,7 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(Cre
 
     Enter_Method_Silent();
 
-    std::string bestHostKey = findBestHostDyn(1,1,1);
+    int bestHostKey = findBestHostDyn(1,1,1);
     HostDescriptor bestHost = handledHosts[bestHostKey];
 
     inet::L3Address bestHostAddress = bestHost.address;
@@ -429,7 +421,7 @@ bool VirtualisationInfrastructureManagerDyn::terminateMEApp(DeleteAppMessage* ms
 
     MecAppEntryDyn instantiatedApp = it->second;
     inet::L3Address address = instantiatedApp.endpoint.addr;
-    int port = 2222;
+    int port = 2222; // TODO Load this from viPort
 
     terminationpck->setUeAppID(ueAppID);
     terminationpck->setChunkLength(inet::B(2000));
@@ -454,7 +446,7 @@ void VirtualisationInfrastructureManagerDyn::printResources()
 {
     EV << "VirtualisationInfrastructureManagerDyn::printResources" << endl;
     for(auto it = handledHosts.begin(); it != handledHosts.end(); ++it){
-        std::string key = it->first;
+        int key = it->first;
         HostDescriptor descriptor = (it->second);
 
         EV << "VirtualisationInfrastructureManagerDyn::printResources - HOST: " << key << endl;
@@ -522,9 +514,9 @@ bool VirtualisationInfrastructureManagerDyn::isAllocableOnBuffer(double ram, dou
 }
 
 
-void VirtualisationInfrastructureManagerDyn::manageNotification(int type)
+void VirtualisationInfrastructureManagerDyn::manageNotification()
 {
-    if(type == RESPONSE)
+    if(currentHttpMessage->getType() == RESPONSE)
     {
         HttpResponseMessage *response = dynamic_cast<HttpResponseMessage*> (currentHttpMessage);
         EV << "VIM received a response - resources available for my zone" << endl;
@@ -541,11 +533,10 @@ void VirtualisationInfrastructureManagerDyn::manageNotification(int type)
             EV << "VirtualisationInfrastructureManagerDyn::disk: " << (*it)["disk"] << endl;
             EV << "VirtualisationInfrastructureManagerDyn::cpu: " << (*it)["cpu"] << endl;
             std::string ipAddress_str = (*it)["ipAddress"];
-            registerHost((*it)["ram"], (*it)["disk"], (*it)["cpu"], inet::L3Address(ipAddress_str.c_str()));
-
+            registerHost(std::atoi(it.key().c_str()), (*it)["ram"], (*it)["disk"], (*it)["cpu"], inet::L3Address(ipAddress_str.c_str()), (*it)["viPort"]);
         }
     }
-    else if(type == REQUEST)
+    else if(currentHttpMessage->getType()  == REQUEST)
     {
         HttpRequestMessage *request = dynamic_cast<HttpRequestMessage*> (currentHttpMessage);
         EV << "VIM::received a request - new resource available" << endl;
@@ -565,7 +556,23 @@ void VirtualisationInfrastructureManagerDyn::manageNotification(int type)
             EV << "VirtualisationInfrastructureManagerDyn::disk: " << (*it)["disk"] << endl;
             EV << "VirtualisationInfrastructureManagerDyn::cpu: " << (*it)["cpu"] << endl;
             std::string ipAddress_str = (*it)["ipAddress"];
-            registerHost((*it)["ram"], (*it)["disk"], (*it)["cpu"], inet::L3Address(ipAddress_str.c_str()));
+            registerHost(std::atoi(it.key().c_str()), (*it)["ram"], (*it)["disk"], (*it)["cpu"], inet::L3Address(ipAddress_str.c_str()), (*it)["viPort"]);
+        }
+        else if(std::strcmp(request->getMethod(),"DELETE") == 0)
+        {
+            // URI check here: webhook/id
+            EV << "VIM received DELETE request!" <<  endl;
+            std::string uriToCheck = uri.substr(0, uri.find(webHook) + webHook.length());
+            if(uriToCheck.compare(webHook) == 0)
+            {
+                uri.erase(0, uri.find(webHook) + webHook.length()); //now id
+                EV << "VIM::Unregister host: " << uri << endl;
+                unregisterHost(std::atoi(uri.c_str()));
+            }
+            else
+            {
+                EV_ERROR << "VIM::Bad URI in releasing phase..." << endl;
+            }
         }
         else
         {

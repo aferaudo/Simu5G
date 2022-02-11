@@ -30,8 +30,10 @@ simple ClientResourceApp like IApp{
 	   
 	    int minReward = default(15);
 	    
+	    int viPort;
+	    
 	    double startTime @unit(s) = default(1s); 
-    	double parkTime @unit(s) = default(-1s); // for how long a car will be parked
+    	double parkTime @unit(s) = default(1s); // for how long a car will be parked
 	    
 	    
 	    
