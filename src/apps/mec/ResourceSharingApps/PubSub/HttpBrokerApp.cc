@@ -262,10 +262,10 @@ void HttpBrokerApp::handlePOSTRequest(const HttpRequestMessage *currentRequestMe
                    c.resources.ram = jsonBody["ram"];
                    if(jsonBody.contains("disk"))
                    {
-                      c.resources.cpu = jsonBody["disk"];
+                      c.resources.disk = jsonBody["disk"];
                       if(jsonBody.contains("cpu"))
                       {
-                          c.resources.ram = jsonBody["cpu"];
+                          c.resources.cpu = jsonBody["cpu"];
                           if(jsonBody.contains("viPort"))
                           {
                               c.viPort = jsonBody["viPort"];

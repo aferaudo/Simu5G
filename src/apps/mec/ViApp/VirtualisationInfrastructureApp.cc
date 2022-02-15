@@ -185,7 +185,7 @@ bool VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data
     std::stringstream appName;
     appName << meModuleName << "[" <<  data->getContextId() << "]";
     module->setName(appName.str().c_str());
-    EV << "VirtualisationInfrastructureApp::handleMessage - meModuleName: " << appName.str() << endl;
+    EV << "VirtualisationInfrastructureApp::handleInstantiation - meModuleName: " << appName.str() << endl;
 
     double ram = data->getRequiredRam();
     double disk = data->getRequiredDisk();
@@ -201,7 +201,7 @@ bool VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data
     module->par("requiredDisk") = disk;
     module->par("requiredCpu") = cpu;
     module->par("localUePort") = portCounter;
-    module->par("mp1Address") = "mechost";
+    module->par("mp1Address") = "mechost.vim";
     module->par("mp1Port") = 3333;
 
     module->finalizeParameters();
@@ -215,7 +215,10 @@ bool VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data
 
     module->buildInside();
     module->scheduleStart(simTime());
+    std::cout << "VirtualisationInfrastructureApp::handleInstantiation - before initialization "<< endl;
     module->callInitialize();
+
+    std::cout << "VirtualisationInfrastructureApp::handleInstantiation - initialization "<< endl;
 
     RunningAppEntry* entry = new RunningAppEntry();
     entry->module = module;
@@ -245,7 +248,7 @@ bool VirtualisationInfrastructureApp::handleTermination(DeleteAppMessage* data)
     RunningAppEntry entry = it->second;
     cModule* module = entry.module;
     std::cout << module << endl;
-//        module->callFinish();
+    module->callFinish();
     module->deleteModule();
 
     return true;

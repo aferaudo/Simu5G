@@ -24,6 +24,7 @@
 #include "nodes/mec/MECPlatform/ServiceRegistry/ServiceRegistry.h"
 
 #include "apps/mec/MecApps/MecAppBase.h"
+#include "apps/mec/MecApps/Dynamic/MecAppBaseDyn.h"
 
 
 using namespace std;
@@ -49,7 +50,7 @@ using namespace omnetpp;
 
 //
 
-class MECWarningAlertApp : public MecAppBase
+class MECWarningAlertApp : public MecAppBaseDyn
 {
 
     //UDP socket to communicate with the UeApp

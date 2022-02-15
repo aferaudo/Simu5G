@@ -170,7 +170,7 @@ void ResourceRegisterThread::handlePOSTRequest(const HttpRequestMessage *current
         entry.resources.cpu = jsonBody["deviceInfo"]["resourceInfo"]["maxCPU"];
         entry.viPort = jsonBody["deviceInfo"]["viPort"];
 
-        EV << "ResourceRegisterThread::post-request - saving resources" << endl;
+        EV << "ResourceRegisterThread::post-request - saving resources " << std::to_string(entry.resources.disk) << endl;
 
         server->insertClientEntry(entry);
 //

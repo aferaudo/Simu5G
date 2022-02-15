@@ -23,7 +23,7 @@ module MecCar extends NRUe
 
         // Available resources
         double localRam @unit("B") = default(5GB);
-        double localDisk @unit("B") = default(1TB);
+        double localDisk @unit("B") = default(0.5TB);
         double localCpuSpeed = default(300000);
 
         // App configuration

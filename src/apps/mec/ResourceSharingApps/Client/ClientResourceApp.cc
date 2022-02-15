@@ -249,6 +249,7 @@ void ClientResourceApp::sendRegisterRequest()
         jsonBody["deviceInfo"]["resourceInfo"]["maxCPU"] = localResources.cpu;
         jsonBody["deviceInfo"]["viPort"] = viPort;
 
+        EV << "Request body " << jsonBody.dump() << endl;
         Http::sendPostRequest(&tcpSocket, jsonBody.dump().c_str(), serverHost.c_str(), uri.c_str());
     }
     else

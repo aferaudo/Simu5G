@@ -31,7 +31,7 @@ Define_Module(MECWarningAlertApp);
 using namespace inet;
 using namespace omnetpp;
 
-MECWarningAlertApp::MECWarningAlertApp(): MecAppBase()
+MECWarningAlertApp::MECWarningAlertApp(): MecAppBaseDyn()
 {
     circle = nullptr; // circle danger zone
 
@@ -50,7 +50,7 @@ MECWarningAlertApp::~MECWarningAlertApp()
 
 void MECWarningAlertApp::initialize(int stage)
 {
-    MecAppBase::initialize(stage);
+    MecAppBaseDyn::initialize(stage);
 
     // avoid multiple initializations
     if (stage!=inet::INITSTAGE_APPLICATION_LAYER)

@@ -108,12 +108,12 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
     brokerIPAddress = inet::L3AddressResolver().resolve(par("brokerAddress").stringValue());
 
     // Print message
-    cMessage *print = new cMessage("print");
-    scheduleAt(simTime()+0.1, print);
+//    cMessage *print = new cMessage("print");
+//    scheduleAt(simTime()+0.1, print);
 
     // unsub message - TEST
-    cMessage *unsub = new cMessage("unsub");
-    scheduleAt(simTime()+2, unsub);
+//    cMessage *unsub = new cMessage("unsub");
+//    scheduleAt(simTime()+2, unsub);
 
     // set tcp socket VIM <--> Broker
     SubscriberBase::handleStartOperation(operation);
@@ -544,6 +544,7 @@ void VirtualisationInfrastructureManagerDyn::manageNotification()
         std::string uri = request->getUri();
         // TODO only post request
         // use webhook
+        EV << "Response body " << request->getBody() << endl;
         if(uri.compare(webHook) == 0 && std::strcmp(request->getMethod(),"POST") == 0)
         {
             nlohmann::json jsonBody = nlohmann::json::parse(request->getBody());
