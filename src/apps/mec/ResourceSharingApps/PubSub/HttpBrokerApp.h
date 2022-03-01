@@ -71,7 +71,7 @@ struct ClientResourceEntry
     ResourceDescriptor resources;
     std::string reward;
     // TODO add zone coordinates
-    mutable int vimId = -1;
+    int vimId = -1;
     bool operator < (const ClientResourceEntry &other) const {return clientId < other.clientId;}
 };
 

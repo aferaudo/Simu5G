@@ -76,7 +76,7 @@ class ResourceRegisterApp : public PublisherBase
 
     public:
         ResourceRegisterApp();
-        virtual ~ResourceRegisterApp();
+        ~ResourceRegisterApp();
 
         //set
         virtual void insertClientEntry(ClientEntry c);

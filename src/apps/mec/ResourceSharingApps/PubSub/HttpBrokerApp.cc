@@ -268,11 +268,11 @@ void HttpBrokerApp::handlePOSTRequest(const HttpRequestMessage *currentRequestMe
                           c.resources.cpu = jsonBody["cpu"];
                           if(jsonBody.contains("viPort"))
                           {
-                              c.viPort = jsonBody["viPort"];
-                              totalResources.insert(std::pair<int, ClientResourceEntry>(c.clientId, c));
-                              currentResourceNewId = c.clientId;
-                              printAvailableResources();
-                              sendNotification(NEW);
+                                c.viPort = jsonBody["viPort"];
+                                totalResources.insert(std::pair<int, ClientResourceEntry>(c.clientId, c));
+                                currentResourceNewId = c.clientId;
+                                printAvailableResources();
+                                sendNotification(NEW);
                           }
 
                       }
@@ -365,8 +365,6 @@ void HttpBrokerApp::sendResponse(inet::TcpSocket *sock, SubscriberEntry *s)
 void HttpBrokerApp::notifyNewResources()
 {
     EV << "HttpBrokerApp::notifyNewResources"<<endl;
-    EV << "TotalREsources " <<  totalResources.empty()<< endl;
-    // MOCK CLIENT - This should be send by the subscriber
 
     if(subscribers.empty())
     {
@@ -374,8 +372,13 @@ void HttpBrokerApp::notifyNewResources()
         return;
     }
     auto resource = totalResources.find(currentResourceNewId);
-
+    if(resource == totalResources.end())
+    {
+        EV << "HttpBrokerApp::Vehicle ID - " << currentResourceNewId << " - not found!" << endl;
+        return;
+    }
     EV << "HttpBrokerApp::computing socket id" << endl;
+
     SubscriberEntry s = filterSubscribers(&resource->second);
 
     inet::TcpSocket *sock = check_and_cast<inet::TcpSocket *> (socketMap.getSocketById(clientSocketMap.find(s.clientId)->second));
@@ -411,25 +414,25 @@ void HttpBrokerApp::notifyResourceRelease()
 
     // Get associated subscriber
     auto resource = totalResources.find(currentResourceReleaseId);
-//
+
     int subId = resource->second.vimId;
     inet::TcpSocket *sock = check_and_cast<inet::TcpSocket*>(socketMap.getSocketById(clientSocketMap.find(subId)->second));
-//
+
     SubscriberEntry s = subscribers.find(subId)->second;
 
     EV << "HttpBrokerApp::notifying " << s.clientId << " subscriber, type: RESOURCE RELEASE" << endl;
-//
-//    // Preparing uri
+
+   // Preparing uri
     std::string uri(s.clientWebHook + std::to_string(currentResourceReleaseId));
 
     std::string subscriberHost = s.clientAddress.str() + ":" + std::to_string(s.clientPort);
 
     EV << "HttpBrokerApp::host: " << subscriberHost << endl;
-//
-//    // notify only the vim where resources are allocated
+
+    // notify only the vim where resources are allocated
     Http::sendDeleteRequest(sock, subscriberHost.c_str(), uri.c_str());
-//
-//    // Delete resource from availables
+
+    // Delete resource from availables
     totalResources.erase(currentResourceReleaseId);
 }
 
