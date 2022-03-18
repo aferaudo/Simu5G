@@ -31,27 +31,36 @@ MecAppBase::MecAppBase()
 
 MecAppBase::~MecAppBase()
 {
-//    if(sendTimer != nullptr)
-//    {
-//        if(sendTimer->isSelfMessage())
-//            cancelAndDelete(sendTimer);
-//        else
-//            delete sendTimer;
-//    }
-//
-//    if(serviceHttpMessage != nullptr)
-//    {
-//        delete serviceHttpMessage;
-//    }
-//
-//    if(mp1HttpMessage != nullptr)
-//    {
-//        delete mp1HttpMessage;
-//    }
-//
-//
-//   cancelAndDelete(processedServiceResponse);
-//   cancelAndDelete(processedMp1Response);
+    if(sendTimer != nullptr)
+    {
+        if(sendTimer->isSelfMessage())
+            cancelAndDelete(sendTimer);
+        else
+            delete sendTimer;
+    }
+
+    if(serviceHttpMessage != nullptr)
+    {
+        delete serviceHttpMessage;
+    }
+
+    if(mp1HttpMessage != nullptr)
+    {
+        delete mp1HttpMessage;
+    }
+
+
+    // TODO: Segmentation fault if these line are not commented. Why?
+    if(processedServiceResponse->isScheduled())
+    {
+        cancelAndDelete(processedServiceResponse);
+    }
+
+    if(processedMp1Response->isScheduled())
+    {
+        cancelAndDelete(processedMp1Response);
+    }
+
 
 }
 
@@ -61,29 +70,29 @@ void MecAppBase::initialize(int stage)
     if(stage != inet::INITSTAGE_APPLICATION_LAYER)
         return;
 
-//    const char *mp1Ip = par("mp1Address");
-//    mp1Address = L3AddressResolver().resolve(mp1Ip);
-//    mp1Port = par("mp1Port");
-//
-//    serviceSocket_.setOutputGate(gate("socketOut"));
-//    mp1Socket_.setOutputGate(gate("socketOut"));
-//
-//    serviceSocket_.setCallback(this);
-//    mp1Socket_.setCallback(this);
-//
-//    mecAppId = par("mecAppId"); // FIXME mecAppId is the deviceAppId (it does not change anything, though)
-//    requiredRam = par("requiredRam").doubleValue();
-//    requiredDisk = par("requiredDisk").doubleValue();
-//    requiredCpu = par("requiredCpu").doubleValue();
-//
-//    vim = check_and_cast<VirtualisationInfrastructureManager*>(getParentModule()->getSubmodule("vim"));
-//    mecHost = getParentModule();
-//    mecPlatform = mecHost->getSubmodule("mecPlatform");
-//
-//    serviceRegistry = check_and_cast<ServiceRegistry *>(mecPlatform->getSubmodule("serviceRegistry"));
-//
-//    processedServiceResponse = new cMessage("processedServiceResponse");
-//    processedMp1Response = new cMessage("processedMp1Response");
+    const char *mp1Ip = par("mp1Address");
+    mp1Address = L3AddressResolver().resolve(mp1Ip);
+    mp1Port = par("mp1Port");
+
+    serviceSocket_.setOutputGate(gate("socketOut"));
+    mp1Socket_.setOutputGate(gate("socketOut"));
+
+    serviceSocket_.setCallback(this);
+    mp1Socket_.setCallback(this);
+
+    mecAppId = par("mecAppId"); // FIXME mecAppId is the deviceAppId (it does not change anything, though)
+    requiredRam = par("requiredRam").doubleValue();
+    requiredDisk = par("requiredDisk").doubleValue();
+    requiredCpu = par("requiredCpu").doubleValue();
+
+    vim = check_and_cast<VirtualisationInfrastructureManager*>(getParentModule()->getSubmodule("vim"));
+    mecHost = getParentModule();
+    mecPlatform = mecHost->getSubmodule("mecPlatform");
+
+    serviceRegistry = check_and_cast<ServiceRegistry *>(mecPlatform->getSubmodule("serviceRegistry"));
+
+    processedServiceResponse = new cMessage("processedServiceResponse");
+    processedMp1Response = new cMessage("processedMp1Response");
 
 }
 

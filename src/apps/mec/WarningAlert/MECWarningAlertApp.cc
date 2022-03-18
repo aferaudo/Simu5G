@@ -44,7 +44,6 @@ MECWarningAlertApp::~MECWarningAlertApp()
             getSimulation()->getSystemModule()->getCanvas()->removeFigure(circle);
         delete circle;
     }
-
 }
 
 
@@ -245,7 +244,6 @@ void MECWarningAlertApp::established(int connId)
 void MECWarningAlertApp::handleMp1Message()
 {
     EV << "MECWarningAlertApp::handleMp1Message - payload: " << mp1HttpMessage->getBody() << endl;
-
     try
     {
         nlohmann::json jsonBody = nlohmann::json::parse(mp1HttpMessage->getBody()); // get the JSON structure
@@ -359,6 +357,7 @@ void MECWarningAlertApp::handleServiceMessage()
     else if(serviceHttpMessage->getType() == RESPONSE)
     {
         HttpResponseMessage *rspMsg = dynamic_cast<HttpResponseMessage*>(serviceHttpMessage);
+        EV <<  "MEClusterizeService::handleTcpMsg - received response" << endl;
 
         if(rspMsg->getCode() == 204) // in response to a DELETE
         {

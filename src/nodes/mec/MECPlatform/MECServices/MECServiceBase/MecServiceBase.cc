@@ -103,11 +103,12 @@ void MecServiceBase::initialize(int stage)
             throw cRuntimeError("MecServiceBase::initialize - ServiceRegistry not present!");
         servRegistry_ = check_and_cast<ServiceRegistry*>(getParentModule()->getSubmodule("serviceRegistry"));
 
-        cModule* module = meHost_->getSubmodule("mecPlatformManager");
+        cModule* module = meHost_->getSubmodule("mecPlatformManager")->getSubmodule("app",0);
         if(module != nullptr)
         {
             EV << "MecServiceBase::initialize - MecPlatformManager found" << endl;
-            mecPlatformManager_ = check_and_cast<MecPlatformManager*>(module);
+            mecPlatformManager_ = check_and_cast<MecPlatformManagerDyn*>(module);
+//            mecPlatformManager_ = nullptr;
         }
 
         // get the gnb connected to the mehost

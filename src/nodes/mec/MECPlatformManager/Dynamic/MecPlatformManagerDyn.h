@@ -10,7 +10,6 @@
 
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/VirtualisationInfrastructureManagerDyn.h"
 #include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h" //MecAppInstanceInfo struct
-#include "nodes/mec/MECPlatform/ServiceRegistry/ServiceRegistry.h" //ServiceInfo struct
 
 //BINDER and UTILITIES
 #include "common/LteCommon.h"
@@ -28,6 +27,9 @@
 #include <inet/transportlayer/contract/udp/UdpSocket.h>
 
 using namespace omnetpp;
+
+class ServiceInfo;
+class ServiceRegistry;
 
 class MecPlatformManagerDyn : public cSimpleModule
 {

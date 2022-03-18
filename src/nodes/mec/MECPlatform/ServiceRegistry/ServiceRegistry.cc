@@ -179,12 +179,14 @@ void ServiceRegistry::handleGETRequest(const HttpRequestMessage *currentRequestM
             {
                 for(const auto& serv : mecServices_)
                 {
+                    std::cout << "name service " << serv.getName() << endl;
                     if(serv.getName().compare(sName) == 0)
                         jsonResBody.push_back(serv.toJson());
                 }
             }
 
             // TODO add for for serviceid!
+            std::cout << "sending response back 1 - " << jsonResBody.dump() << endl;
             Http::send200Response(socket, jsonResBody.dump().c_str());
         }
 
@@ -195,6 +197,7 @@ void ServiceRegistry::handleGETRequest(const HttpRequestMessage *currentRequestM
             {
                 jsonResBody.push_back(sName.toJson());
             }
+            std::cout << "sending response back 2 - " << jsonResBody.dump() << endl;
             Http::send200Response(socket, jsonResBody.dump().c_str());
         }
    }

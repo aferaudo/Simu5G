@@ -46,6 +46,13 @@ module MECHostDyn
         double localDisk @unit("B") = default(100TB);
         double localCpuSpeed = default(300000); 	 // CPU's clock speed in Million Instruction per Seconds (MIPS)
 
+        //# Node specs
+        string nodeType = "MECHost";
+        string gateway = default("upf");
+
+        int numBGMecApp = default(0);
+        string eNBList = default("");
+
 //        //Ethernet configuration
 //        numEthInterfaces = 1;
 //        eth[0].typename = "EthernetInterface";
@@ -76,14 +83,19 @@ module MECHostDyn
 
         mecPlatformManager: MecPlatformManagerHost {
 
-            @display("p=899.13605,183.306");
+            @display("p=630.198,183.306");
         }
-        
+
+        mecPlatform: MECPlatformHost {
+
+            @display("p=445.55402,183.306;i=device/device");
+        }
+
 
     connections allowunconnected:
-	
-       
-       ethserver <--> vim.ethiface;
+
+
+        ethserver <--> vim.ethiface;
 		//ethserver <--> eth[0].phys;
 
 //        vimH.mm7GnB <--> Eth10G <--> ethAntenna++;

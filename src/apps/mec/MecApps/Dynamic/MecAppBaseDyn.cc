@@ -27,8 +27,16 @@ MecAppBaseDyn::~MecAppBaseDyn()
     }
 
 
-    cancelAndDelete(processedServiceResponse);
-    cancelAndDelete(processedMp1Response);
+    if(processedServiceResponse->isScheduled())
+    {
+        cancelAndDelete(processedServiceResponse);
+    }
+
+    if(processedMp1Response->isScheduled())
+    {
+        cancelAndDelete(processedMp1Response);
+    }
+
 }
 
 void MecAppBaseDyn::initialize(int stage)
@@ -57,7 +65,6 @@ void MecAppBaseDyn::initialize(int stage)
 //    vim = check_and_cast<VirtualisationInfrastructureManager*>(getParentModule()->getSubmodule("vim"));
 //    mecHost = getParentModule();
 //    mecPlatform = mecHost->getSubmodule("mecPlatform");
-//
 //    serviceRegistry = check_and_cast<ServiceRegistry *>(mecPlatform->getSubmodule("serviceRegistry"));
 
     processedServiceResponse = new cMessage("processedServiceResponse");
@@ -79,7 +86,7 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
         if(res)
         {
             serviceHttpMessage->setSockId(serviceSocket_.getSocketId());
-            if(vim == nullptr)
+            if(vi == nullptr)
                 throw cRuntimeError("MecAppBase::socketDataArrived - vim is null!");
             double time = vi->calculateProcessingTime(mecAppId, 150);
             scheduleAt(simTime()+time, processedServiceResponse);
@@ -91,7 +98,7 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
         if(res)
         {
             mp1HttpMessage->setSockId(mp1Socket_.getSocketId());
-            if(vim == nullptr)
+            if(vi == nullptr)
                 throw cRuntimeError("MecAppBase::socketDataArrived - vim is null!");
             double time = vi->calculateProcessingTime(mecAppId, 150);
             scheduleAt(simTime()+time, processedMp1Response);

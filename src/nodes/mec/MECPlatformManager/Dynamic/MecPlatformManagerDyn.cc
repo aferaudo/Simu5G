@@ -11,6 +11,8 @@
 #include "nodes/mec/MECPlatformManager/Dynamic/MecPlatformManagerDyn.h"
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
 #include "inet/networklayer/common/L3AddressTag_m.h"
+#include "nodes/mec/MECPlatform/ServiceRegistry/ServiceRegistry.h" //ServiceInfo struct
+
 
 Define_Module(MecPlatformManagerDyn);
 
@@ -33,7 +35,7 @@ void MecPlatformManagerDyn::initialize(int stage)
 
     // Get other modules
     vim = check_and_cast<VirtualisationInfrastructureManagerDyn*>(getParentModule()->getParentModule()->getSubmodule("vim")->getSubmodule("app", 0));
-    cModule* mecPlatform = getParentModule()->getSubmodule("mecPlatform");
+    cModule* mecPlatform = getParentModule()->getParentModule()->getSubmodule("mecPlatform");
     if(mecPlatform != nullptr && mecPlatform->findSubmodule("serviceRegistry") != -1)
     {
         serviceRegistry = check_and_cast<ServiceRegistry*>(mecPlatform->getSubmodule("serviceRegistry"));
@@ -170,9 +172,11 @@ const std::set<std::string>* MecPlatformManagerDyn::getAvailableOmnetServices() 
     }
 }
 
-void MecPlatformManagerDyn::registerMecService(ServiceDescriptor&) const
+void MecPlatformManagerDyn::registerMecService(ServiceDescriptor& servDescriptor) const
 {
     EV << "MecPlatformManagerDyn::registerMecService" << endl;
+
+    serviceRegistry->registerMecService(servDescriptor); //TODO Substitute with MecOrchestrator registring (?)
 }
 
 

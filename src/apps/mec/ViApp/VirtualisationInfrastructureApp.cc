@@ -201,8 +201,8 @@ bool VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data
     module->par("requiredDisk") = disk;
     module->par("requiredCpu") = cpu;
     module->par("localUePort") = portCounter;
-    module->par("mp1Address") = "mechost.vim";
-    module->par("mp1Port") = 3333;
+    module->par("mp1Address") = "mechost.mecPlatform";
+    module->par("mp1Port") = 10021;
 
     module->finalizeParameters();
 
@@ -240,6 +240,8 @@ bool VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data
 bool VirtualisationInfrastructureApp::handleTermination(DeleteAppMessage* data)
 {
     EV << "VirtualisationInfrastructureApp::handleTermination - " << data << endl;
+    std::cout << "VirtualisationInfrastructureApp::handleTermination - " << data << endl;
+
 
     auto it = runningApp.find(data->getUeAppID());
     if(it == runningApp.end())
@@ -251,6 +253,7 @@ bool VirtualisationInfrastructureApp::handleTermination(DeleteAppMessage* data)
     module->callFinish();
     module->deleteModule();
 
+    std::cout << "finish termination" << endl;
     return true;
 }
 
