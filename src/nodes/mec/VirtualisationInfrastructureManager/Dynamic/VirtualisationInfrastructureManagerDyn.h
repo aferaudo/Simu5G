@@ -42,6 +42,7 @@ struct HostDescriptor // CarDescriptor
 {
     ResourceDescriptor totalAmount;
     ResourceDescriptor usedAmount;
+    ResourceDescriptor reservedAmount;
     int numRunningApp;
     inet::L3Address address;
     int viPort;
@@ -199,6 +200,10 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     private:
 
         bool isAllocableOnBuffer(double ram, double disk, double cpu);
+
+        HostDescriptor* findHostByAddress(inet::L3Address address);
+
+        int findHostIDByAddress(inet::L3Address address);
 
 };
 

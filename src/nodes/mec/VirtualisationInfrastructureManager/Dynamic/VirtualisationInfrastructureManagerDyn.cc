@@ -60,8 +60,14 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
             usedResources->cpu = 0;
             usedResources->disk = 0;
 
+            ResourceDescriptor* reservedResources = new ResourceDescriptor();
+            reservedResources->ram = 0;
+            reservedResources->cpu = 0;
+            reservedResources->disk = 0;
+
             descriptor->totalAmount = *totalResources;
             descriptor->usedAmount = *usedResources;
+            descriptor->reservedAmount = *reservedResources;
             descriptor->numRunningApp = 0;
             descriptor->address = inet::L3Address("127.0.0.1");
             descriptor->viPort = 2222;
@@ -179,6 +185,19 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             handledApp[std::to_string(ueAppID)] = entry;
             waitingInstantiationRequests.erase(it);
 
+            //Allocate resources
+            int host_key = findHostIDByAddress(entry.endpoint.addr);
+            HostDescriptor* host = &((handledHosts.find(host_key))->second);
+
+            host->reservedAmount.cpu -= entry.usedResources.cpu;
+            host->reservedAmount.ram -= entry.usedResources.ram;
+            host->reservedAmount.disk -= entry.usedResources.disk;
+
+            allocateResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, host_key);
+
+            EV << "VirtualisationInfrastructureManagerDyn:: response - print" << endl;
+            printResources();
+
 //            printRequests();
 //            printHandledApp();
             delete msg;
@@ -218,8 +237,14 @@ int VirtualisationInfrastructureManagerDyn::registerHost(int host_id, double ram
     usedResources->cpu = 0;
     usedResources->disk = 0;
 
+    ResourceDescriptor* reservedResources = new ResourceDescriptor();
+    reservedResources->ram = 0;
+    reservedResources->cpu = 0;
+    reservedResources->disk = 0;
+
     descriptor->totalAmount = *totalResources;
     descriptor->usedAmount = *usedResources;
+    descriptor->reservedAmount = *reservedResources;
     descriptor->numRunningApp = 0;
     descriptor->address = ip_addr;
     descriptor->viPort = viPort;
@@ -273,9 +298,9 @@ bool VirtualisationInfrastructureManagerDyn::isAllocable(double ram, double disk
     bool available = false;
 
     for(auto it = hosts.begin(); it != hosts.end() && available == false; ++it){
-        available = ram < it->totalAmount.ram - it->usedAmount.ram
-                    && disk < it->totalAmount.disk - it->usedAmount.disk
-                    && cpu  < it->totalAmount.cpu - it->usedAmount.cpu;
+        available = ram < it->totalAmount.ram - it->usedAmount.ram - it->reservedAmount.ram
+                    && disk < it->totalAmount.disk - it->usedAmount.disk - it->reservedAmount.disk
+                    && cpu  < it->totalAmount.cpu - it->usedAmount.cpu - it->reservedAmount.cpu;
     }
 
     return available;
@@ -323,9 +348,9 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDyn(double ram, double d
             continue;
         }
 
-        bool available = ram < descriptor.totalAmount.ram - descriptor.usedAmount.ram
-                    && disk < descriptor.totalAmount.disk - descriptor.usedAmount.disk
-                    && cpu  < descriptor.totalAmount.cpu - descriptor.usedAmount.cpu;
+        bool available = ram < descriptor.totalAmount.ram - descriptor.usedAmount.ram - descriptor.reservedAmount.ram
+                    && disk < descriptor.totalAmount.disk - descriptor.usedAmount.disk - descriptor.reservedAmount.disk
+                    && cpu  < descriptor.totalAmount.cpu - descriptor.usedAmount.cpu - descriptor.reservedAmount.cpu;
 
         if(available){
             EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn - Found " << key << endl;
@@ -344,10 +369,16 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(Cre
     Enter_Method_Silent();
 
     int bestHostKey = findBestHostDyn(1,1,1);
-    HostDescriptor bestHost = handledHosts[bestHostKey];
+    HostDescriptor* bestHost = &handledHosts[bestHostKey];
 
-    inet::L3Address bestHostAddress = bestHost.address;
-    int bestHostPort = bestHost.viPort;
+    inet::L3Address bestHostAddress = bestHost->address;
+    int bestHostPort = bestHost->viPort;
+
+
+    // Reserve resources on selected host
+    bestHost->reservedAmount.cpu =  msg->getRequiredCpu();
+    bestHost->reservedAmount.ram =  msg->getRequiredRam();
+    bestHost->reservedAmount.disk =  msg->getRequiredDisk();
 
 
     inet::Packet* packet = new inet::Packet("Instantiation");
@@ -389,6 +420,8 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(Cre
     appInfo->endPoint.addr = bestHostAddress;
     appInfo->endPoint.port = bestHostPort;
 
+    EV << "VirtualisationInfrastructureManagerDyn:: instantiateMEApp - print" << endl;
+    printResources();
 //    printRequests();
 
     return appInfo;
@@ -454,6 +487,9 @@ void VirtualisationInfrastructureManagerDyn::printResources()
         EV << "VirtualisationInfrastructureManagerDyn::printResources - allocated Ram: " << descriptor.usedAmount.ram << " / " << descriptor.totalAmount.ram << endl;
         EV << "VirtualisationInfrastructureManagerDyn::printResources - allocated Disk: " << descriptor.usedAmount.disk << " / " << descriptor.totalAmount.disk << endl;
         EV << "VirtualisationInfrastructureManagerDyn::printResources - allocated CPU: " << descriptor.usedAmount.cpu << " / " << descriptor.totalAmount.cpu << endl;
+        EV << "VirtualisationInfrastructureManagerDyn::printResources - reserved Ram: " << descriptor.reservedAmount.ram << " / " << descriptor.totalAmount.ram << endl;
+        EV << "VirtualisationInfrastructureManagerDyn::printResources - reserved Disk: " << descriptor.reservedAmount.disk << " / " << descriptor.totalAmount.disk << endl;
+        EV << "VirtualisationInfrastructureManagerDyn::printResources - reserved CPU: " << descriptor.reservedAmount.cpu << " / " << descriptor.totalAmount.cpu << endl;
     }
 
     EV << "VirtualisationInfrastructureManagerDyn:: BUFFER" << endl;
@@ -504,6 +540,33 @@ std::list<HostDescriptor> VirtualisationInfrastructureManagerDyn::getAllHosts()
     }
 
     return hosts;
+}
+
+HostDescriptor* VirtualisationInfrastructureManagerDyn::findHostByAddress(inet::L3Address address){
+
+    for(auto it = handledHosts.begin(); it != handledHosts.end(); ++it){
+        HostDescriptor* host = &(it->second);
+
+        if(host->address == address){
+            return host;
+        }
+    }
+
+    return nullptr;
+}
+
+int VirtualisationInfrastructureManagerDyn::findHostIDByAddress(inet::L3Address address){
+
+    for(auto it = handledHosts.begin(); it != handledHosts.end(); ++it){
+        int key = it->first;
+        HostDescriptor* host = &(it->second);
+
+        if(host->address == address){
+            return key;
+        }
+    }
+
+    return -1;
 }
 
 bool VirtualisationInfrastructureManagerDyn::isAllocableOnBuffer(double ram, double disk, double cpu)
