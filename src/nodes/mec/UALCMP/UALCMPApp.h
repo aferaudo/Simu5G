@@ -12,6 +12,12 @@
 #ifndef _UALCMPAPP_H
 #define _UALCMPAPP_H
 
+// MECOrchestrator interface
+#include "nodes/mec/Dynamic/IMecOrchestrator.h"
+
+// MECOrchestrator app
+//#include "apps/mec/MEOApp/MecOrchestratorApp.h"
+
 #include "nodes/mec/MECPlatform/MECServices/MECServiceBase/MecServiceBase.h"
 #include "nodes/mec/utils/httpUtils/json.hpp"
 
@@ -46,7 +52,8 @@ class UALCMPApp: public MecServiceBase
     } LcmRequestStatus;
 
     bool scheduledSubscription;
-    MecOrchestrator *mecOrchestrator_; // reference to the MecOrchestrator used to get AppList
+    IMecOrchestrator *mecOrchestrator_; // reference to the MecOrchestrator used to get AppList
+    bool isMEOApp;
 
     unsigned int requestSno;    // counter to keep trace of the requests
     std::map<unsigned int, LcmRequestStatus> pendingRequests;

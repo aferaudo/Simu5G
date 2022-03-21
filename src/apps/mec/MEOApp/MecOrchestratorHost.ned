@@ -1,16 +1,20 @@
 //
-//                  Simu5G
-//
-// Authors: Giovanni Nardini, Giovanni Stea, Antonio Virdis (University of Pisa)
-//
-// This file is part of a software released under the license included in file
-// "license.pdf". Please read LICENSE and README files before using it.
-// The above files and the present reference are part of the software itself,
-// and cannot be removed from it.
-//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+// 
+// You should have received a copy of the GNU Lesser General Public License
+// along with this program.  If not, see http://www.gnu.org/licenses/.
+// 
 
-package simu5g.nodes.mec.UALCMP;
-import simu5g.nodes.mec.UALCMP.UALCMPApp;
+package simu5g.apps.mec.MEOApp;
+
 import inet.linklayer.ppp.PppInterface;
 import inet.networklayer.common.InterfaceTable;
 import inet.networklayer.ipv4.Ipv4RoutingTable;
@@ -24,38 +28,27 @@ import inet.linklayer.contract.IEthernetInterface;
 import inet.applications.contract.IApp;
 import inet.node.ethernet.Eth10G;
 import inet.networklayer.common.InterfaceTable;
-
-
-module UALCMP
+//
+// @author Alessandro Calvio
+// @author Angelo Feraudo
+//
+module MecOrchestratorHost
 {
     parameters:
         @networkNode();
-        @display("i=device/mainframe;bgb=1006.50995,692.76");
-
-        //# Node specs
-        string nodeType = "MECOrchestrator";						// DO NOT CHANGE
-        string gateway = default("upf");
-        
-        // hostname of the reference orchestrator                
-        string mecOrchestratorHostname = default("mecOrchestrator");
-        bool isMEOapp = default(false); // parameter used to set if the mecOrchestrator runs as an app inside a host
-        
         bool hasIpv4 = default(true);
         bool hasIpv6 = default(false);
+        int numExtEthInterfaces = default(0); 
+        
         *.interfaceTableModule = default(absPath(".interfaceTable"));
-//        *.routingTableModule = default("^.ipv4.routingTable");
-
-        int numExtEthInterfaces = default(0); //
-
     gates:
 
         //to external networks (internet)
         inout ppp[];
 
-        output toMecOrchestrator;
-        input fromMecOrchestrator;			// connection to the ME App output gate
-
-    submodules:
+        output toUALCMP;
+        input fromUALCMP;
+submodules:
 
         interfaceTable: InterfaceTable {
             @display("p=61.344,74.976;is=s");
@@ -93,7 +86,7 @@ module UALCMP
         //# Transport layer modules and corresponding application modules
         //#
 		// =============== UDP ============== //
-        ualcmpApp: UALCMPApp {
+        meoApp: MecOrchestratorApp {
             @display("p=549.69,74.045,row");
         }
 
@@ -124,13 +117,13 @@ module UALCMP
     connections allowunconnected:
 
         //# 
-        //# UALCMP to transport layer connections
+        //# MECOrchestrator to transport layer connections
         //#        
-        ualcmpApp.socketOut --> at.in++;
-        ualcmpApp.socketIn <-- at.out++;
+        meoApp.socketOut --> at.in++;
+        meoApp.socketIn <-- at.out++;
 
-        ualcmpApp.toMecOrchestrator --> toMecOrchestrator;
-        ualcmpApp.fromMecOrchestrator <-- fromMecOrchestrator;
+        meoApp.toUALCMP --> toUALCMP;
+        meoApp.fromUALCMP <-- fromUALCMP;
 
         at.out++ --> udp.appIn;
         at.in++ <-- udp.appOut;
@@ -176,7 +169,5 @@ module UALCMP
             extEth[i].upperLayerIn <-- nl.out++;
         }
 
-
-
-
+    
 }

@@ -106,6 +106,7 @@ void UEWarningAlertApp::handleMessage(cMessage *msg)
     // Sender Side
     if (msg->isSelfMessage())
     {
+        EV << "UEWarningAlertApp::handleMessage - is self message: " << msg->getName() << endl;
         if(!strcmp(msg->getName(), "selfStart"))   sendStartMEWarningAlertApp();
 
         else if(!strcmp(msg->getName(), "selfStop"))    sendStopMEWarningAlertApp();
@@ -270,6 +271,7 @@ void UEWarningAlertApp::handleAckStartMEWarningAlertApp(cMessage* msg)
     else
     {
         EV << "UEWarningAlertApp::handleAckStartMEWarningAlertApp - MEC application cannot be instantiated! Reason: " << pkt->getReason() << endl;
+        return;
     }
 
     sendMessageToMECApp();

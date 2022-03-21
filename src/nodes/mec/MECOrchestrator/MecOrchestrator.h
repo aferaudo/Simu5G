@@ -28,6 +28,9 @@
 
 #include "nodes/mec/MECOrchestrator/ApplicationDescriptor/ApplicationDescriptor.h"
 
+// MECOrchestrator interface
+#include "nodes/mec/Dynamic/IMecOrchestrator.h"
+
 using namespace omnetpp;
 
 struct mecAppMapEntry
@@ -69,7 +72,7 @@ class MECOrchestratorMessage;
 //   - MEC app run-time onboarding
 //
 
-class MecOrchestrator : public cSimpleModule
+class MecOrchestrator : public cSimpleModule, public IMecOrchestrator
 {
     //------------------------------------
     //Binder module
@@ -93,8 +96,8 @@ class MecOrchestrator : public cSimpleModule
 
     public:
         MecOrchestrator();
-        const ApplicationDescriptor* getApplicationDescriptorByAppName(std::string& appName) const;
-        const std::map<std::string, ApplicationDescriptor>* getApplicationDescriptors() const { return &mecApplicationDescriptors_;}
+        const ApplicationDescriptor* getApplicationDescriptorByAppName(std::string& appName) const override;
+        const std::map<std::string, ApplicationDescriptor>* getApplicationDescriptors() const override { return &mecApplicationDescriptors_;}
 
         /*
          * This method registers the MEC service on all the Service Registry of the MEC host associated
@@ -106,9 +109,9 @@ class MecOrchestrator : public cSimpleModule
 
     protected:
 
-        virtual int numInitStages() const { return inet::NUM_INIT_STAGES; }
-        void initialize(int stage);
-        virtual void handleMessage(cMessage *msg);
+        virtual int numInitStages() const override{ return inet::NUM_INIT_STAGES; }
+        void initialize(int stage) override;
+        virtual void handleMessage(cMessage *msg) override;
 
 
 

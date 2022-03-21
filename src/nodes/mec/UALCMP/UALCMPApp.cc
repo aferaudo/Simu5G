@@ -29,6 +29,7 @@
 // MEC system
 #include "nodes/mec/UALCMP/UALCMPApp.h"
 #include "nodes/mec/MECOrchestrator/MecOrchestrator.h"
+#include "apps/mec/MEOApp/MecOrchestratorApp.h"
 #include "nodes/mec/MECOrchestrator/ApplicationDescriptor/ApplicationDescriptor.h"
 #include "nodes/mec/MECPlatform/MECServices/Resources/SubscriptionBase.h"
 
@@ -75,12 +76,16 @@ void UALCMPApp::initialize(int stage)
         requestQueueSizeSignal_ = registerSignal("requestQueueSize");
         responseTimeSignal_ = registerSignal("responseTime");
         binder_ = getBinder();
+        isMEOApp = getAncestorPar("isMEOapp").boolValue();
     }
 
     else if (stage == inet::INITSTAGE_APPLICATION_LAYER) {
         baseSubscriptionLocation_ = host_+ baseUriSubscriptions_ + "/";
         std::string mecOrchestratorHostname = getAncestorPar("mecOrchestratorHostname").stringValue();
-        mecOrchestrator_ = check_and_cast<MecOrchestrator*>(getSimulation()->getModuleByPath(mecOrchestratorHostname.c_str()));
+        if(!isMEOApp)
+            mecOrchestrator_ = check_and_cast<MecOrchestrator*>(getSimulation()->getModuleByPath(mecOrchestratorHostname.c_str()));
+        else
+            mecOrchestrator_ = check_and_cast<MecOrchestratorApp*>(getSimulation()->getModuleByPath(mecOrchestratorHostname.c_str())->getSubmodule("meoApp"));
     }
 
     inet::ApplicationBase::initialize(stage);

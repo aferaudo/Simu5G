@@ -23,13 +23,18 @@ import inet.applications.contract.IApp;
 simple MecOrchestratorApp like IApp
 {
     parameters:
-        // Do we need other parameters?
         @display("i=block/app");
         int localPort;
         string localAddress = default("");
+        
+        // List of onboarded appliaction package
+        string mecApplicationPackageList = default("");
     gates:
 	    output socketOut;
         input socketIn;
+        
+		output toUALCMP;
+        input fromUALCMP;
 }
 
 
