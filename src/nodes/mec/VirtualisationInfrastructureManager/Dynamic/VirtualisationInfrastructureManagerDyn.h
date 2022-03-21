@@ -176,14 +176,24 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         void printRequests();
 
         /*
-         * Allocate resources on MecHost and car(?)
+         * Allocate resources on specific host (car)
          */
         void allocateResources(double ram, double disk, double cpu, int hostId);
 
         /*
-         * Deallocate resources on MecHost and car(?)
+         * Deallocate resources on specific host (car)
          */
         void deallocateResources(double ram, double disk, double cpu, int hostId);
+
+        /*
+         * Reserve resources on specific host (car)
+         */
+        void reserveResources(double ram, double disk, double cpu, int hostId);
+
+        /*
+         * Release reserved resources on specific host (car)
+         */
+        void releaseResources(double ram, double disk, double cpu, int hostId);
 
         /*
          * Find the best managed host on which allocate App according to several metrics
@@ -205,6 +215,9 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 
         int findHostIDByAddress(inet::L3Address address);
 
+        int findBestHostDynBestFirst(double ram, double disk, double cpu);
+
+        int findBestHostDynRoundRobin(double ram, double disk, double cpu);
 };
 
 #endif

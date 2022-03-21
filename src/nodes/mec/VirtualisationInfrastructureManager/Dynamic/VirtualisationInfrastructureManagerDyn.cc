@@ -11,7 +11,6 @@
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/VirtualisationInfrastructureManagerDyn.h"
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/RegistrationPacket_m.h"
 
-
 Define_Module(VirtualisationInfrastructureManagerDyn);
 
 VirtualisationInfrastructureManagerDyn::VirtualisationInfrastructureManagerDyn()
@@ -189,11 +188,10 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             int host_key = findHostIDByAddress(entry.endpoint.addr);
             HostDescriptor* host = &((handledHosts.find(host_key))->second);
 
-            host->reservedAmount.cpu -= entry.usedResources.cpu;
-            host->reservedAmount.ram -= entry.usedResources.ram;
-            host->reservedAmount.disk -= entry.usedResources.disk;
-
+            releaseResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, host_key);
             allocateResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, host_key);
+
+            host->numRunningApp += 1;
 
             EV << "VirtualisationInfrastructureManagerDyn:: response - print" << endl;
             printResources();
@@ -327,7 +325,7 @@ void VirtualisationInfrastructureManagerDyn::deallocateResources(double ram, dou
     if(it == handledHosts.end()){
         EV << "VirtualisationInfrastructureManagerDyn::deallocateResources - Host not found!" << endl;
     }
-    EV << "VirtualisationInfrastructureManagerDyn::allocateResources - Deallocating resources on " <<  hostId << endl;
+    EV << "VirtualisationInfrastructureManagerDyn::deallocateResources - Deallocating resources on " <<  hostId << endl;
 
     HostDescriptor* host = &(it->second);
 
@@ -336,30 +334,54 @@ void VirtualisationInfrastructureManagerDyn::deallocateResources(double ram, dou
     host->usedAmount.cpu -= cpu;
 }
 
+void VirtualisationInfrastructureManagerDyn::reserveResources(double ram, double disk, double cpu, int hostId)
+{
+    auto it = handledHosts.find(hostId);
+    if(it == handledHosts.end()){
+        EV << "VirtualisationInfrastructureManagerDyn::reserveResources - Host not found!" << endl;
+    }
+    EV << "VirtualisationInfrastructureManagerDyn::reserveResources - Reserving resources on " <<  hostId << endl;
+
+    HostDescriptor* host = &(it->second);
+
+    host->reservedAmount.ram += ram;
+    host->reservedAmount.disk += disk;
+    host->reservedAmount.cpu += cpu;
+}
+
+void VirtualisationInfrastructureManagerDyn::releaseResources(double ram, double disk, double cpu, int hostId)
+{
+    auto it = handledHosts.find(hostId);
+    if(it == handledHosts.end()){
+        EV << "VirtualisationInfrastructureManagerDyn::releaseResources - Host not found!" << endl;
+    }
+    EV << "VirtualisationInfrastructureManagerDyn::releaseResources - Releasing resources on " <<  hostId << endl;
+
+    HostDescriptor* host = &(it->second);
+
+    host->reservedAmount.ram -= ram;
+    host->reservedAmount.disk -= disk;
+    host->reservedAmount.cpu -= cpu;
+}
+
 int VirtualisationInfrastructureManagerDyn::findBestHostDyn(double ram, double disk, double cpu)
 {
     EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn - Start" << endl;
 
-    for(auto it = handledHosts.begin(); it != handledHosts.end(); ++it){
-        int key = it->first;
-        HostDescriptor descriptor = (it->second);
+    int besthost_key = -1;
 
-        if (it->first == getId()){
-            continue;
-        }
-
-        bool available = ram < descriptor.totalAmount.ram - descriptor.usedAmount.ram - descriptor.reservedAmount.ram
-                    && disk < descriptor.totalAmount.disk - descriptor.usedAmount.disk - descriptor.reservedAmount.disk
-                    && cpu  < descriptor.totalAmount.cpu - descriptor.usedAmount.cpu - descriptor.reservedAmount.cpu;
-
-        if(available){
-            EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn - Found " << key << endl;
-            return key;
-        }
+    const char * searchType = par("searchType").stringValue();
+    if(std::strcmp(searchType, "BEST_FIRST") == 0){
+        besthost_key = findBestHostDynBestFirst(ram, disk, cpu);
+    }
+    else if(std::strcmp(searchType, "ROUND_ROBIN") == 0){
+        besthost_key = findBestHostDynRoundRobin(ram, disk, cpu);
+    }
+    else{
+        throw cRuntimeError("VirtualisationInfrastructureManagerDyn::findBestHostDyn - search type not supported");
     }
 
-    EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn - Best host not found!" << endl;
-    return -1;
+    return besthost_key;
 }
 
 MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(CreateAppMessage* msg)
@@ -374,12 +396,8 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(Cre
     inet::L3Address bestHostAddress = bestHost->address;
     int bestHostPort = bestHost->viPort;
 
-
     // Reserve resources on selected host
-    bestHost->reservedAmount.cpu =  msg->getRequiredCpu();
-    bestHost->reservedAmount.ram =  msg->getRequiredRam();
-    bestHost->reservedAmount.disk =  msg->getRequiredDisk();
-
+    reserveResources(msg->getRequiredRam(), msg->getRequiredDisk(), msg->getRequiredCpu(), bestHostKey);
 
     inet::Packet* packet = new inet::Packet("Instantiation");
     auto registrationpck = inet::makeShared<CreateAppMessage>();
@@ -490,6 +508,7 @@ void VirtualisationInfrastructureManagerDyn::printResources()
         EV << "VirtualisationInfrastructureManagerDyn::printResources - reserved Ram: " << descriptor.reservedAmount.ram << " / " << descriptor.totalAmount.ram << endl;
         EV << "VirtualisationInfrastructureManagerDyn::printResources - reserved Disk: " << descriptor.reservedAmount.disk << " / " << descriptor.totalAmount.disk << endl;
         EV << "VirtualisationInfrastructureManagerDyn::printResources - reserved CPU: " << descriptor.reservedAmount.cpu << " / " << descriptor.totalAmount.cpu << endl;
+        EV << "VirtualisationInfrastructureManagerDyn::printResources - running app: " << descriptor.numRunningApp << endl;
     }
 
     EV << "VirtualisationInfrastructureManagerDyn:: BUFFER" << endl;
@@ -528,9 +547,6 @@ void VirtualisationInfrastructureManagerDyn::printRequests()
 }
 
 
-/*
- * Private Functions
- */
 
 std::list<HostDescriptor> VirtualisationInfrastructureManagerDyn::getAllHosts()
 {
@@ -540,6 +556,70 @@ std::list<HostDescriptor> VirtualisationInfrastructureManagerDyn::getAllHosts()
     }
 
     return hosts;
+}
+
+/*
+ * Private Functions
+ */
+
+int VirtualisationInfrastructureManagerDyn::findBestHostDynBestFirst(double ram, double disk, double cpu){
+
+    EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn [best first] - Start" << endl;
+
+    for(auto it = handledHosts.begin(); it != handledHosts.end(); ++it){
+        int key = it->first;
+        HostDescriptor descriptor = (it->second);
+
+        if (it->first == getId()){
+            continue;
+        }
+
+        bool available = ram < descriptor.totalAmount.ram - descriptor.usedAmount.ram - descriptor.reservedAmount.ram
+                    && disk < descriptor.totalAmount.disk - descriptor.usedAmount.disk - descriptor.reservedAmount.disk
+                    && cpu  < descriptor.totalAmount.cpu - descriptor.usedAmount.cpu - descriptor.reservedAmount.cpu;
+
+        if(available){
+            EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn [best first] - Found " << key << endl;
+            return key;
+        }
+    }
+
+    EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn [best first] - Best host not found!" << endl;
+    return -1;
+}
+
+int VirtualisationInfrastructureManagerDyn::findBestHostDynRoundRobin(double ram, double disk, double cpu){
+
+    EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn [round robin] - Start" << endl;
+
+    int besthost_key = -1;
+    int min = INT_MAX;
+    for(auto it = handledHosts.begin(); it != handledHosts.end(); ++it){
+        int key = it->first;
+        HostDescriptor descriptor = (it->second);
+
+        if (it->first == getId()){
+            continue;
+        }
+
+        bool available = ram < descriptor.totalAmount.ram - descriptor.usedAmount.ram - descriptor.reservedAmount.ram
+                    && disk < descriptor.totalAmount.disk - descriptor.usedAmount.disk - descriptor.reservedAmount.disk
+                    && cpu  < descriptor.totalAmount.cpu - descriptor.usedAmount.cpu - descriptor.reservedAmount.cpu;
+
+        if(available && descriptor.numRunningApp < min){
+            min = descriptor.numRunningApp;
+            besthost_key = key;
+        }
+    }
+
+    if(besthost_key == -1){
+        EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn [round robin] - Best host not found!" << endl;
+        return -1;
+    }
+
+    EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn [round robin] - Found " << besthost_key << endl;
+
+    return besthost_key;
 }
 
 HostDescriptor* VirtualisationInfrastructureManagerDyn::findHostByAddress(inet::L3Address address){

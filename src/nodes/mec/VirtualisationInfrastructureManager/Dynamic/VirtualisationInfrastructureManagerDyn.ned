@@ -39,6 +39,9 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
     	
         string serverDestAddress; // used to communicate with the server (it can be removed)
     	double bufferSize = default(0.15);				// Percentage value of resources buffer
+    	
+//    	string searchType = default("BEST_FIRST");
+    	string searchType @enum("BEST_FIRST", "ROUND_ROBIN") = default("BEST_FIRST");
     
     gates:
         output socketOut;
