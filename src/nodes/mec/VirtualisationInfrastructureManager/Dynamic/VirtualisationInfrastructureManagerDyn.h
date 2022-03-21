@@ -29,6 +29,7 @@
 
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
 #include "apps/mec/ViApp/msg/InstantiationResponse_m.h"
+#include "apps/mec/ViApp/msg/TerminationResponse_m.h"
 
 //###########################################################################
 //data structures and values

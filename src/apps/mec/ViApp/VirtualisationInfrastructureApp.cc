@@ -160,6 +160,7 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
             inet::Packet* packet = new inet::Packet("TerminationResponse");
             auto responsepck = inet::makeShared<TerminationResponse>();
             responsepck->setResponse(res);
+            responsepck->setUeAppID(data->getUeAppID());
             responsepck->setChunkLength(inet::B(100));
             packet->insertAtBack(responsepck);
             socket.sendTo(packet, vimAddress, vimPort);

@@ -23,5 +23,6 @@ import inet.networklayer.common.L3Address;
 
 class TerminationResponse extends inet::FieldsChunk {
     
+    int ueAppID;
     bool response;
 }

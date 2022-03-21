@@ -202,6 +202,28 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
         }else if (!strcmp(msg->getName(), "TerminationResponse")){
             EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: TerminationResponse" << endl;
 
+            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+            if (pPacket == 0)
+               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
+
+            auto data = pPacket->peekData<TerminationResponse>();
+            inet::PacketPrinter printer;
+            printer.printPacket(std::cout, pPacket);
+
+            int ueAppID = data->getUeAppID();
+            auto it = handledApp.find(std::to_string(ueAppID));
+            if(it == handledApp.end()){
+                throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - TerminationResponse - cannot find registered app");
+            }
+            MecAppEntryDyn entry = it->second;
+            int host_key = findHostIDByAddress(entry.endpoint.addr);
+            HostDescriptor* host = &((handledHosts.find(host_key))->second);
+            host->numRunningApp -= 1;
+            deallocateResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, host_key);
+
+            EV << "VirtualisationInfrastructureManagerDyn:: response - terminate" << endl;
+            printResources();
+
             delete msg;
         }
     }
