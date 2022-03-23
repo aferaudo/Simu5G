@@ -35,6 +35,12 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         localToBrokerPort = par("localBrokerPort");
         radius = par("radius");
 
+        // Meo settings
+        meoPort = par("meoPort").intValue();
+
+        // Mepm settings
+        mepmPort = par("mepmPort").intValue();
+
         // Init BUFFER
         bufferSize = par("bufferSize");
         totalBufferResources = new ResourceDescriptor();
@@ -68,7 +74,7 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
             descriptor->usedAmount = *usedResources;
             descriptor->reservedAmount = *reservedResources;
             descriptor->numRunningApp = 0;
-            descriptor->address = inet::L3Address("127.0.0.1");
+            descriptor->address = inet::L3Address("10.0.0.35");
             descriptor->viPort = 2222;
 
             // using unique componentId - omnet++ feature
@@ -100,7 +106,7 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
     // Set up UDP socket for communcation
     localAddress = inet::L3AddressResolver().resolve(par("localAddress"));
     EV << "VirtualisationInfrastructureManagerDyn::initialize - localAddress " << localAddress << endl;
-    int port = par("localPort");
+    port = par("localPort");
     EV << "VirtualisationInfrastructureManagerDyn::initialize - binding socket to port " << port << endl;
     if (port != -1)
     {
@@ -111,6 +117,15 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
 
     // Broker settings
     brokerIPAddress = inet::L3AddressResolver().resolve(par("brokerAddress").stringValue());
+
+    // Meo settings
+    meoAddress = inet::L3AddressResolver().resolve(par("meoAddress").stringValue());
+
+    // Mepm settings
+    mepmAddress = inet::L3AddressResolver().resolve(par("mepmAddress").stringValue());
+
+//  Register message
+    scheduleAt(simTime()+0.01, new cMessage("register"));
 
     // Print message
 //    cMessage *print = new cMessage("print");
@@ -128,20 +143,29 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
 void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessage *msg)
 {
     EV << "VirtualisationInfrastructureManagerDyn::handleMessage - message received! " << msg->getName() << endl;
-    if (msg->isSelfMessage() && strcmp(msg->getName(), "print") == 0)
+    if (msg->isSelfMessage())
     {
-        EV << "VirtualisationInfrastructureManagerDyn::handleMessage - self message received!" << endl;
-        printResources();
-        allocateResources(1000,1000,1000, getId());
-        printResources();
-        deallocateResources(1000,1000,1000, getId());
-        printResources();
-        int addedHostId = registerHost(5555,2222,2222,2222,inet::L3Address("192.168.10.10"), 7890);
-        EV << "VirtualisationInfrastructureManagerDyn::handleMessage - bestHost " << findBestHostDyn(1000,1000,1000) << endl;
-        unregisterHost(addedHostId);
+        if(strcmp(msg->getName(), "print") == 0){
+            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - self message received!" << endl;
+            printResources();
+            allocateResources(1000,1000,1000, getId());
+            printResources();
+            deallocateResources(1000,1000,1000, getId());
+            printResources();
+            int addedHostId = registerHost(5555,2222,2222,2222,inet::L3Address("192.168.10.10"), 7890);
+            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - bestHost " << findBestHostDyn(1000,1000,1000) << endl;
+            unregisterHost(addedHostId);
+        }
+        else if(strcmp(msg->getName(), "register") == 0){
+            // Register to MECOrchestrator
+            std::cout << "VirtualisationInfrastructureManagerDyn::handleMessage - register to MEO" << endl;
+            std::cout << "MecPlatformManagerDyn::sending custom packet to MEO " << meoAddress.str() << endl;
+            std::cout << "MecPlatformManagerDyn::sending custom packet to MEO " << meoPort << endl;
+            sendMEORegistration();
+        }
         delete msg;
     }
-    else if(!msg->isSelfMessage() &&  socket.belongsToSocket(msg)){
+    else if(socket.belongsToSocket(msg)){
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - other message received!" << endl;
 
            // TODO remove after the implementation of the publisher
@@ -198,6 +222,24 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
 
 //            printRequests();
 //            printHandledApp();
+
+            // Response to Mepm
+            inet::Packet* toSend = new inet::Packet("instantiationApplicationResponse");
+            auto responsePkt = inet::makeShared<InstantiationApplicationResponse>();
+            responsePkt->setStatus(port != -1);
+            responsePkt->setMecHostId(getParentModule()->getParentModule()->getId());
+            responsePkt->setAppName(entry.moduleName.c_str()); // send back module name to avoid findingLoop
+            responsePkt->setDeviceAppId(std::to_string(ueAppID).c_str());
+            std::stringstream appName;
+            appName << entry.moduleName << "[" <<  entry.contextID << "]";
+            responsePkt->setInstanceId(appName.str().c_str());
+            responsePkt->setMecAppRemoteAddress(entry.endpoint.addr);
+            responsePkt->setMecAppRemotePort(entry.endpoint.port);
+            responsePkt->setContextId(entry.contextID);
+            responsePkt->setChunkLength(inet::B(1000));
+            toSend->insertAtBack(responsePkt);
+            socket.sendTo(toSend, mepmAddress, mepmPort);
+
             delete msg;
         }else if (!strcmp(msg->getName(), "TerminationResponse")){
             EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: TerminationResponse" << endl;
@@ -224,6 +266,18 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             EV << "VirtualisationInfrastructureManagerDyn:: response - terminate" << endl;
             printResources();
 
+            delete msg;
+        }else if(!strcmp(msg->getName(), "instantiationApplicationRequest")){
+            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: instantiationApplicationRequest" << endl;
+
+            handleMepmMessage(msg);
+            delete msg;
+        }
+        else if (!strcmp(msg->getName(), "ResourceRequest")){
+            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: ResourceRequest" << endl;
+
+            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+            handleResourceRequest(pPacket);
             delete msg;
         }
     }
@@ -406,15 +460,33 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDyn(double ram, double d
     return besthost_key;
 }
 
-MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(CreateAppMessage* msg)
+MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(const CreateAppMessage* msg)
 {
-    EV << "VirtualisationInfrastructureManagerDyn:: instantiateMEApp" << endl;
+    EV << "VirtualisationInfrastructureManagerDyn::instantiateMEApp - Start" << endl;
 
-    Enter_Method_Silent();
+//    Enter_Method_Silent();
 
-    int bestHostKey = findBestHostDyn(1,1,1);
+    double ram = msg->getRequiredRam();
+    double cpu = msg->getRequiredCpu();
+    double disk = msg->getRequiredDisk();
+
+    int bestHostKey = findBestHostDyn(ram,disk,cpu);
+    if(bestHostKey == -1){
+        std::cout << "VirtualisationInfrastructureManagerDyn::instantiateMEApp sending false response" << endl;
+        // Response to Mepm
+        inet::Packet* toSend = new inet::Packet("instantiationApplicationResponse");
+        auto responsePkt = inet::makeShared<InstantiationApplicationResponse>();
+        responsePkt->setStatus(false);
+        responsePkt->setMecHostId(getParentModule()->getParentModule()->getId());
+        responsePkt->setDeviceAppId(std::to_string(msg->getUeAppID()).c_str());
+        responsePkt->setChunkLength(inet::B(1000));
+        toSend->insertAtBack(responsePkt);
+        socket.sendTo(toSend, mepmAddress, mepmPort);
+
+        return nullptr;
+    }
+
     HostDescriptor* bestHost = &handledHosts[bestHostKey];
-
     inet::L3Address bestHostAddress = bestHost->address;
     int bestHostPort = bestHost->viPort;
 
@@ -447,6 +519,7 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(Cre
     newAppEntry.endpoint.addr = bestHostAddress;
     newAppEntry.endpoint.port = -1;
     newAppEntry.ueAppID = msg->getUeAppID();
+    newAppEntry.contextID = msg->getContextId();
     newAppEntry.usedResources.ram  = msg->getRequiredRam();
     newAppEntry.usedResources.disk = msg->getRequiredDisk();
     newAppEntry.usedResources.cpu  = msg->getRequiredCpu();
@@ -592,9 +665,9 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDynBestFirst(double ram,
         int key = it->first;
         HostDescriptor descriptor = (it->second);
 
-        if (it->first == getId()){
-            continue;
-        }
+//        if (it->first == getId()){
+//            continue;
+//        }
 
         bool available = ram < descriptor.totalAmount.ram - descriptor.usedAmount.ram - descriptor.reservedAmount.ram
                     && disk < descriptor.totalAmount.disk - descriptor.usedAmount.disk - descriptor.reservedAmount.disk
@@ -620,9 +693,9 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDynRoundRobin(double ram
         int key = it->first;
         HostDescriptor descriptor = (it->second);
 
-        if (it->first == getId()){
-            continue;
-        }
+//        if (it->first == getId()){
+//            continue;
+//        }
 
         bool available = ram < descriptor.totalAmount.ram - descriptor.usedAmount.ram - descriptor.reservedAmount.ram
                     && disk < descriptor.totalAmount.disk - descriptor.usedAmount.disk - descriptor.reservedAmount.disk
@@ -676,6 +749,56 @@ bool VirtualisationInfrastructureManagerDyn::isAllocableOnBuffer(double ram, dou
     return  ram < totalBufferResources->ram - usedBufferResources->ram
             && disk < totalBufferResources->disk - usedBufferResources->disk
             && cpu  < totalBufferResources->cpu - usedBufferResources->cpu;
+}
+
+void VirtualisationInfrastructureManagerDyn::sendMEORegistration()
+{
+    inet::Packet* packet = new inet::Packet("Registration");
+    auto registrationPkt = inet::makeShared<RegistrationPkt>();
+    registrationPkt->setHostId(getParentModule()->getParentModule()->getId());
+    registrationPkt->setType(MM4);
+    registrationPkt->setSourcePort(port);
+    registrationPkt->setChunkLength(inet::B(1000));
+    packet->insertAtBack(registrationPkt);
+
+    EV << "VirtualisationInfrastructureManagerDyn::sending custom packet to MEO " << endl;
+    std::cout << "VirtualisationInfrastructureManagerDyn::sending custom packet to MEO " << endl;
+    socket.sendTo(packet, meoAddress, meoPort);
+
+}
+
+void VirtualisationInfrastructureManagerDyn::handleResourceRequest(inet::Packet* resourcePacket){
+
+    auto data = resourcePacket->peekData<MeoVimRequest>();
+    const MeoVimRequest *receivedData = data.get();
+
+    double ram = receivedData->getRam();
+    double cpu = receivedData->getCpu();
+    double disk = receivedData->getDisk();
+
+    bool res = isAllocable(ram, disk, cpu);
+
+    inet::Packet* packet = new inet::Packet("AvailabilityResponseVim");
+    auto responsePkt = inet::makeShared<MecHostResponse>();
+    responsePkt->setDeviceAppId(receivedData->getDeviceAppId());
+    responsePkt->setMecHostId(getParentModule()->getParentModule()->getId());
+    responsePkt->setResult(res);
+    responsePkt->setChunkLength(inet::B(1000));
+    packet->insertAtBack(responsePkt);
+    socket.sendTo(packet, meoAddress, meoPort);
+
+    EV << "VirtualisationInfrastructureManagerDyn::handleResourceRequest - request result:  " << res << endl;
+}
+
+void VirtualisationInfrastructureManagerDyn::handleMepmMessage(cMessage* instantiationPacket){
+
+    inet::Packet* pPacket = check_and_cast<inet::Packet*>(instantiationPacket);
+    if (pPacket == 0)
+       throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMepmMessage - FATAL! Error when casting to inet packet");
+
+    const CreateAppMessage* data = pPacket->peekData<CreateAppMessage>().get();
+
+    instantiateMEApp(data);
 }
 
 
@@ -750,5 +873,3 @@ void VirtualisationInfrastructureManagerDyn::manageNotification()
         EV << "VIM::not recognised HTTP message" << endl;
     }
 }
-
-

@@ -16,6 +16,7 @@
 package simu5g.nodes.mec.MECPlatformManager.Dynamic;
 
 import simu5g.nodes.NR.NRUe;
+import inet.linklayer.ppp.PppInterface;
 
 //
 // TODO auto-generated type
@@ -25,16 +26,33 @@ module MecPlatformManagerHost extends NRUe
     parameters:
         @networkNode();
         @display("i=device/device");
-        
+
         string networkLayerType = default("IPv4NetworkLayer");
 
         //# Network Layer specs
         *.routingTableModule = default(absPath(".ipv4.routingTable"));
         *.interfaceTableModule = default(absPath(".interfaceTable"));
+
+	gates:
+	    inout ppp;
+
+    submodules:
+        mepmApp: MecPlatformManagerDyn {
+
+            @display("p=549.64,71.271996");
+        }
         
-        //# App parameters
-        numApps = 1;
-       	app[0].typename = "MecPlatformManagerDyn";
-        app[0].localPort = 3334;
+        pppIface: PppInterface {
+
+            @display("p=274.216,521.856;i=device/card");
+        }
         
+    connections allowunconnected:
+        
+        mepmApp.socketOut --> at.in++;
+        mepmApp.socketIn <-- at.out++;
+        
+        pppIface.upperLayerOut --> nl.in++;
+        pppIface.upperLayerIn <-- nl.out++;
+        pppIface.phys <--> ppp;
 }

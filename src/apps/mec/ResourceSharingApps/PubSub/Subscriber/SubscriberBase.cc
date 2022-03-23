@@ -94,7 +94,7 @@ void SubscriberBase::connectToBroker()
     tcpSocket.renewSocket();
     if (brokerIPAddress.isUnspecified()) {
         EV_ERROR << "SubscriberBase::Connecting to " << brokerIPAddress << " port=" << brokerPort << ": cannot resolve destination address\n";
-        throw cRuntimeError("Broker address is unspecified!");
+//        throw cRuntimeError("Broker address is unspecified!");
     }
     else {
         EV << "SubscriberBase::Connecting to " << brokerIPAddress << " port=" << brokerPort << endl;

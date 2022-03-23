@@ -22,6 +22,7 @@
 #include "MecOrchestratorApp.h"
 
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h" // TODO add this messages to our list
+#include "inet/networklayer/common/L3AddressTag_m.h"
 
 Define_Module(MecOrchestratorApp);
 
@@ -104,8 +105,7 @@ void MecOrchestratorApp::socketDataArrived(inet::UdpSocket *socket, inet::Packet
 //    printAvailableAppDescs(); // Debugging
     if(std::strcmp(packet->getName(), "Registration") == 0)
     {
-        auto data = packet->peekData<RegistrationPkt>();
-        handleRegistration(data.get());
+        handleRegistration(packet);
     }
     else if(std::strstr(packet->getName(), "AvailabilityResponse") != NULL)
     {
@@ -123,10 +123,11 @@ void MecOrchestratorApp::socketDataArrived(inet::UdpSocket *socket, inet::Packet
 
 }
 
-void MecOrchestratorApp::handleRegistration(const RegistrationPkt *data)
+void MecOrchestratorApp::handleRegistration(inet::Packet *packet)
 {
     EV << "MEOApp::Received MEC Host registration " << endl;
 
+    auto data = packet->peekData<RegistrationPkt>();
     int hostId = data->getHostId();
     MECHostDescriptor *mecHost = nullptr;
 
@@ -146,7 +147,6 @@ void MecOrchestratorApp::handleRegistration(const RegistrationPkt *data)
         //registrationEntry = new MECHostRegistrationEntry;
         mecHost = new MECHostDescriptor;
         mecHost->mecHostId = hostId;
-        mecHost->mecHostIp = data->getSourceAddress();
         mecHosts.push_back(mecHost);
 
     }
@@ -156,11 +156,13 @@ void MecOrchestratorApp::handleRegistration(const RegistrationPkt *data)
     {
         EV << "MEOApp::Received MEPM registration" << endl;
         mecHost->mepmPort = data->getSourcePort();
+        mecHost->mepmHostIp = packet->getTag<inet::L3AddressInd>()->getSrcAddress();
     }
     else if(data->getType() == MM4)
     {
         EV << "MEOApp::Received VIM registration" << endl;
         mecHost->vimPort = data->getSourcePort();
+        mecHost->vimHostIp = packet->getTag<inet::L3AddressInd>()->getSrcAddress();
     }
     else
     {
@@ -343,7 +345,7 @@ void MecOrchestratorApp::handleResourceReply(inet::Packet *packet)
             // mm4
             inet::Packet* pktMM4 = makeResourceRequestPacket(contAppMsg->getDevAppId(), appDesc.getVirtualResources().cpu, appDesc.getVirtualResources().ram, appDesc.getVirtualResources().disk);
 
-            response->requestTime = sendSRRequest(pktMM3, pktMM4, bestHost->mecHostIp, bestHost->vimPort, bestHost->mepmPort);
+            response->requestTime = sendSRRequest(pktMM3, pktMM4, bestHost->mepmHostIp, bestHost->vimHostIp, bestHost->vimPort, bestHost->mepmPort);
 
             // resetting replies
             response->vimRes = NO_VALUE;
@@ -486,7 +488,7 @@ void MecOrchestratorApp::startMECApp(CreateContextAppMessage* contAppMsg, MECHos
     bestHost->lastAllocation = simTime().dbl();
 
     // sending instantiation application request to MEPM
-    socket.sendTo(pktMM3, bestHost->mecHostIp, bestHost->mepmPort);
+    socket.sendTo(pktMM3, bestHost->mepmHostIp, bestHost->mepmPort);
     EV << "MEOApp::startMECApp instantiation request sent! " << endl;
 
 }
@@ -520,7 +522,7 @@ void MecOrchestratorApp::findBestMecHost(std::string deviceAppId, const Applicat
             EV << "MEOApp::Found candidate MECHost - id: " << it->mecHostId << " - sending requests" << endl;
             responseEntry = new MECHostResponseEntry;
             responseEntry->mecHostID = it->mecHostId;
-            responseEntry->requestTime = sendSRRequest(pktMM3, pktMM4, it->mecHostIp, it->vimPort, it->mepmPort);
+            responseEntry->requestTime = sendSRRequest(pktMM3, pktMM4, it->mepmHostIp, it->vimHostIp, it->vimPort, it->mepmPort);
 
             responseMap[key].push_back(responseEntry);
         }
@@ -569,15 +571,15 @@ const ApplicationDescriptor& MecOrchestratorApp::onboardApplicationPackage(const
         return mecApplicationDescriptors_[appDesc.getAppDId()];
 }
 
-double MecOrchestratorApp::sendSRRequest(inet::Packet* pktMM3, inet::Packet* pktMM4, inet::L3Address mecHostAddress, int vimPort, int mepmPort)
+double MecOrchestratorApp::sendSRRequest(inet::Packet* pktMM3, inet::Packet* pktMM4, inet::L3Address mepmHostAddress, inet::L3Address vimHostAddress, int vimPort, int mepmPort)
 {
-    EV << "MEOApp::Sending requests to " << mecHostAddress.str() << endl;
+    EV << "MEOApp::Sending requests to " << mepmHostAddress.str() << " and " << vimHostAddress.str() <<endl;
 
     // Requesting to vim if MECApp is allocable
-    socket.sendTo(pktMM4->dup(), mecHostAddress, vimPort);
+    socket.sendTo(pktMM4->dup(), vimHostAddress, vimPort);
 
     // Requesting to MEPM if the MECPlatform has the needed services
-    socket.sendTo(pktMM3->dup(), mecHostAddress, mepmPort);
+    socket.sendTo(pktMM3->dup(), mepmHostAddress, mepmPort);
 
     return simTime().dbl();
 }

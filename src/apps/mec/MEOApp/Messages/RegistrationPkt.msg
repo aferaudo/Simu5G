@@ -25,6 +25,5 @@ class RegistrationPkt extends inet::FieldsChunk
 {
 	ReferencePointType type = NONE;
 	int hostId;
-	inet::L3Address sourceAddress;
 	int sourcePort;
 }

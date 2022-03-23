@@ -25,11 +25,15 @@ simple MecPlatformManagerDyn like IApp
     parameters:
         @class(MecPlatformManagerDyn);
 
-        int localPort = default(3334);
         string localAddress;
+        int localPort = default(3334);
 
-        int mecOrchestratorPort = default(3300);
-        string mecOrchestratorAddress;
+        string meoAddress;
+        int meoPort = default(3300);
+        
+        // vim
+        string vimAddress;
+        int vimPort = default(3333);
 
         @display("i=block/control");
     gates:

@@ -71,7 +71,10 @@ module MECHostDyn
         string color = default("red");
 
     gates:
+        inout pppENB[];
         inout ethserver;
+        inout ppp1;
+        inout ppp2;
 //        input radioIn[] @directin; // for d2d communication
 
     submodules:
@@ -94,8 +97,12 @@ module MECHostDyn
 
     connections allowunconnected:
 
+		vim.ppp++ <--> ppp1;
+		vim.ppp++ <--> pppENB++;
+		
+		mecPlatformManager.ppp <--> ppp2;
 
-        ethserver <--> vim.ethiface;
+//        ethserver <--> vim.ethiface;
 		//ethserver <--> eth[0].phys;
 
 //        vimH.mm7GnB <--> Eth10G <--> ethAntenna++;

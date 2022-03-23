@@ -28,6 +28,8 @@ import inet.networklayer.contract.INetworkLayer;
 import inet.transportlayer.udp.Udp;
 import inet.transportlayer.tcp.Tcp;
 import simu5g.stack.ICellularNic;
+import simu5g.apps.mec.ViApp.VirtualisationInfrastructureApp;
+import inet.linklayer.ppp.PppInterface;
 //
 // TODO auto-generated type
 //
@@ -48,39 +50,61 @@ module VirtualisationInfrastructureManagerHost extends NRUe
 //        double localDisk @unit("B") = default(100TB);
 //        double localCpuSpeed = default(300000);
 
-        //# App parameters
-        numApps = 2;
-        app[0].typename = "VirtualisationInfrastructureManagerDyn";
-        //app[0].localPort = 3333;
-        app[1].typename = "VirtualisationInfrastructureApp";
-		app[1].localPort = 2222;
-
         @display("i=device/device");
+
     gates:
-        
+
 		// to gnodes
         inout pppENB[];
-        
+
+        inout ppp[];
+
         // to server
         inout ethiface;
-        
+
     submodules:
-       	// ethernet interface used for communicating with Server
+        // ethernet interface used for communicating with Server
         serverEth: <default("EthernetInterface")> like IEthernetInterface {
             parameters:
                 @display("p=813,523,row,150;q=txQueue");
         }
-        
+
+
+        pppIf[sizeof(ppp)]: PppInterface {
+
+            @display("p=274.216,521.856;i=device/card");
+        }
+        vimApp: VirtualisationInfrastructureManagerDyn {
+
+            @display("p=578.632,71.271996");
+        }
+
+        viApp: VirtualisationInfrastructureApp {
+
+            @display("p=751.376,71.271996");
+        }
     connections allowunconnected:
-//
+
+        viApp.socketOut --> at.in++;
+        viApp.socketIn <-- at.out++;
+
+        vimApp.socketOut --> at.in++;
+        vimApp.socketIn <-- at.out++;
+
         nl.out++ --> serverEth.upperLayerIn;
         nl.in++ <-- serverEth.upperLayerOut;
-        
-		ethiface <--> serverEth.phys;
-		
+
+		for i=0..sizeof(ppp)-1 {
+            pppIf[i].upperLayerOut --> nl.in++;
+            pppIf[i].upperLayerIn <-- nl.out++;
+            pppIf[i].phys <--> ppp++;
+        }
+
+//        ethiface <--> serverEth.phys;
+
 //		nl.out++ --> ethOut;
 //		nl.in++ <-- ethIn;
-		
+
 
 
 }

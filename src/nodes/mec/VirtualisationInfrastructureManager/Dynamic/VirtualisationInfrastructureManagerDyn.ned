@@ -37,7 +37,14 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
     	int brokerPort = default(3005); // destination broker port
     	double radius = default(150); //radius in meters
     	
-        string serverDestAddress; // used to communicate with the server (it can be removed)
+    	// mecorchestrator parameters
+    	string meoAddress;
+    	int meoPort;
+    	
+    	// mepm parameters
+		string mepmAddress;
+		int mepmPort = default(3334);
+
     	double bufferSize = default(0.15);				// Percentage value of resources buffer
     	
 //    	string searchType = default("BEST_FIRST");
@@ -46,6 +53,6 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
     gates:
         output socketOut;
         input socketIn;
-        output socketBrokerOut;
-        input socketBrokerIn;
+     	
+     	
 }

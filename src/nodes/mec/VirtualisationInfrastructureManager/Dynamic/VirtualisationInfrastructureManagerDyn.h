@@ -31,6 +31,10 @@
 #include "apps/mec/ViApp/msg/InstantiationResponse_m.h"
 #include "apps/mec/ViApp/msg/TerminationResponse_m.h"
 
+#include "apps/mec/MEOApp/Messages/RegistrationPkt_m.h"
+#include "apps/mec/MEOApp/Messages/MeoPackets_m.h"
+#include "nodes/mec/MECPlatformManager/Dynamic/msg/PacketEncapsulator_m.h"
+
 //###########################################################################
 //data structures and values
 
@@ -57,6 +61,7 @@ struct MecAppEntryDyn
     std::string moduleName;
     std::string moduleType;
     bool isBuffered;
+    int contextID;
 };
 
 // used to calculate processing time needed to execute a number of instructions
@@ -80,6 +85,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     inet::UdpSocket socket;
     inet::L3Address destAddress;
     inet::L3Address localAddress;
+    int port;
 
     std::map<int, HostDescriptor> handledHosts; // Resource Handling
     std::map<std::string, MecAppEntryDyn> handledApp; // App Handling
@@ -93,6 +99,14 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     ResourceDescriptor* totalBufferResources;
     ResourceDescriptor* usedBufferResources;
 
+    // meo parameters
+    inet::L3Address meoAddress;
+    int meoPort;
+
+    // mepm parameters
+    inet::L3Address mepmAddress;
+    int mepmPort;
+
 
     std::string color;
 
@@ -103,7 +117,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         /*
          * Istantiate ME Application on an handled car
          */
-        MecAppInstanceInfo* instantiateMEApp(CreateAppMessage*);
+        MecAppInstanceInfo* instantiateMEApp(const CreateAppMessage*);
 
         /*
          * Istantiate Emulated ME Application from MECPM
@@ -219,6 +233,10 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         int findBestHostDynBestFirst(double ram, double disk, double cpu);
 
         int findBestHostDynRoundRobin(double ram, double disk, double cpu);
+
+        void sendMEORegistration();
+        void handleResourceRequest(inet::Packet* resourcePacket);
+        void handleMepmMessage(cMessage* instantiationPacket);
 };
 
 #endif

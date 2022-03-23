@@ -39,9 +39,11 @@ void VirtualisationInfrastructureApp::initialize(int stage)
     // Get parameters
     localPort = par("localPort");
     vimPort = par("vimPort");
+    mp1Port = par("mp1Port");
 
     localAddress = inet::L3AddressResolver().resolve(par("localAddress"));
     vimAddress = inet::L3AddressResolver().resolve(par("vimAddress"));
+    mp1Address = inet::L3AddressResolver().resolve(par("mp1Address"));
 
     if (localPort != -1)
     {
@@ -187,6 +189,7 @@ bool VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data
     appName << meModuleName << "[" <<  data->getContextId() << "]";
     module->setName(appName.str().c_str());
     EV << "VirtualisationInfrastructureApp::handleInstantiation - meModuleName: " << appName.str() << endl;
+    EV << "VirtualisationInfrastructureApp::mp1 - address: " << par("mp1Address").stringValue() << ":" << mp1Port << endl;
 
     double ram = data->getRequiredRam();
     double disk = data->getRequiredDisk();
@@ -202,8 +205,8 @@ bool VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data
     module->par("requiredDisk") = disk;
     module->par("requiredCpu") = cpu;
     module->par("localUePort") = portCounter;
-    module->par("mp1Address") = "mechost.mecPlatform";
-    module->par("mp1Port") = 10021;
+    module->par("mp1Address") = par("mp1Address").stringValue();
+    module->par("mp1Port") = mp1Port;
 
     module->finalizeParameters();
 

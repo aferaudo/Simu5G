@@ -26,6 +26,9 @@
 
 #include <inet/transportlayer/contract/udp/UdpSocket.h>
 
+#include "apps/mec/MEOApp/Messages/RegistrationPkt_m.h"
+#include "apps/mec/MEOApp/Messages/MeoPackets_m.h"
+
 using namespace omnetpp;
 
 class ServiceInfo;
@@ -37,13 +40,19 @@ class MecPlatformManagerDyn : public cSimpleModule
     VirtualisationInfrastructureManagerDyn* vim;
     ServiceRegistry* serviceRegistry;
 
-    inet::UdpSocket orchestratorSocket;
+    inet::UdpSocket socket;
 
-    inet::L3Address orchestratorAddress;
+    // local parameters
     inet::L3Address localAddress;
-
-    int orchestratorPort;
     int localPort;
+
+    // meo parameters
+    inet::L3Address meoAddress;
+    int meoPort;
+
+    // vim parameters
+    inet::L3Address vimAddress;
+    int vimPort;
 
     public:
         MecPlatformManagerDyn();
@@ -64,6 +73,11 @@ class MecPlatformManagerDyn : public cSimpleModule
         virtual void initialize(int stage);
         virtual void handleMessage(cMessage *msg);
         virtual void finish();
+
+    private:
+        void sendMEORegistration();
+        void handleServiceRequest(inet::Packet* resourcePacket);
+        void handleInstantiationRequest(inet::Packet* instantiationPacket);
 
 };
 

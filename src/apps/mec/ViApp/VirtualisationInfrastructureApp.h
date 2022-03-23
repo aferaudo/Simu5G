@@ -61,6 +61,9 @@ class VirtualisationInfrastructureApp : public cSimpleModule
     inet::L3Address vimAddress;
     int vimPort;
 
+    inet::L3Address mp1Address;
+    int mp1Port;
+
     // Business logic parameters
     int appcounter;
     int portCounter = 10000;    // counter to assign port to app

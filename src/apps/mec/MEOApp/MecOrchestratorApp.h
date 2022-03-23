@@ -70,12 +70,13 @@ struct MECHostDescriptor
     int mecHostId;
     int vimPort = -1; // default value -1 (no port available)
     int mepmPort = -1; // default value -1 (no port available)
-    inet::L3Address mecHostIp;
+    inet::L3Address mepmHostIp;
+    inet::L3Address vimHostIp;
     double lastAllocation = -1; // time of last allocation request (startMECApp)
     std::string toString() const
     {
         return "MECHost ID: " + std::to_string(mecHostId)
-                + ", ipAddress: " + mecHostIp.str() + ", vimPort: "
+                + ", mepmIpAddress: " + mepmHostIp.str() + ", vimIpAddress: " + vimHostIp.str() + ", vimPort: "
                 + std::to_string(vimPort) + ", mepmPort: " + std::to_string(mepmPort) +
                 ", last allocation time: " + std::to_string(lastAllocation);
 
@@ -205,7 +206,7 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
 
 
     // other methods
-    void handleRegistration(const RegistrationPkt *data);
+    void handleRegistration(inet::Packet *packet);
     void handleResourceReply(inet::Packet *packet);
     void handleInstantiationResponse(inet::Packet *packet);
 
@@ -216,7 +217,7 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
      * @param pktMM3, pktMM4s packet to be sendo to mecHostAddress, vimPort, mepmPort
      * @return requestTime
      * */
-    double sendSRRequest(inet::Packet* pktMM3, inet::Packet* pktMM4, inet::L3Address mecHostAddress, int vimPort, int mepmPort);
+    double sendSRRequest(inet::Packet* pktMM3, inet::Packet* pktMM4, inet::L3Address mepmHostAddress, inet::L3Address vimHostAddress, int vimPort, int mepmPort);
 
     // utility methods
     void printAvailableMECHosts();
