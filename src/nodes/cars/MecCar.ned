@@ -15,6 +15,7 @@
 
 package simu5g.nodes.cars;
 import simu5g.nodes.NR.NRUe;
+import simu5g.apps.mec.ViApp.VirtualisationInfrastructureApp;
 
 module MecCar extends NRUe
 {
@@ -33,5 +34,15 @@ module MecCar extends NRUe
 //        app[0].localPort = 2222;
 
     submodules:
+        
+    	viApp: VirtualisationInfrastructureApp {
+
+            @display("p=751.376,71.271996");
+        }
+        
+    connections allowunconnected:
+
+        viApp.socketOut --> at.in++;
+        viApp.socketIn <-- at.out++;
 
 }

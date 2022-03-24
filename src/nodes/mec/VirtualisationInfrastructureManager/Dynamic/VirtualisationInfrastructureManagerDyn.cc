@@ -102,15 +102,16 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
 
     // set tcp socket VIM <--> Broker
     SubscriberBase::handleStartOperation(operation);
-    std::cout << "VirtualisationInfrastructureManagerDyn::FINISH.." << endl;
 
 }
 
 void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessage *msg)
 {
     EV << "VirtualisationInfrastructureManagerDyn::handleMessage - message received! " << msg->getName() << endl;
-    if (msg->isSelfMessage())
+    std::cout << "VirtualisationInfrastructureManagerDyn::handleMessage - message received! " << msg->getName() << endl;
+    if (msg->isSelfMessage() && strcmp(msg->getName(), "connect") != 0)
     {
+        std::cout << "VirtualisationInfrastructureManagerDyn::handleMessage - dentro" << endl;
         if(strcmp(msg->getName(), "print") == 0){
             EV << "VirtualisationInfrastructureManagerDyn::handleMessage - self message received!" << endl;
             printResources();
@@ -131,7 +132,7 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
         }
         delete msg;
     }
-    else if(socket.belongsToSocket(msg)){
+    else if(!msg->isSelfMessage() && socket.belongsToSocket(msg)){
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - other message received!" << endl;
 
            // TODO remove after the implementation of the publisher
@@ -677,9 +678,9 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDynBestFirst(double ram,
         int key = it->first;
         HostDescriptor descriptor = (it->second);
 
-//        if (it->first == getId()){
-//            continue;
-//        }
+        if (it->first == getId()){
+            continue;
+        }
 
         bool available = ram < descriptor.totalAmount.ram - descriptor.usedAmount.ram - descriptor.reservedAmount.ram
                     && disk < descriptor.totalAmount.disk - descriptor.usedAmount.disk - descriptor.reservedAmount.disk
@@ -705,9 +706,9 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDynRoundRobin(double ram
         int key = it->first;
         HostDescriptor descriptor = (it->second);
 
-//        if (it->first == getId()){
-//            continue;
-//        }
+        if (it->first == getId()){
+            continue;
+        }
 
         bool available = ram < descriptor.totalAmount.ram - descriptor.usedAmount.ram - descriptor.reservedAmount.ram
                     && disk < descriptor.totalAmount.disk - descriptor.usedAmount.disk - descriptor.reservedAmount.disk
