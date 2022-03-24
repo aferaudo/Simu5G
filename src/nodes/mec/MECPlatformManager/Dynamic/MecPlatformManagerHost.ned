@@ -33,26 +33,36 @@ module MecPlatformManagerHost extends NRUe
         *.routingTableModule = default(absPath(".ipv4.routingTable"));
         *.interfaceTableModule = default(absPath(".interfaceTable"));
 
-	gates:
-	    inout ppp;
+    gates:
+        inout pppRouter;
+        inout pppUPF;
 
     submodules:
         mepmApp: MecPlatformManagerDyn {
 
             @display("p=549.64,71.271996");
         }
-        
-        pppIface: PppInterface {
+
+        pppIfUPF: PppInterface {
 
             @display("p=274.216,521.856;i=device/card");
         }
-        
+
+        pppIfRouter: PppInterface {
+
+            @display("p=181.2,521.856;i=device/card");
+        }
+
     connections allowunconnected:
-        
+
         mepmApp.socketOut --> at.in++;
         mepmApp.socketIn <-- at.out++;
-        
-        pppIface.upperLayerOut --> nl.in++;
-        pppIface.upperLayerIn <-- nl.out++;
-        pppIface.phys <--> ppp;
+
+        pppIfUPF.upperLayerOut --> nl.in++;
+        pppIfUPF.upperLayerIn <-- nl.out++;
+        pppIfUPF.phys <--> pppUPF;
+
+        pppIfRouter.upperLayerOut --> nl.in++;
+        pppIfRouter.upperLayerIn <-- nl.out++;
+        pppIfRouter.phys <--> pppRouter;
 }

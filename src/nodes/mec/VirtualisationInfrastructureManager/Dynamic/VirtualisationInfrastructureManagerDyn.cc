@@ -41,6 +41,9 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         // Mepm settings
         mepmPort = par("mepmPort").intValue();
 
+        std::cout << getParentModule()->getSubmodule("interfaceTable") << endl;
+        ifacetable = check_and_cast<inet::InterfaceTable*>(getParentModule()->getSubmodule("interfaceTable"));
+
         // Graphic
         color = getParentModule()->getParentModule()->par("color").stringValue();
         cDisplayString& dispStr = getParentModule()->getParentModule()->getDisplayString();
@@ -57,6 +60,7 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::LifecycleOperation *operation)
 {
     EV << "VirtualisationInfrastructureManagerDyn::START.." << endl;
+    std::cout << "VirtualisationInfrastructureManagerDyn::START.." << endl;
 
     // Set up UDP socket for communcation
     localAddress = inet::L3AddressResolver().resolve(par("localAddress"));
@@ -98,6 +102,7 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
 
     // set tcp socket VIM <--> Broker
     SubscriberBase::handleStartOperation(operation);
+    std::cout << "VirtualisationInfrastructureManagerDyn::FINISH.." << endl;
 
 }
 
@@ -199,6 +204,7 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             responsePkt->setContextId(entry.contextID);
             responsePkt->setChunkLength(inet::B(1000));
             toSend->insertAtBack(responsePkt);
+            toSend->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
             socket.sendTo(toSend, mepmAddress, mepmPort);
 
             delete msg;

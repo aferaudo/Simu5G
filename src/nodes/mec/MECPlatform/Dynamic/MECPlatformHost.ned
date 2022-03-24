@@ -24,6 +24,7 @@ import inet.networklayer.contract.INetworkLayer;
 import inet.applications.contract.IApp;
 import inet.transportlayer.udp.Udp;
 import inet.transportlayer.tcp.Tcp;
+import inet.linklayer.ppp.PppInterface;
 
 import simu5g.nodes.mec.MECPlatform.IMEService;
 import simu5g.nodes.mec.MECPlatform.ServiceRegistry.ServiceRegistry;
@@ -55,6 +56,8 @@ module MECPlatformHost extends NRUe
         inout virtInfr; // connection to the virtualization infrastructure to communicate with the MEapps
         input meAppIn[];
         output meAppOut[];
+        
+        inout ppp;
     submodules:
 
         serviceRegistry: ServiceRegistry {
@@ -71,6 +74,11 @@ module MECPlatformHost extends NRUe
         mecService[numMecServices]: <> like IApp {
             @display("p=551.04,73.8,row,140");
         }
+        
+        pppIf: PppInterface {
+
+            @display("p=274.216,521.856;i=device/card");
+        }
 
     connections allowunconnected:
 
@@ -86,5 +94,8 @@ module MECPlatformHost extends NRUe
         serviceRegistry.socketOut --> at.in++;
         serviceRegistry.socketIn <-- at.out++;
 
+		pppIf.upperLayerOut --> nl.in++;
+        pppIf.upperLayerIn <-- nl.out++;
+        pppIf.phys <--> ppp;
 
 }

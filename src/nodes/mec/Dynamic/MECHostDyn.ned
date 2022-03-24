@@ -24,6 +24,7 @@ import inet.node.ethernet.Eth10G;
 import inet.applications.contract.IApp;
 import inet.linklayer.contract.IEthernetInterface;
 import simu5g.nodes.NR.NRUe;
+import inet.node.inet.Router;
 
 //
 // @author Alessandro Calvio
@@ -73,8 +74,8 @@ module MECHostDyn
     gates:
         inout pppENB[];
         inout ethserver;
-        inout ppp1;
-        inout ppp2;
+        inout pppVim;
+        inout pppMepm;
 //        input radioIn[] @directin; // for d2d communication
 
     submodules:
@@ -86,21 +87,29 @@ module MECHostDyn
 
         mecPlatformManager: MecPlatformManagerHost {
 
-            @display("p=630.198,183.306");
+            @display("p=710.478,183.306");
         }
 
         mecPlatform: MECPlatformHost {
 
-            @display("p=445.55402,183.306;i=device/device");
+            @display("p=470.976,183.306;i=device/device");
         }
 
+        router: Router {
 
+
+            @display("p=470.976,69.576004");
+        }
     connections allowunconnected:
 
-		vim.ppp++ <--> ppp1;
-		vim.ppp++ <--> pppENB++;
-		
-		mecPlatformManager.ppp <--> ppp2;
+        vim.pppUPF <--> pppVim;
+        vim.pppRouter <--> Eth10G <--> router.pppg++;
+        vim.pppeENB <--> pppENB++;
+
+        mecPlatformManager.pppUPF <--> pppMepm;
+        
+        mecPlatformManager.pppRouter <--> Eth10G <--> router.pppg++;
+        mecPlatform.ppp <--> Eth10G <--> router.pppg++;
 
 //        ethserver <--> vim.ethiface;
 		//ethserver <--> eth[0].phys;

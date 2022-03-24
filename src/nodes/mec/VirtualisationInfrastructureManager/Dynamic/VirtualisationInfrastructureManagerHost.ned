@@ -57,7 +57,9 @@ module VirtualisationInfrastructureManagerHost extends NRUe
 		// to gnodes
         inout pppENB[];
 
-        inout ppp[];
+        inout pppRouter;
+        inout pppUPF;
+        inout pppeENB;
 
         // to server
         inout ethiface;
@@ -70,10 +72,21 @@ module VirtualisationInfrastructureManagerHost extends NRUe
         }
 
 
-        pppIf[sizeof(ppp)]: PppInterface {
+        pppIfUPF: PppInterface {
 
             @display("p=274.216,521.856;i=device/card");
         }
+
+        pppIfRouter: PppInterface {
+
+            @display("p=181.2,521.856;i=device/card");
+        }
+        
+        pppIfENB: PppInterface {
+
+            @display("p=181.2,521.856;i=device/card");
+        }
+
         vimApp: VirtualisationInfrastructureManagerDyn {
 
             @display("p=578.632,71.271996");
@@ -94,11 +107,17 @@ module VirtualisationInfrastructureManagerHost extends NRUe
         nl.out++ --> serverEth.upperLayerIn;
         nl.in++ <-- serverEth.upperLayerOut;
 
-		for i=0..sizeof(ppp)-1 {
-            pppIf[i].upperLayerOut --> nl.in++;
-            pppIf[i].upperLayerIn <-- nl.out++;
-            pppIf[i].phys <--> ppp++;
-        }
+        pppIfUPF.upperLayerOut --> nl.in++;
+        pppIfUPF.upperLayerIn <-- nl.out++;
+        pppIfUPF.phys <--> pppUPF;
+
+        pppIfRouter.upperLayerOut --> nl.in++;
+        pppIfRouter.upperLayerIn <-- nl.out++;
+        pppIfRouter.phys <--> pppRouter;
+        
+        pppIfENB.upperLayerOut --> nl.in++;
+        pppIfENB.upperLayerIn <-- nl.out++;
+        pppIfENB.phys <--> pppeENB;
 
 //        ethiface <--> serverEth.phys;
 

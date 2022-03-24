@@ -22,6 +22,7 @@
 #include "inet/networklayer/common/L3AddressResolver.h"
 #include "inet/networklayer/ipv4/Ipv4Header_m.h"
 #include "inet/common/packet/printer/PacketPrinter.h"
+#include "inet/networklayer/common/InterfaceTable.h"
 
 #include "nodes/mec/utils/MecCommon.h"
 
@@ -33,6 +34,7 @@
 
 #include "apps/mec/MEOApp/Messages/RegistrationPkt_m.h"
 #include "apps/mec/MEOApp/Messages/MeoPackets_m.h"
+#include "inet/linklayer/common/InterfaceTag_m.h"
 
 //###########################################################################
 //data structures and values
@@ -105,6 +107,8 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     // mepm parameters
     inet::L3Address mepmAddress;
     int mepmPort;
+
+    inet::IInterfaceTable* ifacetable;
 
 
     std::string color;

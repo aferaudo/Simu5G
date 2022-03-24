@@ -21,6 +21,7 @@
 #include "inet/networklayer/common/L3AddressResolver.h"
 #include "inet/networklayer/ipv4/Ipv4Header_m.h"
 #include "inet/common/packet/printer/PacketPrinter.h"
+#include "inet/networklayer/common/InterfaceTable.h"
 
 #include "nodes/mec/utils/MecCommon.h"
 
@@ -28,6 +29,7 @@
 
 #include "apps/mec/MEOApp/Messages/RegistrationPkt_m.h"
 #include "apps/mec/MEOApp/Messages/MeoPackets_m.h"
+#include "inet/linklayer/common/InterfaceTag_m.h"
 
 using namespace omnetpp;
 
@@ -53,6 +55,8 @@ class MecPlatformManagerDyn : public cSimpleModule
     // vim parameters
     inet::L3Address vimAddress;
     int vimPort;
+
+    inet::IInterfaceTable* ifacetable;
 
     public:
         MecPlatformManagerDyn();

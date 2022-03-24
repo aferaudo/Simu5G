@@ -51,6 +51,10 @@ void MecPlatformManagerDyn::initialize(int stage)
     localPort = par("localPort");
     vimPort = par("vimPort");
 
+    std::cout << getParentModule()->getSubmodule("interfaceTable") << endl;
+    ifacetable = check_and_cast<inet::InterfaceTable*>(getParentModule()->getSubmodule("interfaceTable"));
+    EV << "MecPlatformManagerDyn::initialize - ifacetable " << ifacetable->findInterfaceByName("pppIfRouter")->str() << endl;
+
     // Setup orchestrator communication
     if(localPort != -1){
         EV << "MecPlatformManagerDyn::initialize - binding orchestrator socket to port " << localPort << endl;
@@ -290,6 +294,7 @@ void MecPlatformManagerDyn::handleInstantiationRequest(inet::Packet* instantiati
     auto data = instantiationPacket->peekData<CreateAppMessage>();
     createAppMsg = data.get()->dup();
     pktdup->insertAtBack(createAppMsg);
+    pktdup->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
 
     EV << "MecPlatformManagerDyn::handleResourceRequest - sending:  " << vimAddress << ":" << vimPort << endl;
     socket.sendTo(pktdup, vimAddress, vimPort);
