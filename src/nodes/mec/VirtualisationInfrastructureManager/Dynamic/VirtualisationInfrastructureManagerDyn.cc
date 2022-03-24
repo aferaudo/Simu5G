@@ -41,49 +41,6 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         // Mepm settings
         mepmPort = par("mepmPort").intValue();
 
-        // Init BUFFER
-        bufferSize = par("bufferSize");
-        totalBufferResources = new ResourceDescriptor();
-        totalBufferResources->ram = vimHost->par("localRam").doubleValue() * bufferSize;
-        totalBufferResources->cpu = vimHost->par("localCpuSpeed").doubleValue() * bufferSize;
-        totalBufferResources->disk = vimHost->par("localDisk").doubleValue() * bufferSize;
-
-        usedBufferResources = new ResourceDescriptor();
-        usedBufferResources->ram = 0;
-        usedBufferResources->cpu = 0;
-        usedBufferResources->disk = 0;
-
-        if(vimHost->hasPar("localRam") && vimHost->hasPar("localDisk") && vimHost->hasPar("localCpuSpeed")){
-            HostDescriptor* descriptor = new HostDescriptor();
-            ResourceDescriptor* totalResources = new ResourceDescriptor();
-            totalResources->ram = vimHost->par("localRam").doubleValue() * (1-bufferSize);
-            totalResources->cpu = vimHost->par("localCpuSpeed").doubleValue() * (1-bufferSize);
-            totalResources->disk = vimHost->par("localDisk").doubleValue() * (1-bufferSize);
-
-            ResourceDescriptor* usedResources = new ResourceDescriptor();
-            usedResources->ram = 0;
-            usedResources->cpu = 0;
-            usedResources->disk = 0;
-
-            ResourceDescriptor* reservedResources = new ResourceDescriptor();
-            reservedResources->ram = 0;
-            reservedResources->cpu = 0;
-            reservedResources->disk = 0;
-
-            descriptor->totalAmount = *totalResources;
-            descriptor->usedAmount = *usedResources;
-            descriptor->reservedAmount = *reservedResources;
-            descriptor->numRunningApp = 0;
-            descriptor->address = inet::L3Address("10.0.0.35");
-            descriptor->viPort = 2222;
-
-            // using unique componentId - omnet++ feature
-            int key = getId();
-            handledHosts[key] = *descriptor;
-        }
-        else
-            throw cRuntimeError("VirtualisationInfrastructureManagerDyn::initialize - \tFATAL! Cannot find static resource definition!");
-
         // Graphic
         color = getParentModule()->getParentModule()->par("color").stringValue();
         cDisplayString& dispStr = getParentModule()->getParentModule()->getDisplayString();
@@ -93,8 +50,6 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         dispStr.setTagArg("b", 3, color.c_str());
         dispStr.setTagArg("b", 4, "black");
     }
-
-
 
     inet::ApplicationBase::initialize(stage);
 }
@@ -115,6 +70,7 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
     }
 
 
+
     // Broker settings
     brokerIPAddress = inet::L3AddressResolver().resolve(par("brokerAddress").stringValue());
 
@@ -123,6 +79,11 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
 
     // Mepm settings
     mepmAddress = inet::L3AddressResolver().resolve(par("mepmAddress").stringValue());
+    EV << "VirtualisationInfrastructureManagerDyn::initialize - magic ip " << mepmAddress << endl;
+
+    initResource();
+
+    printResources();
 
 //  Register message
     scheduleAt(simTime()+0.01, new cMessage("register"));
@@ -656,6 +617,51 @@ std::list<HostDescriptor> VirtualisationInfrastructureManagerDyn::getAllHosts()
 /*
  * Private Functions
  */
+
+void VirtualisationInfrastructureManagerDyn::initResource(){
+    // Init BUFFER
+    bufferSize = par("bufferSize");
+    totalBufferResources = new ResourceDescriptor();
+    totalBufferResources->ram = vimHost->par("localRam").doubleValue() * bufferSize;
+    totalBufferResources->cpu = vimHost->par("localCpuSpeed").doubleValue() * bufferSize;
+    totalBufferResources->disk = vimHost->par("localDisk").doubleValue() * bufferSize;
+
+    usedBufferResources = new ResourceDescriptor();
+    usedBufferResources->ram = 0;
+    usedBufferResources->cpu = 0;
+    usedBufferResources->disk = 0;
+
+    if(vimHost->hasPar("localRam") && vimHost->hasPar("localDisk") && vimHost->hasPar("localCpuSpeed")){
+        HostDescriptor* descriptor = new HostDescriptor();
+        ResourceDescriptor* totalResources = new ResourceDescriptor();
+        totalResources->ram = vimHost->par("localRam").doubleValue() * (1-bufferSize);
+        totalResources->cpu = vimHost->par("localCpuSpeed").doubleValue() * (1-bufferSize);
+        totalResources->disk = vimHost->par("localDisk").doubleValue() * (1-bufferSize);
+
+        ResourceDescriptor* usedResources = new ResourceDescriptor();
+        usedResources->ram = 0;
+        usedResources->cpu = 0;
+        usedResources->disk = 0;
+
+        ResourceDescriptor* reservedResources = new ResourceDescriptor();
+        reservedResources->ram = 0;
+        reservedResources->cpu = 0;
+        reservedResources->disk = 0;
+
+        descriptor->totalAmount = *totalResources;
+        descriptor->usedAmount = *usedResources;
+        descriptor->reservedAmount = *reservedResources;
+        descriptor->numRunningApp = 0;
+        descriptor->address = localAddress;
+        descriptor->viPort = 2222;
+
+        // using unique componentId - omnet++ feature
+        int key = getId();
+        handledHosts[key] = *descriptor;
+    }
+    else
+        throw cRuntimeError("VirtualisationInfrastructureManagerDyn::initialize - \tFATAL! Cannot find static resource definition!");
+}
 
 int VirtualisationInfrastructureManagerDyn::findBestHostDynBestFirst(double ram, double disk, double cpu){
 

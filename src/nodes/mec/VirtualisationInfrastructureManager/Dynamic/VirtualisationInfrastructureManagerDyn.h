@@ -33,7 +33,6 @@
 
 #include "apps/mec/MEOApp/Messages/RegistrationPkt_m.h"
 #include "apps/mec/MEOApp/Messages/MeoPackets_m.h"
-#include "nodes/mec/MECPlatformManager/Dynamic/msg/PacketEncapsulator_m.h"
 
 //###########################################################################
 //data structures and values
@@ -223,6 +222,8 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         virtual void manageNotification() override;
 
     private:
+
+        void initResource();
 
         bool isAllocableOnBuffer(double ram, double disk, double cpu);
 

@@ -12,7 +12,6 @@
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
 #include "inet/networklayer/common/L3AddressTag_m.h"
 #include "nodes/mec/MECPlatform/ServiceRegistry/ServiceRegistry.h" //ServiceInfo struct
-#include "nodes/mec/MECPlatformManager/Dynamic/msg/PacketEncapsulator_m.h"
 
 
 Define_Module(MecPlatformManagerDyn);
