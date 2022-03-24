@@ -179,10 +179,15 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             int host_key = findHostIDByAddress(entry.endpoint.addr);
             HostDescriptor* host = &((handledHosts.find(host_key))->second);
 
+            if(port == -1){
+                host->numRunningApp -= 1;
+                return;
+            }
+
             releaseResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, host_key);
             allocateResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, host_key);
 
-            host->numRunningApp += 1;
+//            host->numRunningApp += 1;
 
             EV << "VirtualisationInfrastructureManagerDyn:: response - print" << endl;
             printResources();
@@ -494,6 +499,8 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
     waitingInstantiationRequests[std::to_string(msg->getUeAppID())] = newAppEntry;
 
     socket.sendTo(packet, bestHostAddress, bestHostPort);
+
+    bestHost->numRunningApp += 1;
 
     MecAppInstanceInfo* appInfo = new MecAppInstanceInfo();
     appInfo->status = true;
