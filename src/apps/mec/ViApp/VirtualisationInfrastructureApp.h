@@ -33,6 +33,7 @@
 #include <omnetpp.h>
 
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
+#include "apps/mec/MEOApp/Messages/MeoPackets_m.h" // new messages
 #include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h"
 #include "apps/mec/ViApp/msg/InstantiationResponse_m.h"
 #include "apps/mec/ViApp/msg/TerminationResponse_m.h"
@@ -61,9 +62,6 @@ class VirtualisationInfrastructureApp : public cSimpleModule
 
     inet::L3Address vimAddress;
     int vimPort;
-
-    inet::L3Address mp1Address;
-    int mp1Port;
 
     // Business logic parameters
     int appcounter;
@@ -100,7 +98,7 @@ class VirtualisationInfrastructureApp : public cSimpleModule
 
     private:
 
-        bool handleInstantiation(CreateAppMessage* data);
+        bool handleInstantiation(InstantiationApplicationRequest* data);
         bool handleTermination(DeleteAppMessage* data);
 
 };

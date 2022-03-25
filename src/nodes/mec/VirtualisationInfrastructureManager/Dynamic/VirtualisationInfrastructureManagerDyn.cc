@@ -439,7 +439,7 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDyn(double ram, double d
     return besthost_key;
 }
 
-MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(const CreateAppMessage* msg)
+MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(const InstantiationApplicationRequest* msg)
 {
     EV << "VirtualisationInfrastructureManagerDyn::instantiateMEApp - Start" << endl;
 
@@ -480,7 +480,7 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
 
 
     inet::Packet* packet = new inet::Packet("Instantiation");
-    auto registrationpck = inet::makeShared<CreateAppMessage>();
+    auto registrationpck = inet::makeShared<InstantiationApplicationRequest>();
 
     registrationpck->setUeAppID(msg->getUeAppID());
     registrationpck->setMEModuleName(msg->getMEModuleName());
@@ -489,8 +489,8 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
     registrationpck->setRequiredRam(msg->getRequiredRam());
     registrationpck->setRequiredDisk(msg->getRequiredDisk());
     registrationpck->setRequiredService(msg->getRequiredService());
-//    registrationpck->setMp1Address(mp1Address_);
-//    registrationpck-setMp1Port(mp1Port_);
+    registrationpck->setMp1Address(mp1Address_.c_str());
+    registrationpck->setMp1Port(mp1Port_);
     registrationpck->setContextId(msg->getContextId());
     registrationpck->setChunkLength(inet::B(2000));
     packet->insertAtBack(registrationpck);
@@ -831,7 +831,7 @@ void VirtualisationInfrastructureManagerDyn::handleMepmMessage(cMessage* instant
     if (pPacket == 0)
        throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMepmMessage - FATAL! Error when casting to inet packet");
 
-    const CreateAppMessage* data = pPacket->peekData<CreateAppMessage>().get();
+    const InstantiationApplicationRequest* data = pPacket->peekData<InstantiationApplicationRequest>().get();
 
     instantiateMEApp(data);
 }

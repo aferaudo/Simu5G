@@ -125,7 +125,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         /*
          * Istantiate ME Application on an handled car
          */
-        MecAppInstanceInfo* instantiateMEApp(const CreateAppMessage*);
+        MecAppInstanceInfo* instantiateMEApp(const InstantiationApplicationRequest*);
 
         /*
          * Istantiate Emulated ME Application from MECPM

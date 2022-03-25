@@ -460,29 +460,30 @@ void MecOrchestratorApp::startMECApp(CreateContextAppMessage* contAppMsg, MECHos
     EV << "MEOApp:: appdesc " << appDesc.getAppName() << endl;
 
     inet::Packet* pktMM3 = new inet::Packet("instantiationApplicationRequest");
-    //CreateAppMessage * createAppMsg = new CreateAppMessage();
-    auto createAppMsg = inet::makeShared<CreateAppMessage>();
-    createAppMsg->setUeAppID(atoi(contAppMsg->getDevAppId()));
-    createAppMsg->setMEModuleName(appDesc.getAppName().c_str());
-    createAppMsg->setMEModuleType(appDesc.getAppProvider().c_str());
+    auto instAppRequest = inet::makeShared<InstantiationApplicationRequest>();
+    instAppRequest->setUeAppID(atoi(contAppMsg->getDevAppId()));
+    instAppRequest->setMEModuleName(appDesc.getAppName().c_str());
+    instAppRequest->setMEModuleType(appDesc.getAppProvider().c_str());
 
-    createAppMsg->setRequiredCpu(appDesc.getVirtualResources().cpu);
-    createAppMsg->setRequiredRam(appDesc.getVirtualResources().ram);
-    createAppMsg->setRequiredDisk(appDesc.getVirtualResources().disk);
+
+    instAppRequest->setRequiredCpu(appDesc.getVirtualResources().cpu);
+    instAppRequest->setRequiredRam(appDesc.getVirtualResources().ram);
+    instAppRequest->setRequiredDisk(appDesc.getVirtualResources().disk);
 
     // insert OMNeT like services, only one is supported, for now
     if(!appDesc.getOmnetppServiceRequired().empty())
-        createAppMsg->setRequiredService(appDesc.getOmnetppServiceRequired().c_str());
+        instAppRequest->setRequiredService(appDesc.getOmnetppServiceRequired().c_str());
     else
-        createAppMsg->setRequiredService("NULL");
+        instAppRequest->setRequiredService("NULL");
 
-    createAppMsg->setContextId(contextIdCounter);
+    instAppRequest->setContextId(contextIdCounter);
 
     contextIdCounter++;
 
-    createAppMsg->setChunkLength(inet::B(2000));
+    instAppRequest->setChunkLength(inet::B(2000));
 
-    pktMM3->insertAtBack(createAppMsg);
+
+    pktMM3->insertAtBack(instAppRequest);
 
     // Updating allocationTime
     bestHost->lastAllocation = simTime().dbl();

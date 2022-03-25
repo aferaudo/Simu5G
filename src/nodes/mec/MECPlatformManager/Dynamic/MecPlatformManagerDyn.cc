@@ -91,7 +91,7 @@ void MecPlatformManagerDyn::handleMessage(cMessage *msg)
             printer.printPacket(std::cout, pPacket);
 
             // Ricostruzione pacchetto TODO cambiare
-            CreateAppMessage * createAppMsg = new CreateAppMessage();
+            InstantiationApplicationRequest * createAppMsg = new InstantiationApplicationRequest();
             createAppMsg->setUeAppID(data->getUeAppID());
             createAppMsg->setMEModuleName(data->getMEModuleName());
             createAppMsg->setMEModuleType(data->getMEModuleType());
@@ -161,7 +161,7 @@ void MecPlatformManagerDyn::handleMessage(cMessage *msg)
 //    delete msg;
 }
 
-MecAppInstanceInfo* MecPlatformManagerDyn::instantiateMEApp(CreateAppMessage* msg)
+MecAppInstanceInfo* MecPlatformManagerDyn::instantiateMEApp(InstantiationApplicationRequest* msg)
 {
     EV << "MecPlatformManagerDyn::instantiateMEApp" << endl;
     MecAppInstanceInfo* res = vim->instantiateMEApp(msg);
@@ -290,10 +290,12 @@ void MecPlatformManagerDyn::handleServiceRequest(inet::Packet* resourcePacket){
 void MecPlatformManagerDyn::handleInstantiationRequest(inet::Packet* instantiationPacket){
 
     inet::Packet* pktdup = new inet::Packet("instantiationApplicationRequest");
-    auto createAppMsg = inet::makeShared<CreateAppMessage>();
-    auto data = instantiationPacket->peekData<CreateAppMessage>();
-    createAppMsg = data.get()->dup();
-    pktdup->insertAtBack(createAppMsg);
+    auto instAppRequest = inet::makeShared<InstantiationApplicationRequest>();
+    auto data = instantiationPacket->peekData<InstantiationApplicationRequest>();
+    instAppRequest = data.get()->dup();
+    pktdup->insertAtBack(instAppRequest);
+
+    // Choosing interface for communications inside the MEC Host
     pktdup->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
 
     EV << "MecPlatformManagerDyn::handleResourceRequest - sending:  " << vimAddress << ":" << vimPort << endl;

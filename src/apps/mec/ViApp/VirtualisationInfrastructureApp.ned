@@ -31,10 +31,6 @@ simple VirtualisationInfrastructureApp like IApp
     	string vimAddress;
     	int vimPort;
     	
-    	string mp1Address;
-    	int mp1Port;
-		// TODO mp1 deve essere reso dinamico e passato nel messaggio di instanziazione!
-    	
     	string scheduling = default("segregation");
     	
    	gates:

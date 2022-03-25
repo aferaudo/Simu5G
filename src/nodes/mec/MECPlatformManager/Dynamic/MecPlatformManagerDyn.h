@@ -61,7 +61,7 @@ class MecPlatformManagerDyn : public cSimpleModule
     public:
         MecPlatformManagerDyn();
 
-        MecAppInstanceInfo* instantiateMEApp(CreateAppMessage*);
+        MecAppInstanceInfo* instantiateMEApp(InstantiationApplicationRequest*);
         bool terminateMEApp(DeleteAppMessage*);
 
         bool instantiateEmulatedMEApp(CreateAppMessage*);
