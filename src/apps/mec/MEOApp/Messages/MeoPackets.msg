@@ -51,3 +51,18 @@ class InstantiationApplicationResponse extends GeneralMessage
     int mecAppRemotePort;
 }
 
+class InstantiationApplicationRequest extends GeneralMessage
+{
+    string MEModuleType;
+    string MEModuleName;
+    int contextId = 0;
+    int ueAppID = 0;
+    double requiredDisk = 0;
+    double requiredRam = 0;
+    double requiredCpu = 0;
+    string requiredService;
+    string providedService;
+    string mp1Address;
+    int mp1Port;
+}
+

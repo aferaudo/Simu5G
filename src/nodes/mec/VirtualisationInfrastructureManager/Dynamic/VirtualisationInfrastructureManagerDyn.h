@@ -108,6 +108,11 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     inet::L3Address mepmAddress;
     int mepmPort;
 
+    // mep parameters
+    inet::L3Address mp1Address;
+    int mp1Port;
+
+
     inet::IInterfaceTable* ifacetable;
 
 

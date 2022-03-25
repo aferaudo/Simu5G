@@ -112,21 +112,11 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
             if (pPacket == 0)
                 throw cRuntimeError("VirtualisationInfrastructureApp::handleMessage - FATAL! Error when casting to inet packet");
 
+            inet::PacketPrinter printer;
+            printer.printPacket(std::cout, pPacket);
             auto data = pPacket->peekData<CreateAppMessage>();
-//            CreateAppMessage * createAppMsg = new CreateAppMessage();
-//            createAppMsg->setUeAppID(data->getUeAppID());
-//            createAppMsg->setMEModuleName(data->getMEModuleName());
-//            createAppMsg->setMEModuleType(data->getMEModuleType());
-//
-//            createAppMsg->setRequiredCpu(data->getRequiredCpu());
-//            createAppMsg->setRequiredRam(data->getRequiredRam());
-//            createAppMsg->setRequiredDisk(data->getRequiredDisk());
-//
-//            createAppMsg->setRequiredService(data->getRequiredService());
-//            createAppMsg->setContextId(data->getContextId());
 
             bool res = handleInstantiation(const_cast<CreateAppMessage*>(data.get()));
-//            bool res = handleInstantiation(createAppMsg);
 
             if(res){
                 // send response back to vim
@@ -200,7 +190,7 @@ bool VirtualisationInfrastructureApp::handleInstantiation(CreateAppMessage* data
     display << "p=" << posx + (appcounter*300) << "," << posy << ";i=block/control";
     module->setDisplayString(display.str().c_str());
 
-    module->par("mecAppId") = 22;
+    module->par("mecAppId") = data->getUeAppID();
     module->par("requiredRam") = ram;
     module->par("requiredDisk") = disk;
     module->par("requiredCpu") = cpu;

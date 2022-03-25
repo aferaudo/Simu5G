@@ -41,6 +41,9 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         // Mepm settings
         mepmPort = par("mepmPort").intValue();
 
+        // Mep settings
+        mp1Port = par("mp1Port").intValue();
+
         std::cout << getParentModule()->getSubmodule("interfaceTable") << endl;
         ifacetable = check_and_cast<inet::InterfaceTable*>(getParentModule()->getSubmodule("interfaceTable"));
 
@@ -84,6 +87,9 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
     // Mepm settings
     mepmAddress = inet::L3AddressResolver().resolve(par("mepmAddress").stringValue());
     EV << "VirtualisationInfrastructureManagerDyn::initialize - magic ip " << mepmAddress << endl;
+
+    // Mep settings
+    mp1Address = inet::L3AddressResolver().resolve(par("mp1Address").stringValue());
 
     initResource();
 
@@ -466,6 +472,13 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
     // Reserve resources on selected host
     reserveResources(msg->getRequiredRam(), msg->getRequiredDisk(), msg->getRequiredCpu(), bestHostKey);
 
+    // Get mepm data for mp1 link
+    std::string mp1Address_ = inet::L3AddressResolver().addressOf(inet::L3AddressResolver().findHostWithAddress(mp1Address), "wlan").str();
+    int mp1Port_ = mp1Port;
+
+    EV << "VirtualisationInfrastructureManagerDyn:: instantiate - MEP endpoint is " << mp1Address << ":" << mp1Port << endl;
+
+
     inet::Packet* packet = new inet::Packet("Instantiation");
     auto registrationpck = inet::makeShared<CreateAppMessage>();
 
@@ -476,6 +489,8 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
     registrationpck->setRequiredRam(msg->getRequiredRam());
     registrationpck->setRequiredDisk(msg->getRequiredDisk());
     registrationpck->setRequiredService(msg->getRequiredService());
+//    registrationpck->setMp1Address(mp1Address_);
+//    registrationpck-setMp1Port(mp1Port_);
     registrationpck->setContextId(msg->getContextId());
     registrationpck->setChunkLength(inet::B(2000));
     packet->insertAtBack(registrationpck);

@@ -44,6 +44,10 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
     	// mepm parameters
 		string mepmAddress;
 		int mepmPort = default(3334);
+		
+		// mep parameters - port is already in the VirtualisationInfrastructureManager ned base
+		string mp1Address;
+		
 
     	double bufferSize = default(0.15);				// Percentage value of resources buffer
     	

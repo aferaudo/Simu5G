@@ -36,6 +36,7 @@
 #include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h"
 #include "apps/mec/ViApp/msg/InstantiationResponse_m.h"
 #include "apps/mec/ViApp/msg/TerminationResponse_m.h"
+#include "inet/common/packet/printer/PacketPrinter.h"
 
 
 using namespace omnetpp;
