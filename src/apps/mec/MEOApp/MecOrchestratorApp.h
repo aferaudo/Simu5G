@@ -209,6 +209,7 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
     void handleRegistration(inet::Packet *packet);
     void handleResourceReply(inet::Packet *packet);
     void handleInstantiationResponse(inet::Packet *packet);
+    void handleTerminationResponse(inet::Packet *packet);
 
     /*
      * This method sends to a MECHost two requests:
@@ -230,6 +231,7 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
     // source: nodes/mec/MECOrchestrator/MecOrchestrator.h
     // device app id is used to remove the UALCMP request from the pending request list
     void sendCreateAppContextAck(bool result, unsigned int requestSno, int contextId=-1, const std::string &deviceAppId = std::string());
+    void sendDeleteAppContextAck(bool result, unsigned int requestSno, int contextId = -1);
 
 
     /*

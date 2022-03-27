@@ -236,18 +236,35 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             if(it == handledApp.end()){
                 throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - TerminationResponse - cannot find registered app");
             }
+
             MecAppEntryDyn entry = it->second;
             int host_key = findHostIDByAddress(entry.endpoint.addr);
             HostDescriptor* host = &((handledHosts.find(host_key))->second);
             host->numRunningApp -= 1;
             deallocateResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, host_key);
 
+            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - Termination response - sending reply to orchestrator" << endl;
+
+            inet::Packet *packet = new inet::Packet("terminationAppInstResponse");
+            auto terminationResponse = inet::makeShared<TerminationAppInstResponse>();
+            terminationResponse->setDeviceAppId(std::to_string(entry.ueAppID).c_str());
+            terminationResponse->setContextId(entry.contextID);
+            terminationResponse->setMecHostId(getParentModule()->getParentModule()->getId());
+            terminationResponse->setRequestId(data->getRequestId());
+            terminationResponse->setStatus(true);
+            terminationResponse->setChunkLength(inet::B(1000));
+
+            packet->insertAtBack(terminationResponse);
+            packet->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
+
+            socket.sendTo(packet, mepmAddress, mepmPort);
+
             EV << "VirtualisationInfrastructureManagerDyn:: response - terminate" << endl;
             printResources();
 
             delete msg;
-        }else if(!strcmp(msg->getName(), "instantiationApplicationRequest")){
-            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: instantiationApplicationRequest" << endl;
+        }else if(!strcmp(msg->getName(), "instantiationApplicationRequest") || !strcmp(msg->getName(), "terminationAppInstRequest")){
+            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE:" << msg->getName() << endl;
 
             handleMepmMessage(msg);
             delete msg;
@@ -460,6 +477,8 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
         responsePkt->setDeviceAppId(std::to_string(msg->getUeAppID()).c_str());
         responsePkt->setChunkLength(inet::B(1000));
         toSend->insertAtBack(responsePkt);
+        toSend->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
+
         socket.sendTo(toSend, mepmAddress, mepmPort);
 
         return nullptr;
@@ -537,29 +556,41 @@ bool VirtualisationInfrastructureManagerDyn::instantiateEmulatedMEApp(CreateAppM
     return true;
 }
 
-bool VirtualisationInfrastructureManagerDyn::terminateMEApp(DeleteAppMessage* msg)
+bool VirtualisationInfrastructureManagerDyn::terminateMEApp(const TerminationAppInstRequest* msg)
 {
     EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp" << endl;
 
-    Enter_Method_Silent();
+//    Enter_Method_Silent();
 
 
-    inet::Packet* packet = new inet::Packet("Termination");
-    auto terminationpck = inet::makeShared<DeleteAppMessage>();
-
-    int ueAppID = msg->getUeAppID();
+    int ueAppID = atoi(msg->getDeviceAppId());
     EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp - looking for " << ueAppID << " ID" << endl;
     auto it = handledApp.find(std::to_string(ueAppID));
     if(it == handledApp.end()){
         EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp - App not found" << endl;
+
+        inet::Packet *packet = new inet::Packet();
+        auto terminationResponse = inet::makeShared<TerminationAppInstResponse>();
+        terminationResponse->setDeviceAppId(msg->getDeviceAppId());
+        terminationResponse->setMecHostId(getParentModule()->getParentModule()->getId());
+        terminationResponse->setRequestId(msg->getRequestId());
+        terminationResponse->setContextId(msg->getContextId());
+        terminationResponse->setStatus(false);
+        terminationResponse->setChunkLength(inet::B(1000));
+        packet->insertAtBack(terminationResponse);
+        packet->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
+        socket.sendTo(packet, mepmAddress, mepmPort);
         return false;
     }
 
+    inet::Packet* packet = new inet::Packet("Termination");
+    auto terminationpck = inet::makeShared<DeleteAppMessage>();
     MecAppEntryDyn instantiatedApp = it->second;
     inet::L3Address address = instantiatedApp.endpoint.addr;
     int port = 2222; // TODO Load this from viPort
 
     terminationpck->setUeAppID(ueAppID);
+    terminationpck->setSno(msg->getRequestId());
     terminationpck->setChunkLength(inet::B(2000));
     packet->insertAtBack(terminationpck);
 
@@ -825,15 +856,25 @@ void VirtualisationInfrastructureManagerDyn::handleResourceRequest(inet::Packet*
     EV << "VirtualisationInfrastructureManagerDyn::handleResourceRequest - request result:  " << res << endl;
 }
 
-void VirtualisationInfrastructureManagerDyn::handleMepmMessage(cMessage* instantiationPacket){
+void VirtualisationInfrastructureManagerDyn::handleMepmMessage(cMessage* msg){
 
-    inet::Packet* pPacket = check_and_cast<inet::Packet*>(instantiationPacket);
-    if (pPacket == 0)
-       throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMepmMessage - FATAL! Error when casting to inet packet");
+    inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
 
-    const InstantiationApplicationRequest* data = pPacket->peekData<InstantiationApplicationRequest>().get();
+    if(!strcmp(msg->getName(), "instantiationApplicationRequest"))
+    {
+        if (pPacket == 0)
+           throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMepmMessage - FATAL! Error when casting to inet packet");
 
-    instantiateMEApp(data);
+        const InstantiationApplicationRequest* data = pPacket->peekData<InstantiationApplicationRequest>().get();
+
+        instantiateMEApp(data);
+    }
+    else if(!strcmp(msg->getName(), "terminationAppInstRequest"))
+    {
+        EV << "VirtualisationInfrastructureManagerDyn::handleMepmMessage termination MEApp started!" << endl;
+        const TerminationAppInstRequest* data = pPacket->peekData<TerminationAppInstRequest>().get();
+        terminateMEApp(data);
+    }
 }
 
 

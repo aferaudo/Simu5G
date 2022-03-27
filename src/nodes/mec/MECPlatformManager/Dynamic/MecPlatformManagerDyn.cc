@@ -148,6 +148,18 @@ void MecPlatformManagerDyn::handleMessage(cMessage *msg)
 
 //            delete msg;
         }
+        else if(!strcmp(msg->getName(), "terminationAppInstRequest"))
+        {
+            EV << "MecPlatformManagerDyn::handleMessage - TYPE: terminationAppInstRequest" << endl;
+            inet::Packet* packet = check_and_cast<inet::Packet*>(msg);
+            handleTerminationRequest(packet);
+        }
+        else if(!strcmp(msg->getName(), "terminationAppInstResponse"))
+        {
+            EV << "MecPlatformManagerDyn::handleMessage - TYPE: "<< msg->getName() << endl;
+            inet::Packet* packet = check_and_cast<inet::Packet*>(msg);
+            handleTerminationResponse(packet);
+        }
 
         else{
             EV << "MecPlatformManagerDyn::handleMessage - unknown package" << endl;
@@ -188,10 +200,11 @@ bool MecPlatformManagerDyn::terminateEmulatedMEApp(DeleteAppMessage* msg)
 
 bool MecPlatformManagerDyn::terminateMEApp(DeleteAppMessage* msg)
 {
-    EV << "MecPlatformManagerDyn::terminateMEApp" << endl;
-    bool res = vim->terminateMEApp(msg);
-    delete msg;
-    return res;
+//    EV << "MecPlatformManagerDyn::terminateMEApp" << endl;
+//    bool res = vim->terminateMEApp(msg);
+//    delete msg;
+//    return res;
+    return false;
 }
 
 const std::vector<ServiceInfo>* MecPlatformManagerDyn::getAvailableMecServices() const
@@ -300,6 +313,37 @@ void MecPlatformManagerDyn::handleInstantiationRequest(inet::Packet* instantiati
 
     EV << "MecPlatformManagerDyn::handleResourceRequest - sending:  " << vimAddress << ":" << vimPort << endl;
     socket.sendTo(pktdup, vimAddress, vimPort);
+}
+
+void MecPlatformManagerDyn::handleTerminationRequest(inet::Packet *packet)
+{
+
+    inet::Packet* pktdup = new inet::Packet("terminationAppInstRequest");
+    auto deleteAppRequest = inet::makeShared<TerminationAppInstRequest>();
+    auto data = packet->peekData<TerminationAppInstRequest>();
+    deleteAppRequest = data.get()->dup();
+    pktdup->insertAtBack(deleteAppRequest);
+
+    // Choosing interface for communications inside the MEC Host
+    pktdup->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
+
+    EV << "MecPlatformManagerDyn::handleTerminationRequest - sending:  " << vimAddress << ":" << vimPort << endl;
+    socket.sendTo(pktdup, vimAddress, vimPort);
+
+}
+
+void MecPlatformManagerDyn::handleTerminationResponse(inet::Packet * packet)
+{
+    inet::Packet* pktdup = new inet::Packet("terminationAppInstResponse");
+    auto deleteAppResponse = inet::makeShared<TerminationAppInstResponse>();
+    auto data = packet->peekData<TerminationAppInstResponse>();
+    deleteAppResponse = data.get()->dup();
+    pktdup->insertAtBack(deleteAppResponse);
+
+    // Choosing interface for communications inside the MEC Host
+
+    EV << "MecPlatformManagerDyn::handleTerminationResponse - sending:  " << meoAddress << ":" << meoPort << endl;
+    socket.sendTo(pktdup, meoAddress, meoPort);
 }
 
 

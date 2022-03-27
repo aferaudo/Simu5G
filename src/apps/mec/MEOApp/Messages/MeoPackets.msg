@@ -39,18 +39,6 @@ class MecHostResponse extends GeneralMessage
     bool result;    
 }
 
-class InstantiationApplicationResponse extends GeneralMessage
-{
-    int mecHostId;
-    int contextId;
-    bool status;
-    string instanceId;
-    string appName;
-    // This are used in case of dynamic MEC Host - app executed on car
-    inet::L3Address mecAppRemoteAddress;
-    int mecAppRemotePort;
-}
-
 class InstantiationApplicationRequest extends GeneralMessage
 {
     string MEModuleType;
@@ -65,4 +53,33 @@ class InstantiationApplicationRequest extends GeneralMessage
     string mp1Address;
     int mp1Port;
 }
+
+class InstantiationApplicationResponse extends GeneralMessage
+{
+    int mecHostId;
+    int contextId;
+    bool status;
+    string instanceId;
+    string appName;
+    // This are used in case of dynamic MEC Host - app executed on car
+    inet::L3Address mecAppRemoteAddress;
+    int mecAppRemotePort;
+}
+
+class TerminationAppInstRequest extends GeneralMessage
+{
+    int contextId; 
+    int requestId;
+    // TODO add other parameters for emulated apps
+}
+
+class TerminationAppInstResponse extends GeneralMessage
+{
+    int mecHostId;
+    int contextId;
+    int requestId;
+    bool status;
+}
+    
+
 

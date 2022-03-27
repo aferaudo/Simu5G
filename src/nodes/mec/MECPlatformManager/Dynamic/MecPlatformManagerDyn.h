@@ -82,6 +82,8 @@ class MecPlatformManagerDyn : public cSimpleModule
         void sendMEORegistration();
         void handleServiceRequest(inet::Packet* resourcePacket);
         void handleInstantiationRequest(inet::Packet* instantiationPacket);
+        void handleTerminationRequest(inet::Packet *packet);
+        void handleTerminationResponse(inet::Packet * packet);
 
 };
 

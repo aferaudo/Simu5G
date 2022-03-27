@@ -125,7 +125,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         /*
          * Istantiate ME Application on an handled car
          */
-        MecAppInstanceInfo* instantiateMEApp(const InstantiationApplicationRequest*);
+        MecAppInstanceInfo*  instantiateMEApp(const InstantiationApplicationRequest*);
 
         /*
          * Istantiate Emulated ME Application from MECPM
@@ -135,7 +135,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         /*
          * Terminate ME Application from MECPM
          */
-        bool terminateMEApp(DeleteAppMessage*);
+        bool terminateMEApp(const TerminationAppInstRequest*);
 
         /*
          * Terminate Emulated ME Application from MECPM
@@ -246,7 +246,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 
         void sendMEORegistration();
         void handleResourceRequest(inet::Packet* resourcePacket);
-        void handleMepmMessage(cMessage* instantiationPacket);
+        void handleMepmMessage(cMessage*);
 };
 
 #endif

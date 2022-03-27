@@ -116,6 +116,10 @@ void MecOrchestratorApp::socketDataArrived(inet::UdpSocket *socket, inet::Packet
     {
         handleInstantiationResponse(packet);
     }
+    else if(std::strcmp(packet->getName(), "terminationAppInstResponse") == 0)
+    {
+        handleTerminationResponse(packet);
+    }
     else
     {
         EV << "MEOApp::Not recognized packet!"<< endl;
@@ -447,8 +451,13 @@ void MecOrchestratorApp::handleInstantiationResponse(inet::Packet *packet)
         sendCreateAppContextAck(false, itUALCMPRequest->second->getRequestId(), -1, itUALCMPRequest->second->getDevAppId());
     }
 
+}
 
-
+void MecOrchestratorApp::handleTerminationResponse(inet::Packet *packet)
+{
+    auto data = packet->peekData<TerminationAppInstResponse>().get();
+    EV << "MEOApp::Received termination response!" << endl;
+    sendDeleteAppContextAck(data->getStatus(), data->getRequestId(), data->getContextId());
 }
 
 void MecOrchestratorApp::startMECApp(CreateContextAppMessage* contAppMsg, MECHostDescriptor *bestHost)
@@ -496,7 +505,37 @@ void MecOrchestratorApp::startMECApp(CreateContextAppMessage* contAppMsg, MECHos
 
 void MecOrchestratorApp::stopMECApp(UALCMPMessage* msg)
 {
-    EV << "MEOApp::StopMECApp not implemented yet!" << endl;
+    EV << "MEOApp::StopMECApp shutting down mecApp" << endl;
+
+    DeleteContextAppMessage* contAppMsg = check_and_cast<DeleteContextAppMessage*>(msg);
+
+    int contextId = contAppMsg->getContextId();
+
+    EV << "MEOApp::StopMECApp processing contextId: " << contextId << endl;
+
+    auto itMeApp = meAppMap.find(contextId);
+
+    if(itMeApp == meAppMap.end())
+    {
+        EV << "MEOApp::StopMECApp app not found!" << endl;
+        sendDeleteAppContextAck(false, contAppMsg->getRequestId(), contextId);
+        return;
+    }
+
+    inet::Packet *packet = new inet::Packet("terminationAppInstRequest");
+
+    auto deleteAppMsg = inet::makeShared<TerminationAppInstRequest>();
+
+    deleteAppMsg->setDeviceAppId(std::to_string(itMeApp->second.mecUeAppID).c_str());
+    deleteAppMsg->setContextId(contextId);
+    deleteAppMsg->setRequestId(contAppMsg->getRequestId());
+    deleteAppMsg->setChunkLength(inet::B(1000));
+
+    packet->insertAtBack(deleteAppMsg);
+
+    // sending message to the MEPM
+    socket.sendTo(packet, itMeApp->second.mecHostDesc->mepmHostIp, itMeApp->second.mecHostDesc->mepmPort);
+
 }
 
 
@@ -631,6 +670,17 @@ void MecOrchestratorApp::sendCreateAppContextAck(bool result, unsigned int reque
     send(ack, "toUALCMP");
 }
 
+void MecOrchestratorApp::sendDeleteAppContextAck(bool result, unsigned int requestSno, int contextId)
+{
+    //no changes
+    EV << "MEOApp::sendDeleteAppContextAck - result: "<< result << " reqSno: " << requestSno << " contextId: " << contextId << endl;
+    DeleteContextAppAckMessage * ack = new DeleteContextAppAckMessage();
+    ack->setType(ACK_DELETE_CONTEXT_APP);
+    ack->setRequestId(requestSno);
+    ack->setSuccess(result);
+
+    send(ack, "toUALCMP");
+}
 
 inet::Packet* MecOrchestratorApp::makeResourceRequestPacket(std::string deviceAppId, double cpu, double ram, double disk)
 {
