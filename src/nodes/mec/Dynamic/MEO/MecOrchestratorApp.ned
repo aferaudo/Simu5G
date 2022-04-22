@@ -13,7 +13,7 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
-package simu5g.apps.mec.MEOApp;
+package simu5g.nodes.mec.Dynamic.MEO;
 
 import inet.applications.contract.IApp;
 

@@ -33,7 +33,7 @@
 #include <omnetpp.h>
 
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
-#include "apps/mec/MEOApp/Messages/MeoPackets_m.h" // new messages
+#include "nodes/mec/Dynamic/MEO/Messages/MeoPackets_m.h" // new messages
 #include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h"
 #include "apps/mec/ViApp/msg/InstantiationResponse_m.h"
 #include "apps/mec/ViApp/msg/TerminationResponse_m.h"

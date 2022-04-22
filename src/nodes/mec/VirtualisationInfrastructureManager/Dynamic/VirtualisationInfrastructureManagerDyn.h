@@ -32,8 +32,8 @@
 #include "apps/mec/ViApp/msg/InstantiationResponse_m.h"
 #include "apps/mec/ViApp/msg/TerminationResponse_m.h"
 
-#include "apps/mec/MEOApp/Messages/RegistrationPkt_m.h"
-#include "apps/mec/MEOApp/Messages/MeoPackets_m.h"
+#include "nodes/mec/Dynamic/MEO/Messages/RegistrationPkt_m.h"
+#include "nodes/mec/Dynamic/MEO/Messages/MeoPackets_m.h"
 #include "inet/linklayer/common/InterfaceTag_m.h"
 
 //###########################################################################
@@ -82,6 +82,11 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 {
     // Reference to other modules
     cModule* vimHost;
+
+    //------------------------------------
+    // SIMULTE Binder module
+    Binder* binder_;
+    //------------------------------------
 
     inet::UdpSocket socket;
     inet::L3Address destAddress;

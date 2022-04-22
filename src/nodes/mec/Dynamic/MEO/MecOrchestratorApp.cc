@@ -19,7 +19,7 @@
  * Angelo Feraudo
  */
 
-#include "MecOrchestratorApp.h"
+#include "../MEO/MecOrchestratorApp.h"
 
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h" // TODO add this messages to our list
 #include "inet/networklayer/common/L3AddressTag_m.h"

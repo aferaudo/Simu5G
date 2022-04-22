@@ -63,7 +63,8 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::LifecycleOperation *operation)
 {
     EV << "VirtualisationInfrastructureManagerDyn::START.." << endl;
-    std::cout << "VirtualisationInfrastructureManagerDyn::START.." << endl;
+    // Get binder
+    binder_ = getBinder();
 
     // Set up UDP socket for communcation
     localAddress = inet::L3AddressResolver().resolve(par("localAddress"));
@@ -75,7 +76,10 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
         socket.setOutputGate(gate("socketOut"));
         socket.bind(port);
     }
-
+    // Registering VIM as MECHost component that communicates with ues
+    EV << "VirtualisationInfrastructureManagerDyn::Registering upf_mechost" << endl;
+    inet::L3Address gtpAddress = inet::L3AddressResolver().resolve(getParentModule()->getParentModule()->getSubmodule("upf_mec")->getFullPath().c_str());
+    binder_->registerMecHostUpfAddress(localAddress, gtpAddress);
 
 
     // Broker settings
@@ -90,6 +94,10 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
 
     // Mep settings
     mp1Address = inet::L3AddressResolver().resolve(par("mp1Address").stringValue());
+
+    // Registering mp1Address (MECPlatform) as MECHost component
+    binder_->registerMecHostUpfAddress(mp1Address, gtpAddress);
+
 
     initResource();
 
@@ -216,7 +224,7 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             responsePkt->setContextId(entry.contextID);
             responsePkt->setChunkLength(inet::B(1000));
             toSend->insertAtBack(responsePkt);
-            toSend->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
+            //toSend->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
             socket.sendTo(toSend, mepmAddress, mepmPort);
 
             delete msg;
@@ -255,7 +263,7 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             terminationResponse->setChunkLength(inet::B(1000));
 
             packet->insertAtBack(terminationResponse);
-            packet->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
+            //packet->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
 
             socket.sendTo(packet, mepmAddress, mepmPort);
 
@@ -477,23 +485,22 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
         responsePkt->setDeviceAppId(std::to_string(msg->getUeAppID()).c_str());
         responsePkt->setChunkLength(inet::B(1000));
         toSend->insertAtBack(responsePkt);
-        toSend->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
+        //toSend->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
 
         socket.sendTo(toSend, mepmAddress, mepmPort);
-
         return nullptr;
     }
 
     HostDescriptor* bestHost = &handledHosts[bestHostKey];
     inet::L3Address bestHostAddress = bestHost->address;
     int bestHostPort = bestHost->viPort;
-
+    EV << "VirtualisationInfrastructureManagerDyn::BestHost address: " << bestHost->address.str() << ", port: " << bestHost->viPort << endl;
     // Reserve resources on selected host
     reserveResources(msg->getRequiredRam(), msg->getRequiredDisk(), msg->getRequiredCpu(), bestHostKey);
 
     // Get mepm data for mp1 link
-    std::string mp1Address_ = inet::L3AddressResolver().addressOf(inet::L3AddressResolver().findHostWithAddress(mp1Address), "wlan").str();
-    int mp1Port_ = mp1Port;
+    //std::string mp1Address_ = inet::L3AddressResolver().addressOf(inet::L3AddressResolver().findHostWithAddress(mp1Address), "wlan").str();
+    //int mp1Port_ = mp1Port;
 
     EV << "VirtualisationInfrastructureManagerDyn:: instantiate - MEP endpoint is " << mp1Address << ":" << mp1Port << endl;
 
@@ -508,8 +515,10 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
     registrationpck->setRequiredRam(msg->getRequiredRam());
     registrationpck->setRequiredDisk(msg->getRequiredDisk());
     registrationpck->setRequiredService(msg->getRequiredService());
-    registrationpck->setMp1Address(mp1Address_.c_str());
-    registrationpck->setMp1Port(mp1Port_);
+    //registrationpck->setMp1Address(mp1Address_.c_str());
+    registrationpck->setMp1Address(mp1Address.str().c_str());
+    //registrationpck->setMp1Port(mp1Port_);
+    registrationpck->setMp1Port(mp1Port);
     registrationpck->setContextId(msg->getContextId());
     registrationpck->setChunkLength(inet::B(2000));
     packet->insertAtBack(registrationpck);
@@ -578,7 +587,7 @@ bool VirtualisationInfrastructureManagerDyn::terminateMEApp(const TerminationApp
         terminationResponse->setStatus(false);
         terminationResponse->setChunkLength(inet::B(1000));
         packet->insertAtBack(terminationResponse);
-        packet->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
+        //packet->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
         socket.sendTo(packet, mepmAddress, mepmPort);
         return false;
     }
@@ -680,6 +689,7 @@ std::list<HostDescriptor> VirtualisationInfrastructureManagerDyn::getAllHosts()
 
 void VirtualisationInfrastructureManagerDyn::initResource(){
     // Init BUFFER
+    EV << "VirtualisationInfrastructureManagerDyn::Init Resource" << endl;
     bufferSize = par("bufferSize");
     totalBufferResources = new ResourceDescriptor();
     totalBufferResources->ram = vimHost->par("localRam").doubleValue() * bufferSize;
@@ -904,9 +914,7 @@ void VirtualisationInfrastructureManagerDyn::manageNotification()
     {
         HttpRequestMessage *request = dynamic_cast<HttpRequestMessage*> (currentHttpMessage);
         EV << "VIM::received a request - new resource available" << endl;
-        //EV << "VIM::Request received: " << request->getBody() << endl;
         std::string uri = request->getUri();
-        // TODO only post request
         // use webhook
         EV << "Response body " << request->getBody() << endl;
         if(uri.compare(webHook) == 0 && std::strcmp(request->getMethod(),"POST") == 0)
