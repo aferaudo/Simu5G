@@ -27,8 +27,8 @@
 
 #include <inet/transportlayer/contract/udp/UdpSocket.h>
 
-#include "apps/mec/MEOApp/Messages/RegistrationPkt_m.h"
-#include "apps/mec/MEOApp/Messages/MeoPackets_m.h"
+#include "nodes/mec/Dynamic/MEO/Messages/RegistrationPkt_m.h"
+#include "nodes/mec/Dynamic/MEO/Messages/MeoPackets_m.h"
 #include "inet/linklayer/common/InterfaceTag_m.h"
 
 using namespace omnetpp;

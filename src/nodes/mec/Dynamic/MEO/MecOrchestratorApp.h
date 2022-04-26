@@ -25,10 +25,10 @@
 #include "inet/transportlayer/contract/udp/UdpSocket.h"
 
 // MECOrchestrator interface
-#include "nodes/mec/Dynamic/IMecOrchestrator.h"
+#include "nodes/mec/Dynamic/MEO/IMecOrchestrator.h"
 
 // Registration Packet
-#include "apps/mec/MEOApp/Messages/RegistrationPkt_m.h"
+#include "nodes/mec/Dynamic/MEO/Messages/RegistrationPkt_m.h"
 
 // Application Descriptor class
 #include "nodes/mec/MECOrchestrator/ApplicationDescriptor/ApplicationDescriptor.h"
@@ -47,7 +47,7 @@
 //#include "apps/mec/MEOApp/Messages/MeoMepmPackets_m.h"
 
 //mm3 and mm4 messages
-#include "apps/mec/MEOApp/Messages/MeoPackets_m.h"
+#include "nodes/mec/Dynamic/MEO/Messages/MeoPackets_m.h"
 
 using namespace omnetpp;
 

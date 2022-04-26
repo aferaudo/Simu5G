@@ -41,8 +41,12 @@ void SubscriberBase::initialize(int stage)
 void SubscriberBase::handleStartOperation(inet::LifecycleOperation *operation)
 {
     EV <<"SubscriberBase::local binding and position computation"<<endl;
-    inet::IMobility *mod = check_and_cast<inet::IMobility *>(host->getSubmodule("mobility"));
-    center = mod->getCurrentPosition();
+    //inet::IMobility *mod = check_and_cast<inet::IMobility *>(host->getSubmodule("mobility"));
+    // center = mod->getCurrentPosition();
+    //center = inet::Coord;
+    center.setX(0);
+    center.setY(0);
+    center.setZ(0);
 
     // Socket local binding
     tcpSocket.setOutputGate(gate("socketOut"));

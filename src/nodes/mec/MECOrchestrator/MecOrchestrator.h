@@ -29,7 +29,7 @@
 #include "nodes/mec/MECOrchestrator/ApplicationDescriptor/ApplicationDescriptor.h"
 
 // MECOrchestrator interface
-#include "nodes/mec/Dynamic/IMecOrchestrator.h"
+#include "nodes/mec/Dynamic/MEO/IMecOrchestrator.h"
 
 using namespace omnetpp;
 

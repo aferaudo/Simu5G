@@ -15,78 +15,47 @@
 
 package simu5g.nodes.mec.VirtualisationInfrastructureManager.Dynamic;
 import simu5g.nodes.mec.VirtualisationInfrastructureManager.Dynamic.VirtualisationInfrastructureManagerDyn;
-import simu5g.nodes.NR.NRUe;
 import inet.common.MessageDispatcher;
-import inet.linklayer.contract.ILoopbackInterface;
 import inet.transportlayer.contract.ITcp;
 import inet.transportlayer.contract.IUdp;
-import inet.linklayer.contract.IEthernetInterface;
 import inet.networklayer.common.InterfaceTable;
-import inet.networklayer.ipv4.Ipv4RoutingTable;
-import inet.networklayer.contract.IRoutingTable;
 import inet.networklayer.contract.INetworkLayer;
 import inet.transportlayer.udp.Udp;
 import inet.transportlayer.tcp.Tcp;
-import simu5g.stack.ICellularNic;
 import simu5g.apps.mec.ViApp.VirtualisationInfrastructureApp;
 import inet.linklayer.ppp.PppInterface;
+import inet.linklayer.ethernet.EthernetInterface;
+import inet.linklayer.contract.ILoopbackInterface;
+
 //
-// TODO auto-generated type
+// 
+// @author Alessandro Calvio
+// @author Angelo Feraudo
 //
-//extends NRUE
-module VirtualisationInfrastructureManagerHost extends NRUe
+//
+
+module VirtualisationInfrastructureManagerHost
 {
     parameters:
         @networkNode();
-
-        string networkLayerType = default("IPv4NetworkLayer");
-
-        //# Network Layer specs
-        *.routingTableModule = default(absPath(".ipv4.routingTable"));
-        *.interfaceTableModule = default(absPath(".interfaceTable"));
+        bool hasIpv4 = default(true);
+        bool hasIpv6 = default(false);
 
         //# Resource of the VimHost
-//        double localRam @unit("B") = default(32GB);
-//        double localDisk @unit("B") = default(100TB);
-//        double localCpuSpeed = default(300000);
+        double localRam @unit("B") = default(32GB);
+        double localDisk @unit("B") = default(100TB);
+        double localCpuSpeed = default(300000);
+        
+        *.interfaceTableModule = default(absPath(".interfaceTable"));
 
         @display("i=device/device");
 
     gates:
-
-		// to gnodes
-        inout pppENB[];
-
-        inout pppRouter;
-        inout pppUPF;
-        inout pppeENB;
-
-        // to server
-        inout ethiface;
+        inout pppUPFg[];
+        inout ethUPFg[];
 
     submodules:
-        // ethernet interface used for communicating with Server
-        serverEth: <default("EthernetInterface")> like IEthernetInterface {
-            parameters:
-                @display("p=813,523,row,150;q=txQueue");
-        }
-
-
-        pppIfUPF: PppInterface {
-
-            @display("p=274.216,521.856;i=device/card");
-        }
-
-        pppIfRouter: PppInterface {
-
-            @display("p=181.2,521.856;i=device/card");
-        }
         
-        pppIfENB: PppInterface {
-
-            @display("p=181.2,521.856;i=device/card");
-        }
-
         vimApp: VirtualisationInfrastructureManagerDyn {
 
             @display("p=578.632,71.271996");
@@ -96,6 +65,67 @@ module VirtualisationInfrastructureManagerHost extends NRUe
 
             @display("p=751.376,71.271996");
         }
+     
+		interfaceTable: InterfaceTable {
+            @display("p=61.344,74.976;is=s");
+        }
+
+        //#
+        //# Network layer module
+        //#
+        ipv4: <default("Ipv4NetworkLayer")> like INetworkLayer if hasIpv4 {
+            parameters:
+                @display("p=420.28,372.88;q=queue");
+        }
+        ipv6: <default("Ipv6NetworkLayer")> like INetworkLayer if hasIpv6 {
+            parameters:
+                @display("p=657.28,374.46;q=queue");
+        }
+
+        //#
+        //# Transport layer modules and corresponding application modules
+        //#
+		// =============== UDP ============== //
+        udp: Udp {
+            @display("p=459,217");
+        }
+
+        tcp: Tcp {
+            @display("p=627,217");
+        }
+
+        // message dispatcher for SAP between application and transport layer
+        at: MessageDispatcher {
+            parameters:
+                @display("p=550,146;b=600,5,,,,1");
+        }
+        
+        // message dispatcher for SAP between transport and network layer
+        tn: MessageDispatcher {
+            parameters:
+                @display("p=550,296;b=600,5,,,,1");
+        }
+        // message dispatcher for SAP to link layer
+        nl: MessageDispatcher {
+            parameters:
+                @display("p=550,446;b=600,5,,,,1");
+        }
+        
+        // Interfaces
+       	pppIfUPF[sizeof(pppUPFg)]: PppInterface {
+
+            @display("p=274.216,521.856;i=device/card");
+        }
+        
+        eth[sizeof(ethUPFg)]: EthernetInterface {
+            parameters:
+                @display("p=900,676,row,150;q=txQueue");
+        }
+
+        lo: <default("LoopbackInterface")> like ILoopbackInterface {
+            parameters:
+                @display("p=750,676,row,150");
+        }
     connections allowunconnected:
 
         viApp.socketOut --> at.in++;
@@ -104,26 +134,50 @@ module VirtualisationInfrastructureManagerHost extends NRUe
         vimApp.socketOut --> at.in++;
         vimApp.socketIn <-- at.out++;
 
-        nl.out++ --> serverEth.upperLayerIn;
-        nl.in++ <-- serverEth.upperLayerOut;
-
-        pppIfUPF.upperLayerOut --> nl.in++;
-        pppIfUPF.upperLayerIn <-- nl.out++;
-        pppIfUPF.phys <--> pppUPF;
-
-        pppIfRouter.upperLayerOut --> nl.in++;
-        pppIfRouter.upperLayerIn <-- nl.out++;
-        pppIfRouter.phys <--> pppRouter;
         
-        pppIfENB.upperLayerOut --> nl.in++;
-        pppIfENB.upperLayerIn <-- nl.out++;
-        pppIfENB.phys <--> pppeENB;
+        at.out++ --> udp.appIn;
+        at.in++ <-- udp.appOut;
 
-//        ethiface <--> serverEth.phys;
-
-//		nl.out++ --> ethOut;
-//		nl.in++ <-- ethIn;
+        at.out++ --> tcp.appIn;
+        at.in++ <-- tcp.appOut;
 
 
+        //# 
+        //# Transport layer to network layer connections
+        //#
+        udp.ipOut --> tn.in++;
+        udp.ipIn <-- tn.out++;
+
+        tcp.ipOut --> tn.in++;
+        tcp.ipIn <-- tn.out++;
+
+
+        ipv4.ifIn <-- nl.out++ if hasIpv4;
+        ipv4.ifOut --> nl.in++ if hasIpv4;
+
+        ipv4.transportIn <-- tn.out++ if hasIpv4;
+        ipv4.transportOut --> tn.in++ if hasIpv4;
+
+        ipv6.ifIn <-- nl.out++ if hasIpv6;
+        ipv6.ifOut --> nl.in++ if hasIpv6;
+
+        ipv6.transportIn <-- tn.out++ if hasIpv6;
+        ipv6.transportOut --> tn.in++ if hasIpv6;
+
+        for i=0..sizeof(pppUPFg)-1 {
+            pppIfUPF[i].upperLayerOut --> nl.in++;
+            pppIfUPF[i].upperLayerIn <-- nl.out++;
+            pppIfUPF[i].phys <--> pppUPFg++;
+        }
+        
+        for i=0..sizeof(ethUPFg)-1 {
+            eth[i].upperLayerOut --> nl.in++;
+            eth[i].upperLayerIn <-- nl.out++;
+            eth[i].phys <--> ethUPFg++;
+        }
+        
+        // loopback
+        lo.upperLayerOut --> nl.in++;
+        lo.upperLayerIn <-- nl.out++;
 
 }

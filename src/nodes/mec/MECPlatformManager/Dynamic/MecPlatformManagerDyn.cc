@@ -34,7 +34,11 @@ void MecPlatformManagerDyn::initialize(int stage)
     EV << "MecPlatformManagerDyn::initialize - stage " << stage << endl;
 
     // Get other modules
-    vim = check_and_cast<VirtualisationInfrastructureManagerDyn*>(getParentModule()->getParentModule()->getSubmodule("vim")->getSubmodule("vimApp"));
+    if(getParentModule()->getParentModule()->getSubmodule("vim")->getSubmodule("vimApp") == nullptr)
+        vim = check_and_cast<VirtualisationInfrastructureManagerDyn*>(getParentModule()->getParentModule()->getSubmodule("vim")->getSubmodule("app", 0));
+    else
+        vim = check_and_cast<VirtualisationInfrastructureManagerDyn*>(getParentModule()->getParentModule()->getSubmodule("vim")->getSubmodule("vimApp"));
+
     cModule* mecPlatform = getParentModule()->getParentModule()->getSubmodule("mecPlatform");
     if(mecPlatform != nullptr && mecPlatform->findSubmodule("serviceRegistry") != -1)
     {
@@ -51,9 +55,9 @@ void MecPlatformManagerDyn::initialize(int stage)
     localPort = par("localPort");
     vimPort = par("vimPort");
 
-    std::cout << getParentModule()->getSubmodule("interfaceTable") << endl;
-    ifacetable = check_and_cast<inet::InterfaceTable*>(getParentModule()->getSubmodule("interfaceTable"));
-    EV << "MecPlatformManagerDyn::initialize - ifacetable " << ifacetable->findInterfaceByName("pppIfRouter")->str() << endl;
+//    std::cout << getParentModule()->getSubmodule("interfaceTable") << endl;
+//    ifacetable = check_and_cast<inet::InterfaceTable*>(getParentModule()->getSubmodule("interfaceTable"));
+//    EV << "MecPlatformManagerDyn::initialize - ifacetable " << ifacetable->findInterfaceByName("pppIfRouter")->str() << endl;
 
     // Setup orchestrator communication
     if(localPort != -1){
@@ -309,7 +313,7 @@ void MecPlatformManagerDyn::handleInstantiationRequest(inet::Packet* instantiati
     pktdup->insertAtBack(instAppRequest);
 
     // Choosing interface for communications inside the MEC Host
-    pktdup->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
+    //pktdup->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
 
     EV << "MecPlatformManagerDyn::handleResourceRequest - sending:  " << vimAddress << ":" << vimPort << endl;
     socket.sendTo(pktdup, vimAddress, vimPort);
@@ -325,7 +329,7 @@ void MecPlatformManagerDyn::handleTerminationRequest(inet::Packet *packet)
     pktdup->insertAtBack(deleteAppRequest);
 
     // Choosing interface for communications inside the MEC Host
-    pktdup->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
+    //pktdup->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
 
     EV << "MecPlatformManagerDyn::handleTerminationRequest - sending:  " << vimAddress << ":" << vimPort << endl;
     socket.sendTo(pktdup, vimAddress, vimPort);

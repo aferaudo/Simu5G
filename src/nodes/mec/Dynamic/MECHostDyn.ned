@@ -17,7 +17,7 @@ package simu5g.nodes.mec.Dynamic;
 import simu5g.nodes.mec.VirtualisationInfrastructure.VirtualisationInfrastructure;
 import simu5g.nodes.mec.VirtualisationInfrastructureManager.Dynamic.VirtualisationInfrastructureManagerHost;
 import simu5g.nodes.mec.MECPlatformManager.Dynamic.MecPlatformManagerHost;
-import simu5g.nodes.mec.MECPlatform.Dynamic.MECPlatformHost;
+import simu5g.nodes.mec.MECPlatform.MECPlatform;
 import simu5g.nodes.mec.MECPlatformManager.MecPlatformManager;
 import simu5g.nodes.Upf;
 import inet.node.ethernet.Eth10G;
@@ -25,16 +25,15 @@ import inet.applications.contract.IApp;
 import inet.linklayer.contract.IEthernetInterface;
 import simu5g.nodes.NR.NRUe;
 import inet.node.inet.Router;
+import inet.node.ethernet.EthernetSwitch;
+
+
 
 //
 // @author Alessandro Calvio
 // @author Angelo Feraudo
 //
 
-// This MEC host module has two type of resources:
-// - static 
-// - non static (this are managed by the Dynamic virutalisation infrastructure Manager)
-// Static resources are less if compared with a normal MEC Host
 module MECHostDyn
 {
     parameters:
@@ -54,77 +53,55 @@ module MECHostDyn
         int numBGMecApp = default(0);
         string eNBList = default("");
 
-//        //Ethernet configuration
-//        numEthInterfaces = 1;
-//        eth[0].typename = "EthernetInterface";
-//        
-//        // Setup Mec components
-//        numApps = 2;
-//        
-//        app[0].typename = "VirtualisationInfrastructureManagerDyn";
-//        app[0].localPort = 3333;
-//        
-//        app[1].typename = "MecPlatformManagerDyn";
-//        app[1].localPort = 3334;
-
 
         // Graphic parameters
         string color = default("red");
 
     gates:
-        inout pppENB[];
-        inout ethserver;
-        inout pppVim;
-        inout pppMepm;
-//        input radioIn[] @directin; // for d2d communication
+        inout ppp[];
 
     submodules:
 
         vim: VirtualisationInfrastructureManagerHost {
-
-            @display("p=235,184");
+            // Local virtualised resources
+            // It contains a virtualisation infrastructure app to deploy mecapp
+            // and a virtualisation infrastructure manager app to manage available resources.
+            // The latter is able to manage remote resources, such as those provided by cars
+            @display("p=232.81201,100.350006");
         }
 
         mecPlatformManager: MecPlatformManagerHost {
-
-            @display("p=710.478,183.306");
+			// MecPlatform manager host
+			// It runs an app that manages available services
+            @display("p=737.23804,100.350006");
         }
 
-        mecPlatform: MECPlatformHost {
-
-            @display("p=470.976,183.306;i=device/device");
+        mecPlatform: MECPlatform {
+			// MecPlatform  host
+			// It runs available services
+            @display("p=483.018,100.350006;i=device/device");
         }
 
         router: Router {
 
-
-            @display("p=470.976,69.576004");
+            @display("p=483.018,259.57202");
         }
+        upf_mec: Upf {
+            parameters:
+                @display("p=483.018,404.07602");
+                nodeType = "UPF_MEC";
+        }
+
     connections allowunconnected:
+        vim.pppUPFg++ <--> Eth10G <--> router.pppg++;
+        mecPlatformManager.pppUPFg++ <--> Eth10G <--> router.pppg++;
+        mecPlatform.virtInfr <--> Eth10G <--> router.ethg++; // this may be changed with a customised version
 
-        vim.pppUPF <--> pppVim;
-        vim.pppRouter <--> Eth10G <--> router.pppg++;
-        vim.pppeENB <--> pppENB++;
-
-        mecPlatformManager.pppUPF <--> pppMepm;
-        
-        mecPlatformManager.pppRouter <--> Eth10G <--> router.pppg++;
-        mecPlatform.ppp <--> Eth10G <--> router.pppg++;
-
-//        ethserver <--> vim.ethiface;
-		//ethserver <--> eth[0].phys;
-
-//        vimH.mm7GnB <--> Eth10G <--> ethAntenna++;
-//        mecPlatformD.ethExt <--> Eth10G <--> ethAntenna++;
-//
-//        vi.mePlatform <--> Eth10G <--> mecPlatformD.virtInfr;
-
-        // TODO define cellular communications
-	   	// Cellular channels do not need an external interface
-	   	// Two solutions:
-	   	// 1. Connect via ethernet the cellular components (VIM and MECPlatform) to an antenna
-	   	// 2. Be completely independent from the Dynamic MEC Host
-
-
+        router.pppg++ <--> Eth10G <--> upf_mec.pppg++;
+        router.pppg++ <--> Eth10G <--> upf_mec.filterGate;// Needed for communications between local apps and ues 
+		// upf_mec is connected with an antenna and an i-upf
+        for i=0..sizeof(ppp)-1 {
+            ppp++ <--> upf_mec.pppg++;
+        }
 
 }

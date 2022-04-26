@@ -61,8 +61,14 @@ void MecAppBaseDyn::initialize(int stage)
     requiredCpu = par("requiredCpu").doubleValue();
 
 
-    vi = check_and_cast<VirtualisationInfrastructureApp*>(getParentModule()->getSubmodule("viApp"));
-//    vim = check_and_cast<VirtualisationInfrastructureManager*>(getParentModule()->getSubmodule("vim"));
+//    vi = check_and_cast<VirtualisationInfrastructureApp*>(getParentModule()->getSubmodule("viApp"));
+    if(getParentModule()->getSubmodule("app", 1) != nullptr)
+    {
+        // Generally viApp is the second deployed app
+        vi = check_and_cast<VirtualisationInfrastructureApp*>(getParentModule()->getSubmodule("app", 1));
+    }else
+        vi = check_and_cast<VirtualisationInfrastructureApp*>(getParentModule()->getSubmodule("viApp"));
+    //    vim = check_and_cast<VirtualisationInfrastructureManager*>(getParentModule()->getSubmodule("vim"));
 //    mecHost = getParentModule();
 //    mecPlatform = mecHost->getSubmodule("mecPlatform");
 //    serviceRegistry = check_and_cast<ServiceRegistry *>(mecPlatform->getSubmodule("serviceRegistry"));

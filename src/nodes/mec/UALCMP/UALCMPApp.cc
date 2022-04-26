@@ -29,7 +29,7 @@
 // MEC system
 #include "nodes/mec/UALCMP/UALCMPApp.h"
 #include "nodes/mec/MECOrchestrator/MecOrchestrator.h"
-#include "apps/mec/MEOApp/MecOrchestratorApp.h"
+#include "nodes/mec/Dynamic/MEO/MecOrchestratorApp.h"
 #include "nodes/mec/MECOrchestrator/ApplicationDescriptor/ApplicationDescriptor.h"
 #include "nodes/mec/MECPlatform/MECServices/Resources/SubscriptionBase.h"
 

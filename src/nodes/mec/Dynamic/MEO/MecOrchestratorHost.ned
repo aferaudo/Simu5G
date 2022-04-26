@@ -13,7 +13,7 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
-package simu5g.apps.mec.MEOApp;
+package simu5g.nodes.mec.Dynamic.MEO;
 
 import inet.linklayer.ppp.PppInterface;
 import inet.networklayer.common.InterfaceTable;
@@ -25,9 +25,14 @@ import inet.transportlayer.udp.Udp;
 import inet.transportlayer.tcp.Tcp;
 import inet.common.MessageDispatcher;
 import inet.linklayer.contract.IEthernetInterface;
+import inet.linklayer.ethernet.EthernetInterface;
 import inet.applications.contract.IApp;
 import inet.node.ethernet.Eth10G;
 import inet.networklayer.common.InterfaceTable;
+import inet.linklayer.contract.ILoopbackInterface;
+
+
+
 //
 // @author Alessandro Calvio
 // @author Angelo Feraudo
@@ -44,31 +49,21 @@ module MecOrchestratorHost
     gates:
 
         //to external networks (internet)
-        inout ppp[];
+        inout pppg[];
+        inout ethg[];
 
         output toUALCMP;
         input fromUALCMP;
 submodules:
-
+		
+		meoApp: MecOrchestratorApp {
+            @display("p=549.69,74.045,row");
+        }
+        
         interfaceTable: InterfaceTable {
             @display("p=61.344,74.976;is=s");
         }
-
-        //#
-        //# ppp modules
-        //#
-        //        pppIf[sizeof(ppp)]: PppInterface {
-        //            @display("p=550,508");
-        //        }
-        pppIf: PppInterface {
-            @display("p=446.832,506.688");
-        }
-
-        // ethernet interface used for communicating with external applications in emulation mode
-        extEth[numExtEthInterfaces]: <default("ExtLowerEthernetInterface")> like IEthernetInterface {
-            parameters:
-                @display("p=641.712,506.688,row,150;q=txQueue");
-        }
+  
 
         //#
         //# Network layer module
@@ -86,9 +81,6 @@ submodules:
         //# Transport layer modules and corresponding application modules
         //#
 		// =============== UDP ============== //
-        meoApp: MecOrchestratorApp {
-            @display("p=549.69,74.045,row");
-        }
 
         udp: Udp {
             @display("p=459,217");
@@ -112,6 +104,27 @@ submodules:
         nl: MessageDispatcher {
             parameters:
                 @display("p=550,446;b=600,5,,,,1");
+        }
+        
+        // Interfaces
+        pppIf[sizeof(pppg)]: PppInterface {
+            @display("p=446.832,506.688");
+        }
+
+        // ethernet interface used for communicating with external applications in emulation mode
+        extEth[numExtEthInterfaces]: <default("ExtLowerEthernetInterface")> like IEthernetInterface {
+            parameters:
+                @display("p=641.712,506.688,row,150;q=txQueue");
+        }
+        
+        eth[sizeof(ethg)]: EthernetInterface {
+            parameters:
+                @display("p=900,676,row,150;q=txQueue");
+        }
+        
+        lo: <default("LoopbackInterface")> like ILoopbackInterface {
+            parameters:
+                @display("p=750,676,row,150");
         }
 
     connections allowunconnected:
@@ -153,21 +166,26 @@ submodules:
 
         ipv6.transportIn <-- tn.out++ if hasIpv6;
         ipv6.transportOut --> tn.in++ if hasIpv6;
-        //
-        //        for i=0..sizeof(ppp)-1 {
-        //            pppIf[i].upperLayerOut --> nl.in++;
-        //            pppIf[i].upperLayerIn <-- nl.out++;
-        //            pppIf[i].phys <--> gtpEndpoint.pppg++;
-        //        }
         
-        pppIf.upperLayerOut --> nl.in++;
-        pppIf.upperLayerIn <-- nl.out++;
-        pppIf.phys <--> ppp++;
+        for i=0..sizeof(pppg)-1 {
+            pppIf[i].upperLayerOut --> nl.in++;
+            pppIf[i].upperLayerIn <-- nl.out++;
+            pppIf[i].phys <--> pppg++;
+        }
+        
+        for i=0..sizeof(ethg)-1 {
+            eth[i].upperLayerOut --> nl.in++;
+            eth[i].upperLayerIn <-- nl.out++;
+            eth[i].phys <--> ethg++;
+        }
 
         for i=0..numExtEthInterfaces-1 {
             extEth[i].upperLayerOut --> nl.in++;
             extEth[i].upperLayerIn <-- nl.out++;
         }
-
+        
+        // loopback
+        lo.upperLayerOut --> nl.in++;
+        lo.upperLayerIn <-- nl.out++;
     
 }

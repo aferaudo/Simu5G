@@ -13,7 +13,7 @@
 #define _UALCMPAPP_H
 
 // MECOrchestrator interface
-#include "nodes/mec/Dynamic/IMecOrchestrator.h"
+#include "nodes/mec/Dynamic/MEO/IMecOrchestrator.h"
 
 // MECOrchestrator app
 //#include "apps/mec/MEOApp/MecOrchestratorApp.h"
