@@ -18,7 +18,7 @@
 
 PublisherBase::PublisherBase()
 {
-    publishURI = "/broker/publish/";
+//    publishURI = "/broker/publish/";
     currentHttpMessage = nullptr;
 }
 

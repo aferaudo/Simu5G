@@ -34,6 +34,8 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         brokerPort = par("brokerPort");
         localToBrokerPort = par("localBrokerPort");
         radius = par("radius");
+        subscribeURI = std::string(par("subscribeURI").stringValue());
+        webHook = std::string(par("webHook").stringValue());
 
         // Meo settings
         meoPort = par("meoPort").intValue();

@@ -60,9 +60,13 @@ void ResourceRegisterApp::initialize(int stage)
         EV << "ResourceRegisterApp::initialize" << endl;
         startTime = par("startTime");
         localPort = par("localPort");
+
         // broker parameters
         localToBrokerPort = par("localBrokerPort");
         brokerPort = par("brokerPort");
+        publishURI = std::string(par("publishURI").stringValue());
+        EV << "ResourceSharingApp::publishURI - " << publishURI << endl;
+
         // Do we need other parameters?
     }
 //    if(stage != inet::INITSTAGE_APPLICATION_LAYER)

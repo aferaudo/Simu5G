@@ -36,6 +36,9 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
        	int localBrokerPort = default(3334); // port for TCP communications VIM <--> Broker
     	int brokerPort = default(3005); // destination broker port
     	double radius = default(150); //radius in meters
+    	// pubsub parameters
+		string subscribeURI = "/broker/subscribe/";
+		string webHook = "/newresources/";
     	
     	// mecorchestrator parameters
     	string meoAddress;
@@ -53,6 +56,7 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
     	
 //    	string searchType = default("BEST_FIRST");
     	string searchType @enum("BEST_FIRST", "ROUND_ROBIN") = default("BEST_FIRST");
+    	
     
     gates:
         output socketOut;

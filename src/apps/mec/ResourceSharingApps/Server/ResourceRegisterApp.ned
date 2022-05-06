@@ -38,7 +38,10 @@ simple ResourceRegisterApp like IApp
         
 		// Reward system
 		string rewardSystem = default("");
-	
+		
+		// pubsub
+		string publishURI = default("/broker/publish/");
+		 
 	gates:
 	    output socketOut;
         input socketIn;

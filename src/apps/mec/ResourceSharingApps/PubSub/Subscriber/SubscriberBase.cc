@@ -20,8 +20,6 @@
 
 SubscriberBase::SubscriberBase()
 {
-    subscribeURI = "/broker/subscribe/";
-    webHook = "/newresources/"; // TODO should we load it from a NED File?
     currentHttpMessage = nullptr;
 }
 
