@@ -95,7 +95,7 @@ module MECHostDyn
     connections allowunconnected:
         vim.pppUPFg++ <--> Eth10G <--> router.pppg++;
         mecPlatformManager.pppUPFg++ <--> Eth10G <--> router.pppg++;
-        mecPlatform.virtInfr <--> Eth10G <--> router.ethg++; // this may be changed with a customised version
+        mecPlatform.virtInfr <--> Eth10G <--> router.pppg++; // this may be changed with a customised version
 
         router.pppg++ <--> Eth10G <--> upf_mec.pppg++;
         router.pppg++ <--> Eth10G <--> upf_mec.filterGate;// Needed for communications between local apps and ues 
