@@ -12,8 +12,15 @@
 #include "world/radio/ChannelAccess.h"
 #include <inet/mobility/contract/IMobility.h>
 #include <inet/common/ModuleAccess.h>
+#include "inet/common/InitStages.h"
 
 using namespace omnetpp;
+
+// this is needed to ensure the correct ordering among initialization stages
+// this should be fixed directly in INET
+namespace inet {
+    Define_InitStage_Dependency(PHYSICAL_LAYER, SINGLE_MOBILITY);
+}
 
 static int parseInt(const char *s, int defaultValue)
 {
@@ -61,7 +68,7 @@ void ChannelAccess::initialize(int stage)
             hostModule->subscribe(inet::IMobility::mobilityStateChangedSignal, this);
         }
     }
-    else if (stage == inet::INITSTAGE_PHYSICAL_LAYER)
+    else if (stage == inet::INITSTAGE_SINGLE_MOBILITY)
     {
         if (!positionUpdateArrived && hostModule->isSubscribed(inet::IMobility::mobilityStateChangedSignal, this))
         {
