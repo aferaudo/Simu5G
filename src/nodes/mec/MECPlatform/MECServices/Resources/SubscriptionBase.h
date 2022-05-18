@@ -18,6 +18,7 @@
 #include "nodes/mec/utils/httpUtils/httpUtils.h"
 #include "nodes/mec/MECPlatform/MECServices/packets/AperiodicSubscriptionTimer_m.h"
 #include "nodes/mec/MECPlatform/EventNotification/EventNotification.h"
+#include "FilterCriteriaBase.h"
 
 
 class LteCellInfo;
@@ -39,6 +40,7 @@ class SubscriptionBase
 //        virtual nlohmann::ordered_json toJson(std::vector<MacCellId>& cellsID, std::vector<MacNodeId>& uesID) const = 0;
 
         virtual void set_links(std::string& link);
+        virtual void setFilterCriteria(FilterCriteriaBase* filterCriteria){ filterCriteria_ = filterCriteria;}
 
         virtual bool fromJson(const nlohmann::ordered_json& json);
         virtual void sendSubscriptionResponse() = 0;
@@ -51,6 +53,7 @@ class SubscriptionBase
         virtual int getSocketConnId() const;
 //        virtual void setNotificationTrigger(subscriptionTimer *nt) { notificationTrigger = nt;}
 //        virtual subscriptionTimer*  getNotificationTrigger() { return notificationTrigger;}
+        virtual FilterCriteriaBase* getFilterCriteria() const{return filterCriteria_;}
 
 
     protected:
@@ -74,6 +77,11 @@ class SubscriptionBase
 
         std::string callbackReference_;
         TimeStamp expiryTime_;
+        /*
+         *  needed for Application Mobility Service
+         *  (shared by MobilityProcedureSubscription and AdjacentAppInfoSubscription)
+         */
+        FilterCriteriaBase* filterCriteria_;
 };
 
 
