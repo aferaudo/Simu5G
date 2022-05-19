@@ -10,6 +10,7 @@
 
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/VirtualisationInfrastructureManagerDyn.h"
 #include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h" //MecAppInstanceInfo struct
+//#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/resources/MobilityProcedureSubscription.h"
 
 //BINDER and UTILITIES
 #include "common/LteCommon.h"
@@ -31,16 +32,21 @@
 #include "nodes/mec/Dynamic/MEO/Messages/MeoPackets_m.h"
 #include "inet/linklayer/common/InterfaceTag_m.h"
 
+// subscriber class
+#include "apps/mec/ResourceSharingApps/PubSub/Subscriber/SubscriberBase.h"
+
 using namespace omnetpp;
 
 class ServiceInfo;
 class ServiceRegistry;
 
-class MecPlatformManagerDyn : public cSimpleModule
+class MecPlatformManagerDyn : public SubscriberBase
 {
 
     VirtualisationInfrastructureManagerDyn* vim;
     ServiceRegistry* serviceRegistry;
+
+    bool amsEnabled;
 
     inet::UdpSocket socket;
 
@@ -73,17 +79,21 @@ class MecPlatformManagerDyn : public cSimpleModule
         void registerMecService(ServiceDescriptor&) const;
 
     protected:
-        virtual int numInitStages() const { return inet::NUM_INIT_STAGES; }
-        virtual void initialize(int stage);
-        virtual void handleMessage(cMessage *msg);
-        virtual void finish();
+        virtual void initialize(int stage) override;
+        virtual void handleMessageWhenUp(omnetpp::cMessage *msg) override;
+        virtual void handleStartOperation(inet::LifecycleOperation *operation) override ;
+        //virtual void handleMessage(cMessage *msg);
+
+        virtual void manageNotification() override;
 
     private:
         void sendMEORegistration();
         void handleServiceRequest(inet::Packet* resourcePacket);
         void handleInstantiationRequest(inet::Packet* instantiationPacket);
+        void handleInstantiationResponse(inet::Packet* instantiationPacket);
         void handleTerminationRequest(inet::Packet *packet);
         void handleTerminationResponse(inet::Packet * packet);
+        bool checkServiceAvailability(const char* serviceName);
 
 };
 

@@ -20,45 +20,56 @@ MecPlatformManagerDyn::MecPlatformManagerDyn()
 {
     vim = nullptr;
     serviceRegistry = nullptr;
+    amsEnabled = false;
 }
 
 void MecPlatformManagerDyn::initialize(int stage)
 {
-    cSimpleModule::initialize(stage);
 
+    if (stage == inet::INITSTAGE_LOCAL) {
+        EV << "MecPlatformManagerDyn::initializing..."<<endl;
+        // Get other modules
+        if(getParentModule()->getParentModule()->getSubmodule("vim")->getSubmodule("vimApp") == nullptr)
+            vim = check_and_cast<VirtualisationInfrastructureManagerDyn*>(getParentModule()->getParentModule()->getSubmodule("vim")->getSubmodule("app", 0));
+        else
+            vim = check_and_cast<VirtualisationInfrastructureManagerDyn*>(getParentModule()->getParentModule()->getSubmodule("vim")->getSubmodule("vimApp"));
+
+        cModule* mecPlatform = getParentModule()->getParentModule()->getSubmodule("mecPlatform");
+        if(mecPlatform != nullptr && mecPlatform->findSubmodule("serviceRegistry") != -1)
+        {
+            serviceRegistry = check_and_cast<ServiceRegistry*>(mecPlatform->getSubmodule("serviceRegistry"));
+        }else{
+            EV << "MecPlatformManagerDyn::initialize - unable to find mecPlatform or serviceRegistry" << endl;
+        }
+
+        meoPort = par("meoPort");
+        localPort = par("localPort");
+        vimPort = par("vimPort");
+
+        //Broker settings
+        brokerPort = par("brokerPort");
+        localToBrokerPort = localPort;
+        subscribeURI = std::string(par("subscribeURI").stringValue());
+        webHook = std::string(par("webHook").stringValue());
+
+    }
     // avoid multiple initializations
-    if (stage!=inet::INITSTAGE_APPLICATION_LAYER-1){
-        return;
-    }
+//    if (stage!=inet::INITSTAGE_APPLICATION_LAYER-1){
+//        return;
+//    }
 
-    EV << "MecPlatformManagerDyn::initialize - stage " << stage << endl;
 
-    // Get other modules
-    if(getParentModule()->getParentModule()->getSubmodule("vim")->getSubmodule("vimApp") == nullptr)
-        vim = check_and_cast<VirtualisationInfrastructureManagerDyn*>(getParentModule()->getParentModule()->getSubmodule("vim")->getSubmodule("app", 0));
-    else
-        vim = check_and_cast<VirtualisationInfrastructureManagerDyn*>(getParentModule()->getParentModule()->getSubmodule("vim")->getSubmodule("vimApp"));
+    inet::ApplicationBase::initialize(stage);
 
-    cModule* mecPlatform = getParentModule()->getParentModule()->getSubmodule("mecPlatform");
-    if(mecPlatform != nullptr && mecPlatform->findSubmodule("serviceRegistry") != -1)
-    {
-        serviceRegistry = check_and_cast<ServiceRegistry*>(mecPlatform->getSubmodule("serviceRegistry"));
-    }else{
-        EV << "MecPlatformManagerDyn::initialize - unable to find mecPlatform or serviceRegistry" << endl;
-    }
 
+}
+
+void MecPlatformManagerDyn::handleStartOperation(inet::LifecycleOperation *operation)
+{
     // Read parameters
     meoAddress = inet::L3AddressResolver().resolve(par("meoAddress"));
     localAddress = inet::L3AddressResolver().resolve(par("localAddress"));
     vimAddress = inet::L3AddressResolver().resolve(par("vimAddress"));
-    meoPort = par("meoPort");
-    localPort = par("localPort");
-    vimPort = par("vimPort");
-
-//    std::cout << getParentModule()->getSubmodule("interfaceTable") << endl;
-//    ifacetable = check_and_cast<inet::InterfaceTable*>(getParentModule()->getSubmodule("interfaceTable"));
-//    EV << "MecPlatformManagerDyn::initialize - ifacetable " << ifacetable->findInterfaceByName("pppIfRouter")->str() << endl;
-
     // Setup orchestrator communication
     if(localPort != -1){
         EV << "MecPlatformManagerDyn::initialize - binding orchestrator socket to port " << localPort << endl;
@@ -66,91 +77,60 @@ void MecPlatformManagerDyn::initialize(int stage)
         socket.bind(localPort);
     }
 
+    // Broker settings - ams address
+    brokerIPAddress = inet::L3AddressResolver().resolve(par("brokerAddress").stringValue());
+
+
     scheduleAt(simTime()+0.01, new cMessage("register"));
+    SubscriberBase::handleStartOperation(operation);
 }
 
-void MecPlatformManagerDyn::handleMessage(cMessage *msg)
+void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
 {
     EV << "MecPlatformManagerDyn::handleMessage - message received - " << msg << endl;
 
     if (msg->isSelfMessage()){
         EV << "MecPlatformManagerDyn::handleMessage - self message received - " << msg << endl;
-        if(strcmp(msg->getName(), "register") == 0){
+        if(strcmp(msg->getName(), "register") == 0)
+        {
             // Register to MECOrchestrator
             std::cout << "MecPlatformManagerDyn::handleMessage - register to MEO " << msg << endl;
             sendMEORegistration();
+
+            //Check Ams availability
+            // TODO amsname should be a parameters
+            amsEnabled = checkServiceAvailability("ApplicationMobilityService");
+            EV << "MecPlatformManagerDyn::ams is enabled? " << amsEnabled << endl;
+            if(amsEnabled)
+            {
+                connectToBroker();
+            }
         }
 
         delete msg;
-    }else{
-        EV << "MecPlatformManagerDyn::handleMessage - other message received - " << msg << endl;
+    }else if (!msg->isSelfMessage() && socket.belongsToSocket(msg))
+    {
+        if(!strcmp(msg->getName(), "ServiceRequest")){
+                EV << "MecPlatformManagerDyn::handleMessage - TYPE: ServiceRequest" << endl;
 
-        inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
-        if (pPacket == 0)
-            throw cRuntimeError("MecPlatformManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
-
-        if (!strcmp(msg->getName(), "Instantiation")){
-            auto data = pPacket->peekData<CreateAppMessage>();
-            inet::PacketPrinter printer;
-            printer.printPacket(std::cout, pPacket);
-
-            // Ricostruzione pacchetto TODO cambiare
-            InstantiationApplicationRequest * createAppMsg = new InstantiationApplicationRequest();
-            createAppMsg->setUeAppID(data->getUeAppID());
-            createAppMsg->setMEModuleName(data->getMEModuleName());
-            createAppMsg->setMEModuleType(data->getMEModuleType());
-
-            createAppMsg->setRequiredCpu(data->getRequiredCpu());
-            createAppMsg->setRequiredRam(data->getRequiredRam());
-            createAppMsg->setRequiredDisk(data->getRequiredDisk());
-
-            createAppMsg->setRequiredService(data->getRequiredService());
-            createAppMsg->setContextId(data->getContextId());
-
-            instantiateMEApp(createAppMsg);
-
-            getParentModule()->bubble("Richiesta di instanziazione ricevuta");
-        }
-        else if(!strcmp(msg->getName(), "Termination")){
-
-            auto data = pPacket->peekData<DeleteAppMessage>();
-//            inet::PacketPrinter printer;
-//            printer.printPacket(std::cout, pPacket);
-
-            // Ricostruzione pacchetto TODO cambiare
-            DeleteAppMessage * deleteAppMsg = new DeleteAppMessage();
-            deleteAppMsg->setUeAppID(data->getUeAppID());
-
-            terminateMEApp(deleteAppMsg);
-        }
-        else if (!strcmp(msg->getName(), "ServiceRequest")){
-            EV << "MecPlatformManagerDyn::handleMessage - TYPE: ServiceRequest" << endl;
-
-            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
-            handleServiceRequest(pPacket);
-            delete msg;
+                inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+                handleServiceRequest(pPacket);
+                delete msg;
         }
         else if (!strcmp(msg->getName(), "instantiationApplicationRequest")){
             EV << "MecPlatformManagerDyn::handleMessage - TYPE: instantiationApplicationRequest" << endl;
 
             inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
             handleInstantiationRequest(pPacket);
-//            delete msg;
+    //            delete msg;
         }
         else if (!strcmp(msg->getName(), "instantiationApplicationResponse")){
             EV << "MecPlatformManagerDyn::handleMessage - TYPE: instantiationApplicationResponse" << endl;
 
             inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+            handleInstantiationResponse(pPacket);
 
-            inet::Packet* pktdup = new inet::Packet("instantiationApplicationResponse");
-            auto responsemsg = inet::makeShared<InstantiationApplicationResponse>();
-            auto data = pPacket->peekData<InstantiationApplicationResponse>();
-            responsemsg = data.get()->dup();
-            pktdup->insertAtBack(responsemsg);
-
-            socket.sendTo(pktdup, meoAddress, meoPort);
-
-//            delete msg;
+    //            delete msg;
         }
         else if(!strcmp(msg->getName(), "terminationAppInstRequest"))
         {
@@ -168,14 +148,17 @@ void MecPlatformManagerDyn::handleMessage(cMessage *msg)
         else{
             EV << "MecPlatformManagerDyn::handleMessage - unknown package" << endl;
         }
-
+    }
+    else
+    {
+        EV << "MecPlatformManagerDyn::handleMessage - TCP message received!" << endl;
+        SubscriberBase::handleMessageWhenUp(msg);
+    }
 //        std::cout << "IP received " << pPacket->getTag<inet::L3AddressInd>()->getSrcAddress() << endl;
 //        std::cout << "NAME received " << msg->getName() << endl;
 
-    }
-
-//    delete msg;
 }
+
 
 MecAppInstanceInfo* MecPlatformManagerDyn::instantiateMEApp(InstantiationApplicationRequest* msg)
 {
@@ -236,17 +219,10 @@ const std::set<std::string>* MecPlatformManagerDyn::getAvailableOmnetServices() 
 void MecPlatformManagerDyn::registerMecService(ServiceDescriptor& servDescriptor) const
 {
     EV << "MecPlatformManagerDyn::registerMecService" << endl;
-
     serviceRegistry->registerMecService(servDescriptor); //TODO Substitute with MecOrchestrator registring (?)
 }
 
 
-
-void MecPlatformManagerDyn::finish()
-{
-    EV << "MecPlatformManagerDyn::finish" << endl;
-
-}
 
 void MecPlatformManagerDyn::sendMEORegistration()
 {
@@ -279,15 +255,15 @@ void MecPlatformManagerDyn::handleServiceRequest(inet::Packet* resourcePacket){
     for(int i = 0; i < receivedData->getRequiredServiceNamesArraySize() && res; i++)
     {
         const char* serviceName = receivedData->getRequiredServiceNames(i);
-        bool found = false;
-        for(int j = 0; j < services->size() && !found; j++)
-        {
-            const char* availableServiceName = services->at(j).getName().c_str();
-            if(std::strcmp(availableServiceName, serviceName)==0){
-                found = true;
-            }
-
-        }
+        bool found = checkServiceAvailability(serviceName);
+//        for(int j = 0; j < services->size() && !found; j++)
+//        {
+//            const char* availableServiceName = services->at(j).getName().c_str();
+//            if(std::strcmp(availableServiceName, serviceName)==0){
+//                found = true;
+//            }
+//
+//        }
 
         res = res && found;
     }
@@ -350,4 +326,63 @@ void MecPlatformManagerDyn::handleTerminationResponse(inet::Packet * packet)
     socket.sendTo(pktdup, meoAddress, meoPort);
 }
 
+void MecPlatformManagerDyn::handleInstantiationResponse(
+        inet::Packet *instantiationPacket) {
+    EV << "MecPlatformManagerDyn::handleInstantiationResponse" << endl;
+    inet::Packet* pktdup = new inet::Packet("instantiationApplicationResponse");
+    auto responsemsg = inet::makeShared<InstantiationApplicationResponse>();
+    auto data = instantiationPacket->peekData<InstantiationApplicationResponse>();
+    responsemsg = data.get()->dup();
+    pktdup->insertAtBack(responsemsg);
 
+    socket.sendTo(pktdup, meoAddress, meoPort);
+    EV << "MecPlatformManagerDyn:: App instance id: " << responsemsg->getInstanceId()<< endl;
+    if(amsEnabled)
+    {
+        subscriptionBody_ = nlohmann::ordered_json();
+        subscriptionBody_["_links"]["self"]["href"] = "";
+        subscriptionBody_["callbackReference"] = webHook;
+        subscriptionBody_["requestTestNotification"] = false;
+        subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
+        subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
+        subscriptionBody_["filterCriteria"]["appInstanceId"] = responsemsg->getInstanceId();
+        subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
+        subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_TRIGGERED";
+        subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
+        EV << subscriptionBody_;
+        sendSubscription();
+    }
+
+}
+
+bool MecPlatformManagerDyn::checkServiceAvailability(const char *serviceName)
+{
+    const std::vector<ServiceInfo>* services = serviceRegistry->getAvailableMecServices();
+    bool found = false;
+    for(int j = 0; j < services->size() && !found; j++)
+    {
+        const char* availableServiceName = services->at(j).getName().c_str();
+        if(std::strcmp(availableServiceName, serviceName)==0){
+            found = true;
+        }
+
+    }
+    return found;
+}
+
+void MecPlatformManagerDyn::manageNotification()
+{
+    /*
+     * This methods manage both RESPONSE and REQUESTS
+     * - responses are not actually notification, but notify the correct or failed registration to the broker (FIXME?)
+     */
+    EV << "MecPlatformManagerDyn::manageNotification" << endl;
+    if(currentHttpMessage->getType() == RESPONSE)
+    {
+
+    }
+    else
+    {
+        // This is a request, so notification
+    }
+}

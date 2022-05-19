@@ -105,7 +105,7 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
 
     printResources();
 
-//  Register message
+    //  Register message - meo and broker
     scheduleAt(simTime()+0.01, new cMessage("register"));
 
     // Print message
@@ -141,9 +141,11 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
         }
         else if(strcmp(msg->getName(), "register") == 0){
             // Register to MECOrchestrator
-            std::cout << "VirtualisationInfrastructureManagerDyn::handleMessage - register to MEO" << endl;
-            std::cout << "MecPlatformManagerDyn::sending custom packet to MEO " << meoAddress.str() << endl;
-            std::cout << "MecPlatformManagerDyn::sending custom packet to MEO " << meoPort << endl;
+            EV << "VirtualisationInfrastructureManagerDyn::subscribing to broker and registring to MEO" << endl;
+            // connectToBroker
+            connectToBroker();
+
+            // send MEC Orchestrastor registration
             sendMEORegistration();
         }
         delete msg;
@@ -957,5 +959,18 @@ void VirtualisationInfrastructureManagerDyn::manageNotification()
     else
     {
         EV << "VIM::not recognised HTTP message" << endl;
+    }
+}
+
+void VirtualisationInfrastructureManagerDyn::socketEstablished(
+        inet::TcpSocket *socket) {
+
+    EV << "VirtualisationInfrastructureManagerDyn::connection established with:  " << socket->getRemoteAddress() << endl;
+    // We should distinguish between two sockets
+    if(socket->getRemoteAddress() == brokerIPAddress)
+    {
+        EV << "VirtualisationInfrastructureManagerDyn::Preparing subscription body" << endl;
+        subscriptionBody_ = infoToJson();
+        sendSubscription();
     }
 }

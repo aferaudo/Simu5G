@@ -235,6 +235,12 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
          */
         virtual void manageNotification() override;
 
+
+        /*
+         * This method sends the subscription to the broker when socket has been established
+         * */
+        virtual void socketEstablished(inet::TcpSocket *socket) override;
+
     private:
 
         void initResource();

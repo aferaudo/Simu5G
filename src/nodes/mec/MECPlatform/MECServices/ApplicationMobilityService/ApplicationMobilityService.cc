@@ -120,18 +120,23 @@ void ApplicationMobilityService::handlePOSTRequest(const HttpRequestMessage *cur
         nlohmann::ordered_json request = nlohmann::json::parse(currentRequestMessageServed->getBody());
         if(request.contains("subscriptionType"))
         {
+            SubscriptionBase *subscription = nullptr;
 
             if(request["subscriptionType"] == "MobilityProcedureSubscription")
             {
-                MobilityProcedureSubscription *subscription = new MobilityProcedureSubscription(subscriptionId_, socket, baseSubscriptionLocation_, eNodeB_);
-                handleSubscriptionRequest(subscription, socket, request); // This method helps to avoid repeated code for the other type of subscription
+                subscription = new MobilityProcedureSubscription(subscriptionId_, socket, baseSubscriptionLocation_, eNodeB_);
             }
             // Here should be added AdjacentAppInfoSubscription
-            else
+
+            if(subscription == nullptr)
             {
                 EV << "AMS::Subscription type not recognized" << endl;
                 Http::send400Response(socket);
             }
+            else
+                handleSubscriptionRequest(subscription, socket, request); // This method helps to avoid repeated code for the other type of subscription
+
+
         }
         else
         {
@@ -221,6 +226,9 @@ void ApplicationMobilityService::handleDELETERequest(const HttpRequestMessage *c
 
 void ApplicationMobilityService::handleSubscriptionRequest(SubscriptionBase *subscription, inet::TcpSocket *socket, const nlohmann::ordered_json &request)
 {
+    EV << "AMS::handleSubscriptionRequest" << endl;
+
+    EV << "AMS::" << subscription->getSubscriptionType() << endl;
     bool res = subscription->fromJson(request);
     if(res)
     {
@@ -232,7 +240,7 @@ void ApplicationMobilityService::handleSubscriptionRequest(SubscriptionBase *sub
         nlohmann::ordered_json response = request;
         response["subscriptionId"] = subscriptionId_;
         subscriptionId_ ++;
-
+        EV << "AMS::subscribed" << subscription->toJson() << endl;
         Http::send201Response(socket, response.dump().c_str());
 
         // TODO Add new parameter in MobilityProcedureSubscription:
@@ -276,14 +284,14 @@ void ApplicationMobilityService::handleNotificationCallback(inet::TcpSocket *soc
     }
 
     notification->fromJson(request);
-    std::vector<int> appInstanceId = registrationResources_.getAppInstanceIds(notification->getAssociateId());
+    std::vector<std::string> appInstanceId = registrationResources_.getAppInstanceIds(notification->getAssociateId());
     for(auto subscriber : subscriptions_)
     {
         EventNotification *event = nullptr;
         if(subscriptionType==subscriber.second->getSubscriptionType())
         {
             bool removeChecks = false;
-            if(std::find(appInstanceId.begin(), appInstanceId.end(), std::stoi(subscriber.second->getFilterCriteria()->getAppInstanceId()))
+            if(std::find(appInstanceId.begin(), appInstanceId.end(), subscriber.second->getFilterCriteria()->getAppInstanceId())
                     != appInstanceId.end())
             {
                 removeChecks = true;

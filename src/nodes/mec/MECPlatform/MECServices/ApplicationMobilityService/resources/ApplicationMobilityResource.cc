@@ -100,9 +100,9 @@ void ApplicationMobilityResource::printRegisteredServiceConsumers()
     EV << "--------------------------------------------------------" << endl;
 }
 
-std::vector<int> ApplicationMobilityResource::getAppInstanceIds(
+std::vector<std::string> ApplicationMobilityResource::getAppInstanceIds(
         std::vector<AssociateId> associateId) {
-    std::vector<int> appInstanceIds;
+    std::vector<std::string> appInstanceIds;
     bool found = false;
     for(auto serviceConsumer : serviceConsumers_)
     {
@@ -113,7 +113,7 @@ std::vector<int> ApplicationMobilityResource::getAppInstanceIds(
                 if(devInfo.getAssociateId().getType() == id.getType()
                         && devInfo.getAssociateId().getValue() == id.getValue())
                 {
-                    appInstanceIds.push_back(std::stoi(serviceConsumer.second->getServiceConsumerId().appInstanceId));
+                    appInstanceIds.push_back(serviceConsumer.second->getServiceConsumerId().appInstanceId);
                     found = true;
                     break;
                 }

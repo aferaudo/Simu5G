@@ -51,20 +51,20 @@ void SubscriberBase::handleStartOperation(inet::LifecycleOperation *operation)
     tcpSocket.bind(localToBrokerPort);
     tcpSocket.setCallback(this);
 
-    appState = SUB;
+    appState = UNSUB;
 
     // drawing a cricle
 //    host->getParentModule()->getDisplayString().setTagArg("p", 0, center.getX());
 //    host->getParentModule()->getDisplayString().setTagArg("p", 1, center.getY());
 //    host->getParentModule()->getDisplayString().setTagArg("r", 0, radius);
 
-    cMessage* msg = new cMessage("connect");
-    scheduleAt(simTime()+0.01, msg);
+//    cMessage* msg = new cMessage("connect");
+//    scheduleAt(simTime()+0.01, msg);
 }
 
 void SubscriberBase::handleMessageWhenUp(omnetpp::cMessage *msg)
 {
-    if(msg->isSelfMessage() && strcmp(msg->getName(), "connect") == 0)
+    if(msg->isSelfMessage() && strcmp(msg->getName(), "connectToBroker") == 0)
     {
         EV << "SubscriberBase:: connecting to the broker" << endl;
         connectToBroker();
@@ -108,19 +108,19 @@ void SubscriberBase::connectToBroker()
 void SubscriberBase::socketEstablished(inet::TcpSocket *socket)
 {
     EV << "SubscriberBase::connection established!" << endl;
-    EV << "SubscriberBase::subscribing" << endl;
-    sendSubscription();
+    //EV << "SubscriberBase::subscribing" << endl;
+    //sendSubscription();
 }
 
 void SubscriberBase::sendSubscription()
 {
     EV << "SubscriberBase::subscriber to " << brokerIPAddress.str() << endl;
-    nlohmann::json jsonBody = infoToJson();
 
     std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
-
-    Http::sendPostRequest(&tcpSocket, jsonBody.dump().c_str(), serverHost.c_str(), subscribeURI.c_str());
-
+//    EV << "SubscriptionBody - before request!: \n " << subscriptionBody_.dump().c_str() << endl;
+//    EV << "subscribeURI: " << subscribeURI.c_str() << endl;
+    Http::sendPostRequest(&tcpSocket, subscriptionBody_.dump().c_str(), serverHost.c_str(), subscribeURI.c_str());
+    appState = SUB;
 }
 
 nlohmann::json SubscriberBase::infoToJson()

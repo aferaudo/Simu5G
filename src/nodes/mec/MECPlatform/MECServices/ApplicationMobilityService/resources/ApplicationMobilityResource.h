@@ -38,7 +38,7 @@ class ApplicationMobilityResource : public AttributeBase{
     // Returns false if service consumer not found
     bool removeRegistrationInfo(std::string appMobilityServiceID);
 
-    std::vector<int> getAppInstanceIds(std::vector<AssociateId> associateId);
+    std::vector<std::string> getAppInstanceIds(std::vector<AssociateId> associateId);
 };
 
 #endif /* _APPLICATIONMOBILITYRESOURCE_H_ */

@@ -50,7 +50,7 @@ bool FilterCriteria::fromJson(const nlohmann::ordered_json& json)
             a.setValue(it.value());
         associateId_.push_back(a);
     }
-    this->setMobilityStatusFromString(json["mobilityStatus"]);
+    setMobilityStatusFromString(json["mobilityStatus"]);
 
     return true;
 }

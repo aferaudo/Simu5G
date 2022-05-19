@@ -36,7 +36,7 @@ class MobilityProcedureSubscription : public SubscriptionBase{
     MobilityProcedureSubscription(unsigned int subId, inet::TcpSocket *socket , const std::string& baseResLocation,  std::set<omnetpp::cModule*>& eNodeBs);
     virtual ~MobilityProcedureSubscription();
 
-
+    virtual nlohmann::ordered_json toJson() const override;
     virtual bool fromJson(const nlohmann::ordered_json& json) override;
     virtual void sendSubscriptionResponse() override;
     virtual void sendNotification(EventNotification *event) override;

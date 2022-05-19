@@ -42,6 +42,7 @@ class SubscriptionBase
         virtual void set_links(std::string& link);
         virtual void setFilterCriteria(FilterCriteriaBase* filterCriteria){ filterCriteria_ = filterCriteria;}
 
+        virtual nlohmann::ordered_json toJson() const {nlohmann::ordered_json val; return val; }
         virtual bool fromJson(const nlohmann::ordered_json& json);
         virtual void sendSubscriptionResponse() = 0;
         virtual void sendNotification(EventNotification *event) = 0;

@@ -16,7 +16,8 @@ MobilityProcedureSubscription::MobilityProcedureSubscription() {
 MobilityProcedureSubscription::MobilityProcedureSubscription(unsigned int subId, inet::TcpSocket *socket , const std::string& baseResLocation,  std::set<omnetpp::cModule*>& eNodeBs):
         SubscriptionBase(subId,socket,baseResLocation, eNodeBs)
 {
-    MobilityProcedureSubscription();
+    subscriptionType_ = "MobilityProcedureSubscription";
+    filterCriteria_ = new FilterCriteria();
 }
 MobilityProcedureSubscription::~MobilityProcedureSubscription() {
     // TODO Auto-generated destructor stub
@@ -49,17 +50,20 @@ EventNotification* MobilityProcedureSubscription::handleSubscription()
 
 bool MobilityProcedureSubscription::fromJson(const nlohmann::ordered_json& json)
 {
+    bool result = true;
+    EV << "MobilityProcedureSubscription::from Json\n" << json << endl;
     if(!json.contains("subscriptionType") || !json.contains("filterCriteria"))
     {
         EV << "MobilityProcedureSubscription::required parameters not specified in the request!" << endl;
         return false;
     }
 
-    if(json["subscriptionType"] != "MobilityProcedureSubscription")
+    if(json["subscriptionType"] != subscriptionType_)
     {
         EV << "MobilityProcedureSubscription::subscription type not valid!" << endl;
         return false;
     }
+
 
     if(!json.contains("callbackReference") && !json.contains("websockNotifConfig"))
     {
@@ -74,17 +78,40 @@ bool MobilityProcedureSubscription::fromJson(const nlohmann::ordered_json& json)
      * only that alternative in the response
      */
     if(json.contains("callbackReference"))
+    {
         callbackReference_ = json["callbackReference"];
+    }
 
     if(json.contains("websockNotifConfig"))
-        websockNotifConfig.fromJson(json["websockNotifConfig"]);
+    {
+        result = result && websockNotifConfig.fromJson(json["websockNotifConfig"]);
+    }
 
     if(json.contains("_links"))
         _links.setHref(json["_links"]["self"]["href"]);
 
+    if(json.contains("epiryDeadline"))
+    {
+        expiryDeadline.setSeconds(json["epiryDeadline"]["seconds"]);
+        expiryDeadline.setNanoSeconds(json["epiryDeadline"]["nanoSeconds"]);
+    }
 
-    filterCriteria_->fromJson(json["filterCriteria"]);
+    result = result && filterCriteria_->fromJson(json["filterCriteria"]);
 
-    return true;
+    return result;
 
+}
+
+nlohmann::ordered_json MobilityProcedureSubscription::toJson() const
+{
+    EV << "MobilityProcedureSubscription::toJson" << endl;
+    nlohmann::ordered_json val;
+    val["_links"] = _links.toJson();
+    val["callbackReference"] = callbackReference_;
+    val["requestTestNotification"] = requestTestNotification;
+    val["websockNotifConfig"] = websockNotifConfig.toJson();
+    val["filterCriteria"] = filterCriteria_->toJson();
+    val["subscriptionType"] = subscriptionType_;
+
+    return val;
 }
