@@ -27,19 +27,18 @@ MobilityProcedureNotification::~MobilityProcedureNotification() {
 
 bool MobilityProcedureNotification::fromJson(const nlohmann::ordered_json& json)
 {
+    EV << "MobilityProcedureNotification::processing json" << endl;
     if(!json.contains("notificationType") || !json.contains("associateId")
             || !json.contains("mobilityStatus") || !json.contains("_links"))
     {
         EV << "MobilityProcedureNotification::Some required parameters is missing!" << endl;
         return false;
     }
-
     if(json["notificationType"]!= notificationType_)
     {
         EV << "MobilityProcedureNotification::notificationType not valid!" << endl;
         return false;
     }
-
     if(json.contains("timeStamp"))
     {
         timestamp_.setSeconds(json["timeStamp"]["seconds"]);
@@ -64,14 +63,19 @@ bool MobilityProcedureNotification::fromJson(const nlohmann::ordered_json& json)
             break;
         }
     }
-
     if(json.contains("appInstanceId"))
     {
         appInstanceId_ = json["appInstanceId"];
     }
-    targetAppInfo.fromJson(json["targetAppInfo"]);
 
-    _links.setHref(json["_links"]["href"]);
+
+    if(json.contains("targetAppInfo") && !targetAppInfo.fromJson(json["targetAppInfo"]))
+    {
+        return false;
+    }
+
+
+    links_ = json["_links"]["href"];
 
     return true;
 }
@@ -88,18 +92,11 @@ nlohmann::ordered_json MobilityProcedureNotification::toJson() const
     }
     object["mobilityStatus"] = MobilityStatusString[mobilityStatus];
 
-//    if(targetAppInfo == nullptr)
-//    {
-//        object["targetAppInfo"]["appInstanceId"] = "";
-//        object["targetAppInfo"]["commInterface"]["ipAddresses"] = nlohmann::json::array();
-//        nlohmann::ordered_json empty_obj;
-//        empty_obj["host"] = "";
-//        empty_obj["port"] = 0;
-//        object["targetAppInfo"]["commInterface"]["ipAddresses"].push_back(empty_obj);
-//    }
+
+    // todo add checking that target app info exists
     object["targetAppInfo"] = targetAppInfo.toJson();
 
-    object["_links"] = _links.toJson();
+    object["_links"]["href"] = links_;
 
     if(!appInstanceId_.empty())
         object["appInstanceId"] = appInstanceId_;
@@ -136,11 +133,12 @@ EventNotification* MobilityProcedureNotification::handleNotification(FilterCrite
 
         if(found || (!appInstanceId_.empty() && filterCriteria->getAppInstanceId() == appInstanceId_))
         {
+            EV << "MobilityProcedureNotification::An event has been created" << endl;
             event = new MobilityProcedureEvent(notificationType_);
-
         }
 
-        event->setMobilityProcedureNotification(this);
+        if(event != nullptr)
+            event->setMobilityProcedureNotification(this);
 
 
     }

@@ -104,6 +104,11 @@ std::vector<std::string> ApplicationMobilityResource::getAppInstanceIds(
         std::vector<AssociateId> associateId) {
     std::vector<std::string> appInstanceIds;
     bool found = false;
+    if(associateId.size() == 0)
+    {
+        EV << "ApplicationMobilityResource::getAppInstanceIds - no associateId specified - skipping..." << endl;
+        return appInstanceIds;
+    }
     for(auto serviceConsumer : serviceConsumers_)
     {
         for(auto devInfo : serviceConsumer.second->getDeviceInformation())
@@ -124,6 +129,7 @@ std::vector<std::string> ApplicationMobilityResource::getAppInstanceIds(
         }
         found = false;
     }
+    EV << "ApplicationMobilityResource::getAppInstanceIds - result: " << found << endl;
 
     return appInstanceIds;
 }

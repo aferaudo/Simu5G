@@ -27,7 +27,7 @@ TargetAppInfo::~TargetAppInfo() {
 nlohmann::ordered_json TargetAppInfo::toJson() const {
     nlohmann::ordered_json val;
     val["appInstanceId"] = appInstanceId_;
-    val["commonInterface"]["ipAddresses"] = nlohmann::json::array();
+    val["commInterface"]["ipAddresses"] = nlohmann::json::array();
     auto it = commInterface_.begin();
 
     for(; it!=commInterface_.end(); ++it)
@@ -43,19 +43,25 @@ nlohmann::ordered_json TargetAppInfo::toJson() const {
 
 bool TargetAppInfo::fromJson(const nlohmann::ordered_json &json)
 {
+    EV << "TargetAppInfo::processing json" << endl;
     if(!json.contains("appInstanceId"))
         return false;
-    appInstanceId_ = json["appInstanceId"];
-    for(auto it=json["commInterface"]["ipAddresses"].begin(); it != json["commInterface"]["ipAddresses"].end(); ++it)
-    {
-        SockAddr host;
-        if(it.key() == "host")
-            host.addr = inet::L3AddressResolver().resolve(std::string(it.value()).c_str());
-        if(it.key() == "port")
-            host.port = it.value();
-        commInterface_.push_back(host);
-    }
 
+
+    appInstanceId_ = json["appInstanceId"];
+
+    if(json["commInterface"]["ipAddresses"].size() != 0)
+    {
+        for(auto it=json["commInterface"]["ipAddresses"].begin(); it != json["commInterface"]["ipAddresses"].end(); ++it)
+        {
+            SockAddr host;
+            if(it.key() == "host")
+                host.addr = inet::L3AddressResolver().resolve(std::string(it.value()).c_str());
+            if(it.key() == "port")
+                host.port = it.value();
+            commInterface_.push_back(host);
+        }
+    }
     return true;
 
 }

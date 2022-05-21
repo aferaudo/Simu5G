@@ -41,6 +41,11 @@ void MobilityProcedureSubscription::sendNotification(EventNotification *event)
 //    targetAppInfo; //optional: yes
 //    std::string _links; // optional: yes
 
+    MobilityProcedureNotification *notification = mobilityEvent->getMobilityProcedureNotification();
+    notification->setLinks(links_);
+
+    Http::sendPostRequest(socket_, notification->toJson().dump().c_str(), clientHost_.c_str(), clientUri_.c_str());
+
 }
 
 EventNotification* MobilityProcedureSubscription::handleSubscription()
@@ -76,24 +81,42 @@ bool MobilityProcedureSubscription::fromJson(const nlohmann::ordered_json& json)
     /*
      * If both callbackReference and websockNotifConfig are provided, it is up to AMS to choose an alternative and return
      * only that alternative in the response
+     *
+     * In this case the AMS uses by default the callbackReference field if present.
+     *
      */
+
+    std::string notifyURL;
     if(json.contains("callbackReference"))
     {
         callbackReference_ = json["callbackReference"];
+        notifyURL = callbackReference_;
     }
-
-    if(json.contains("websockNotifConfig"))
+    else if(json.contains("websockNotifConfig") )
     {
         result = result && websockNotifConfig.fromJson(json["websockNotifConfig"]);
+        notifyURL = websockNotifConfig.getWebSocketUri();
+    }
+
+    std::size_t found = notifyURL.find("/");
+    if (found!=std::string::npos)
+    {
+         clientHost_ = notifyURL.substr(0, found);
+         clientUri_ = notifyURL.substr(found);
     }
 
     if(json.contains("_links"))
-        _links.setHref(json["_links"]["self"]["href"]);
+        links_ = json["_links"]["self"]["href"];
 
     if(json.contains("epiryDeadline"))
     {
         expiryDeadline.setSeconds(json["epiryDeadline"]["seconds"]);
         expiryDeadline.setNanoSeconds(json["epiryDeadline"]["nanoSeconds"]);
+        expiryDeadline.setValid(true);
+    }
+    else
+    {
+        expiryDeadline.setValid(false);
     }
 
     result = result && filterCriteria_->fromJson(json["filterCriteria"]);
@@ -106,7 +129,7 @@ nlohmann::ordered_json MobilityProcedureSubscription::toJson() const
 {
     EV << "MobilityProcedureSubscription::toJson" << endl;
     nlohmann::ordered_json val;
-    val["_links"] = _links.toJson();
+    val["_links"]["self"]["href"] = links_;
     val["callbackReference"] = callbackReference_;
     val["requestTestNotification"] = requestTestNotification;
     val["websockNotifConfig"] = websockNotifConfig.toJson();

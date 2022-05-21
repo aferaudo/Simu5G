@@ -47,7 +47,7 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         mp1Port = par("mp1Port").intValue();
 
         std::cout << getParentModule()->getSubmodule("interfaceTable") << endl;
-        ifacetable = check_and_cast<inet::InterfaceTable*>(getParentModule()->getSubmodule("interfaceTable"));
+        //ifacetable = check_and_cast<inet::InterfaceTable*>(getParentModule()->getSubmodule("interfaceTable"));
 
         // Graphic
         color = getParentModule()->getParentModule()->par("color").stringValue();
@@ -190,8 +190,7 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
 
             MecAppEntryDyn entry = it->second;
             entry.endpoint.port = port;
-            handledApp[std::to_string(ueAppID)] = entry;
-            waitingInstantiationRequests.erase(it);
+
 
             //Allocate resources
             int host_key = findHostIDByAddress(entry.endpoint.addr);
@@ -222,6 +221,7 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             responsePkt->setDeviceAppId(std::to_string(ueAppID).c_str());
             std::stringstream appName;
             appName << entry.moduleName << "[" <<  entry.contextID << "]";
+
             responsePkt->setInstanceId(appName.str().c_str());
             responsePkt->setMecAppRemoteAddress(entry.endpoint.addr);
             responsePkt->setMecAppRemotePort(entry.endpoint.port);
@@ -229,6 +229,12 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             responsePkt->setChunkLength(inet::B(1000));
             toSend->insertAtBack(responsePkt);
             //toSend->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
+
+            entry.appInstanceId = appName.str();
+            handledApp[std::to_string(ueAppID)] = entry;
+            waitingInstantiationRequests.erase(it);
+            //printHandledApp();
+
             socket.sendTo(toSend, mepmAddress, mepmPort);
 
             delete msg;
@@ -287,6 +293,11 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
             handleResourceRequest(pPacket);
             delete msg;
+        }
+        else if(!strcmp(msg->getName(), "ServiceMobilityRequest"))
+        {
+            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: ServiceMobilityRequest" << endl;
+            handleMobilityRequest(msg);
         }
     }
     else{
@@ -555,7 +566,7 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
     appInfo->endPoint.addr = bestHostAddress;
     appInfo->endPoint.port = bestHostPort;
 
-    EV << "VirtualisationInfrastructureManagerDyn:: instantiateMEApp - print" << endl;
+    EV << "VirtualisationInfrastructureManagerDyn:: instantiateMEApp - " << appInfo->instanceId << " - print" << endl;
     printResources();
 //    printRequests();
 
@@ -654,6 +665,7 @@ void VirtualisationInfrastructureManagerDyn::printHandledApp()
         MecAppEntryDyn entry = (it->second);
 
         EV << "VirtualisationInfrastructureManagerDyn::printHandledApp - APP ID: " << key << endl;
+        EV << "VirtualisationInfrastructureManagerDyn::printHandledApp - APP instance Id: " << entry.appInstanceId << endl;
         EV << "VirtualisationInfrastructureManagerDyn::printHandledApp - Endpoint: " << entry.endpoint.str() << endl;
         EV << "VirtualisationInfrastructureManagerDyn::printHandledApp - Module name: " << entry.moduleName << endl;
         EV << "VirtualisationInfrastructureManagerDyn::printHandledApp - Buffered: " << entry.isBuffered << endl;

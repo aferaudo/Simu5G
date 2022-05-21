@@ -27,7 +27,7 @@ class MobilityProcedureSubscription : public SubscriptionBase{
     //callbackReference; //optional: yes (since ETSI 021 V2.2.1)
     WebsockNotifConfig websockNotifConfig; //optional:yes
     bool requestTestNotification; // optional: yes (since ETSI 021 V2.2.1)
-    LinkType _links; // optional: yes
+    //LinkType _links; // optional: yes
     // filterCriteria; //optional: no
     TimeStamp expiryDeadline; //optional: yes
 
@@ -42,11 +42,11 @@ class MobilityProcedureSubscription : public SubscriptionBase{
     virtual void sendNotification(EventNotification *event) override;
     virtual EventNotification* handleSubscription()override;
 
-    void set_links(std::string& link) override {_links.setHref(link+"sub"+std::to_string(subscriptionId_));}; //  This is set while preparing the response - hyperlink related to the resource
+    //void set_links(std::string& link) override {_links.setHref(link+"sub"+std::to_string(subscriptionId_));}; //  This is set while preparing the response - hyperlink related to the resource
 
     virtual void setFilterCriteria(FilterCriteriaBase* filterCriteria) override { filterCriteria_ = static_cast<FilterCriteria*>(filterCriteria);}
 
-
+    virtual std::string getLinks() const {return links_;}
     //FilterCriteria getFilterCriteria() const override{return filterCriteria;}
 
 

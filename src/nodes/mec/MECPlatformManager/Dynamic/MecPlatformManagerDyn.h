@@ -10,7 +10,7 @@
 
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/VirtualisationInfrastructureManagerDyn.h"
 #include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h" //MecAppInstanceInfo struct
-//#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/resources/MobilityProcedureSubscription.h"
+#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/resources/MobilityProcedureNotification.h"
 
 //BINDER and UTILITIES
 #include "common/LteCommon.h"
@@ -28,8 +28,13 @@
 
 #include <inet/transportlayer/contract/udp/UdpSocket.h>
 
+// MEO packets
 #include "nodes/mec/Dynamic/MEO/Messages/RegistrationPkt_m.h"
 #include "nodes/mec/Dynamic/MEO/Messages/MeoPackets_m.h"
+
+// AMS packets
+#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/Messages/MobilityMessages_m.h"
+
 #include "inet/linklayer/common/InterfaceTag_m.h"
 
 // subscriber class
@@ -40,6 +45,13 @@ using namespace omnetpp;
 class ServiceInfo;
 class ServiceRegistry;
 
+/*
+ * MECPlatform manager is a subscriber of the AMS when present.
+ * It should be noted that for dynamic resource case, it becomes a publisher
+ * of MobilityProcedure event for two cases:
+ *  - Mobility request
+ *  - Mobility response
+ */
 class MecPlatformManagerDyn : public SubscriberBase
 {
 
@@ -63,6 +75,8 @@ class MecPlatformManagerDyn : public SubscriberBase
     int vimPort;
 
     inet::IInterfaceTable* ifacetable;
+
+    //std::map<std::string, std::string> subscriptions_; // link -
 
     public:
         MecPlatformManagerDyn();

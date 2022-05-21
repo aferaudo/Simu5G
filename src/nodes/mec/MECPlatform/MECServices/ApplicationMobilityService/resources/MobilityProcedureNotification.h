@@ -33,7 +33,6 @@ class MobilityProcedureNotification : public NotificationBase{
     std::string appInstanceId_; // we use this parameter for dynamic case
     MobilityStatus mobilityStatus; //optional: no
     TargetAppInfo targetAppInfo; //optional: yes
-    LinkType _links; // optional: no - according to etsi 021 v2.2.1
 
  public:
     MobilityProcedureNotification();
@@ -48,10 +47,12 @@ class MobilityProcedureNotification : public NotificationBase{
     //set methods
     void setMobilityStatus(MobilityStatus m) {mobilityStatus = m;};
     void setTargetAppInfo(TargetAppInfo target){targetAppInfo = target;};
-    void setLinks(std::string links) {_links = links;};
+    void setLinks(std::string links) {links_ = links;};
+
 
     // get methods
     std::string getMobilityStatusString() const {return MobilityStatusString[mobilityStatus];};
+    std::string getAppInstanceId() const {return appInstanceId_;};
 
 
 };

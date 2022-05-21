@@ -337,11 +337,11 @@ void MecPlatformManagerDyn::handleInstantiationResponse(
 
     socket.sendTo(pktdup, meoAddress, meoPort);
     EV << "MecPlatformManagerDyn:: App instance id: " << responsemsg->getInstanceId()<< endl;
-    if(amsEnabled)
+    if(amsEnabled && responsemsg->getStatus())
     {
         subscriptionBody_ = nlohmann::ordered_json();
         subscriptionBody_["_links"]["self"]["href"] = "";
-        subscriptionBody_["callbackReference"] = webHook;
+        subscriptionBody_["callbackReference"] = localAddress.str() + ":" + std::to_string(localToBrokerPort)  + webHook;
         subscriptionBody_["requestTestNotification"] = false;
         subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
         subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
@@ -376,13 +376,109 @@ void MecPlatformManagerDyn::manageNotification()
      * This methods manage both RESPONSE and REQUESTS
      * - responses are not actually notification, but notify the correct or failed registration to the broker (FIXME?)
      */
-    EV << "MecPlatformManagerDyn::manageNotification" << endl;
     if(currentHttpMessage->getType() == RESPONSE)
     {
+        EV << "MecPlatformManagerDyn::manageNotification - subscription" << endl;
+        HttpResponseMessage *response = check_and_cast<HttpResponseMessage*>(currentHttpMessage);
+        nlohmann::ordered_json jsonBody = nlohmann::json::parse(currentHttpMessage->getBody());
+        if(response->getCode() == 201)
+        {
+            MobilityProcedureSubscription subscription;
+            subscription.fromJson(jsonBody);
+            EV << "MecPlatformManagerDyn::registered for " << subscription.getFilterCriteria()->getAppInstanceId() << endl;
+            // test that subscription is really ok
+            //Http::sendGetRequest(&tcpSocket, serverHost.c_str(), subscription.getLinks().c_str());
+        }
 
     }
     else
     {
+
+        EV << "MecPlatformManagerDyn::manageNotification - notification" << endl;
         // This is a request, so notification
+        HttpRequestMessage *request = check_and_cast<HttpRequestMessage*>(currentHttpMessage);
+        nlohmann::ordered_json jsonBody = nlohmann::json::parse(request->getBody());
+
+        EV << "MecPlatformManagerDyn::notificationType: " << jsonBody["notificationType"] << endl;
+        if(jsonBody.contains("notificationType") && (jsonBody["notificationType"] == "MobilityProcedureNotification"
+                || jsonBody["notificationType"] == "AdjacentAppNotification"))
+        {
+            // TODO we can ignore packets that contains targetappinfo
+            if(jsonBody["notificationType"] == "MobilityProcedureNotification")
+            {
+                // MobilityProcedureNotification
+                MobilityProcedureNotification *notification = new MobilityProcedureNotification();
+                EV << "notification: " << jsonBody.dump(2) << endl;
+                bool res = notification->fromJson(jsonBody);
+                if(res)
+                {
+                    inet::L3Address destinationAddr;
+                    int destPort;
+                    int packetLength = 0;
+
+                    // Preparing ServiceMobilityRequest
+                    inet::Packet* packet = new inet::Packet("ServiceMobilityRequest");
+
+                    auto toSend = inet::makeShared<ServiceMobilityRequest>();
+                    toSend->setAssociateIdArraySize(notification->getAssociateId().size());
+
+                    // the index is needed to populate the other packet array
+                    // so we use the old fashioned way
+                    for(int i = 0; i < notification->getAssociateId().size(); i++)
+                    {
+                        toSend->setAssociateId(i, notification->getAssociateId()[i]);
+                        // Computing packetLength
+                        packetLength = packetLength + notification->getAssociateId()[i].getType().size();
+                        packetLength = packetLength + notification->getAssociateId()[i].getType().size();
+                    }
+
+                    // Selecting migration type
+                    if(jsonBody.contains("appInstanceId")) // -- dynamic resource migration (from dynamic resources to local resources)
+                    {
+                        EV << "MecPlatformManagerDyn::moving app " << notification->getAppInstanceId() << " from a dynamic to local resources" << endl;
+                        // Sending Application Mobility Request to VIM
+                        destinationAddr = vimAddress;
+                        destPort = vimPort;
+                        std::string appInstanceId = jsonBody["appInstanceId"];
+                        toSend->setAppInstanceId(appInstanceId.c_str());
+                        packetLength = packetLength + appInstanceId.size();
+                    }
+                    else // -- global migration (from mechost to mechost)
+                    {
+                        EV << "MecPlatformManagerDyn::request app migration to MEC Orchestrator" << endl;
+                        // Do we need app related information?
+                        // in such a case we should request to the ams our request by using
+                        // the _links field in the notification
+                        // Sending Application Mobility Request to MEO
+                        destinationAddr = meoAddress;
+                        destPort = meoPort;
+                    }
+
+                    EV << "MecPlatformManagerDyn::ServiceMobilityRequest built! total packet length: " << packetLength << endl;
+
+                    toSend->setChunkLength(inet::B(packetLength));
+                    packet->insertAtBack(toSend);
+
+                    EV << "MecPlatformManagerDyn::Sending serviceMobilityRequest to " << destinationAddr.str() << ":"<<std::to_string(destPort)<<endl;
+                    socket.sendTo(packet, destinationAddr, destPort);
+                }
+                else
+                {
+                    EV << "MecPlatformManagerDyn::problems during notification parsing" << endl;
+                }
+
+            }
+            else
+            {
+                // AdjacentAppNotification
+                EV << "TO be defined" << endl;
+            }
+        }
+        else
+        {
+            EV << "MecPlatformManagerDyn::request not recognised" << endl;
+        }
+
+
     }
 }

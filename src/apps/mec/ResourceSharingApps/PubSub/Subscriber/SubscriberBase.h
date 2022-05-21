@@ -59,6 +59,7 @@ class SubscriberBase: public inet::ApplicationBase, public inet::TcpSocket::ICal
     std::string buffer;
 
     std::string webHook;
+    std::string serverHost;
     inet::Coord center; // This is a fixed node so we consider it as a center of a circle
     double radius; // loaded from ned file - for dynamic mechosts
 

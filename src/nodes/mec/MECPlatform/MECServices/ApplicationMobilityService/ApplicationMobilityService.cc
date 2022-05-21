@@ -22,7 +22,7 @@ ApplicationMobilityService::ApplicationMobilityService()
 {
     baseUriQueries_ = "/example/amsi/v1/queries/";
     baseUriSerDer_ = "/example/amsi/v1/app_mobility_services/"; // registration and deregistration uri
-    callbackUri_ = "example/amsi/v1/eventNotification/";
+    callbackUri_ = "/example/amsi/v1/eventNotification/";
     baseUriSubscriptions_ = "/example/amsi/v1/subscriptions/";
     baseSubscriptionLocation_ = host_+ baseUriSubscriptions_;
 
@@ -71,7 +71,7 @@ void ApplicationMobilityService::handleGETRequest(const HttpRequestMessage *curr
     }
     else if(uri.find(baseUriSerDer_) == 0)
     {
-        uri.erase(0, uri.find(baseUriSerDer_) + baseUriSerDer_.length());
+        uri.erase(0, baseUriSerDer_.length());
         if(uri.length() > 0 && uri.find("deregister_task") == std::string::npos)
         {
             EV << "AMS::Getting specific id " << endl;
@@ -81,6 +81,41 @@ void ApplicationMobilityService::handleGETRequest(const HttpRequestMessage *curr
         else
         {
             EV << "AMS::deregister_task API not implemented" << endl;
+        }
+
+    }
+    else if(uri.compare(baseUriSubscriptions_) == 0)
+    {
+        /*
+         * TODO to be implemented
+         * Here we should return the list of links to requestor's subscriptions
+         */
+        EV << "AMS::subscriptions get - all - received (not implemented yet)" << endl;
+
+    }
+    else if(uri.find(baseUriSubscriptions_) == 0)
+    {
+        EV << "AMS::subscriptions get - single - received" << endl;
+        uri.erase(0, baseUriSubscriptions_.length());
+        if(uri.length() > 0 && uri.find("sub") != std::string::npos)
+        {
+            EV << "AMS::retrieving information of subscriber: " << uri << endl;
+            int id = std::stoi(uri.erase(0, std::string("sub").length())); // sub is the prefix added in subscription phase
+            if(subscriptions_.find(id) != subscriptions_.end())
+            {
+                EV << "AMS::subscriber found!" << endl;
+                Http::send200Response(socket, subscriptions_[id]->toJson().dump().c_str());
+            }
+            else
+            {
+                EV << "AMS::subscriber not found" << endl;
+                Http::send404Response(socket);
+            }
+        }
+        else
+        {
+            EV << "AMS::Bad Request" << endl;
+            Http::send400Response(socket);
         }
 
     }
@@ -108,11 +143,14 @@ void ApplicationMobilityService::handlePOSTRequest(const HttpRequestMessage *cur
             return;
         }
         r->setAppMobilityServiceId(std::to_string(applicationServiceIds));
-        request["appMobilityServiceId"] =  std::to_string(applicationServiceIds);
+        //request["appMobilityServiceId"] =  std::to_string(applicationServiceIds);
         registrationResources_.addRegistrationInfo(r);
 
         applicationServiceIds ++;
-        Http::send201Response(socket, request.dump().c_str());
+        nlohmann::ordered_json response = r->toJson();
+        std::pair<std::string, std::string> p("Location: ", baseUriSerDer_);
+        EV << "AMS::Correctly subscribed sending: " << response.dump() <<endl;
+        Http::send201Response(socket, response.dump(2).c_str(), p);
     }
     else if(uri.compare(baseUriSubscriptions_) == 0)
     {
@@ -237,7 +275,7 @@ void ApplicationMobilityService::handleSubscriptionRequest(SubscriptionBase *sub
 
         subscriptions_[subscriptionId_] = subscription;
 
-        nlohmann::ordered_json response = request;
+        nlohmann::ordered_json response = subscription->toJson();
         response["subscriptionId"] = subscriptionId_;
         subscriptionId_ ++;
         EV << "AMS::subscribed" << subscription->toJson() << endl;
@@ -282,30 +320,54 @@ void ApplicationMobilityService::handleNotificationCallback(inet::TcpSocket *soc
         Http::send400Response(socket);
         return;
     }
+    EV << "AMS::Trigger - " << request["notificationType"] << " - received!" << endl;
 
-    notification->fromJson(request);
-    std::vector<std::string> appInstanceId = registrationResources_.getAppInstanceIds(notification->getAssociateId());
-    for(auto subscriber : subscriptions_)
-    {
-        EventNotification *event = nullptr;
-        if(subscriptionType==subscriber.second->getSubscriptionType())
+    bool res = notification->fromJson(request);
+    if(res){
+        std::vector<std::string> appInstanceId = registrationResources_.getAppInstanceIds(notification->getAssociateId());
+
+        for(auto subscriber : subscriptions_)
         {
-            bool removeChecks = false;
-            if(std::find(appInstanceId.begin(), appInstanceId.end(), subscriber.second->getFilterCriteria()->getAppInstanceId())
-                    != appInstanceId.end())
+            EV << "AMS::processing subscriber: "<< subscriber.second->getSubscriptionId() << endl;
+            EventNotification *event = nullptr;
+            if(subscriptionType==subscriber.second->getSubscriptionType())
             {
-                removeChecks = true;
+                bool removeChecks = false;
+                if(!appInstanceId.empty() && std::find(appInstanceId.begin(), appInstanceId.end(), subscriber.second->getFilterCriteria()->getAppInstanceId())
+                        != appInstanceId.end())
+                {
+                    EV << "AMS::notification associated id checks removed" << endl;
+                    removeChecks = true;
+                }
+                event = notification->handleNotification(subscriber.second->getFilterCriteria(), removeChecks);
+                if(event != nullptr)
+                {
+                  event->setSubId(subscriber.second->getSubscriptionId());
+                  EV << "AMS::next notification to -> " << subscriber.second->getSubscriptionId() << endl;
+                  newSubscriptionEvent(event);
+                }
             }
-            event = notification->handleNotification(subscriber.second->getFilterCriteria(), removeChecks);
-            if(event != nullptr)
-            {
-              event->setSubId(subscriber.second->getSubscriptionId());
-              newSubscriptionEvent(event);
-            }
+
         }
-
     }
+}
 
+bool ApplicationMobilityService::manageSubscription()
+{
+    int subId = currentSubscriptionServed_->getSubId();
+    if(subscriptions_.find(subId) != subscriptions_.end())
+    {
+        EV << "ApplicationMobilityService::manageSubscription() - subscription with id: " << subId << " found" << endl;
+        SubscriptionBase * sub = subscriptions_[subId]; //upcasting (getSubscriptionType is in Subscriptionbase)
+        sub->sendNotification(currentSubscriptionServed_);
+        if(currentSubscriptionServed_!= nullptr)
+            delete currentSubscriptionServed_;
+        currentSubscriptionServed_ = nullptr;
 
-
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }

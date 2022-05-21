@@ -50,7 +50,7 @@ void SubscriberBase::handleStartOperation(inet::LifecycleOperation *operation)
     tcpSocket.setOutputGate(gate("socketOut"));
     tcpSocket.bind(localToBrokerPort);
     tcpSocket.setCallback(this);
-
+    serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
     appState = UNSUB;
 
     // drawing a cricle
@@ -68,6 +68,7 @@ void SubscriberBase::handleMessageWhenUp(omnetpp::cMessage *msg)
     {
         EV << "SubscriberBase:: connecting to the broker" << endl;
         connectToBroker();
+
         delete msg;
     }
     else if (msg->isSelfMessage() && strcmp(msg->getName(), "unsub") == 0)
@@ -116,7 +117,7 @@ void SubscriberBase::sendSubscription()
 {
     EV << "SubscriberBase::subscriber to " << brokerIPAddress.str() << endl;
 
-    std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
+
 //    EV << "SubscriptionBody - before request!: \n " << subscriptionBody_.dump().c_str() << endl;
 //    EV << "subscribeURI: " << subscribeURI.c_str() << endl;
     Http::sendPostRequest(&tcpSocket, subscriptionBody_.dump().c_str(), serverHost.c_str(), subscribeURI.c_str());

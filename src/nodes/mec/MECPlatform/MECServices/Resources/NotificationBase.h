@@ -34,6 +34,7 @@ class NotificationBase : public AttributeBase{
     std::string notificationType_;
     TimeStamp timestamp_;
     std::vector<AssociateId> associateId_;
+    std::string links_; //optional no
 
   public:
     NotificationBase();
@@ -43,11 +44,13 @@ class NotificationBase : public AttributeBase{
     virtual bool fromJson(const nlohmann::ordered_json& json) = 0;
     virtual EventNotification* handleNotification(FilterCriteriaBase *filters, bool noCheck=false) = 0;
 
-    void setTimeStamp(TimeStamp t){timestamp_ = t;};
+
     std::string getNotificationType() const{return notificationType_;}
     TimeStamp getTimestamp(){return timestamp_;}
-
+    std::string getLinks() const {return links_;};
     std::vector<AssociateId> getAssociateId() const{return associateId_;};
+
+    void setTimeStamp(TimeStamp t){timestamp_ = t;};
     void setAssociateId(std::vector<AssociateId> associateId){associateId_ = associateId;};
 
 };

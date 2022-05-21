@@ -56,6 +56,7 @@ struct HostDescriptor // CarDescriptor
 
 struct MecAppEntryDyn
 {
+    std::string appInstanceId;
     int ueAppID;
     ResourceDescriptor usedResources;
     SockAddr endpoint;
@@ -118,7 +119,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     int mp1Port;
 
 
-    inet::IInterfaceTable* ifacetable;
+    //inet::IInterfaceTable* ifacetable;
 
 
     std::string color;
@@ -258,6 +259,8 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         void sendMEORegistration();
         void handleResourceRequest(inet::Packet* resourcePacket);
         void handleMepmMessage(cMessage*);
+
+        void handleMobilityRequest(cMessage *) {EV << "VIM::handleMobilityRequest to be implemented" << endl;};
 };
 
 #endif
