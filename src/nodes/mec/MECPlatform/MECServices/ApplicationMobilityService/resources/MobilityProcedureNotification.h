@@ -53,6 +53,7 @@ class MobilityProcedureNotification : public NotificationBase{
     // get methods
     std::string getMobilityStatusString() const {return MobilityStatusString[mobilityStatus];};
     std::string getAppInstanceId() const {return appInstanceId_;};
+    TargetAppInfo getTargetAppInfo() const {return targetAppInfo;};
 
 
 };

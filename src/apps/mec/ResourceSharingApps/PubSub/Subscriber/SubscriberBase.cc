@@ -229,7 +229,7 @@ void SubscriberBase::unsubscribe()
 
     std::string uri = subscribeURI + std::to_string(getId());
     EV << "SubscriberBase::delete URI" << uri << endl;
-    std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
+    //std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
 
     Http::sendDeleteRequest(&tcpSocket, serverHost.c_str(), uri.c_str());
 

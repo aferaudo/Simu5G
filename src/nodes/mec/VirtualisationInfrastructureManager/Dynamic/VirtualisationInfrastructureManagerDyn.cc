@@ -13,10 +13,7 @@
 
 Define_Module(VirtualisationInfrastructureManagerDyn);
 
-VirtualisationInfrastructureManagerDyn::VirtualisationInfrastructureManagerDyn()
-{
 
-}
 
 void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 {
@@ -172,70 +169,7 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
         if (!strcmp(msg->getName(), "InstantiationResponse")){
             EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: InstantiationResponse" << endl;
 
-            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
-            if (pPacket == 0)
-               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
-
-            auto data = pPacket->peekData<InstantiationResponse>();
-//            inet::PacketPrinter printer;
-//            printer.printPacket(std::cout, pPacket);
-
-            int ueAppID = data->getUeAppID();
-            int port = data->getAllocatedPort();
-
-            auto it = waitingInstantiationRequests.find(std::to_string(ueAppID));
-            if(it == waitingInstantiationRequests.end()){
-                throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - InstantiationResponse - cannot find registered app");
-            }
-
-            MecAppEntryDyn entry = it->second;
-            entry.endpoint.port = port;
-
-
-            //Allocate resources
-            int host_key = findHostIDByAddress(entry.endpoint.addr);
-            HostDescriptor* host = &((handledHosts.find(host_key))->second);
-
-            if(port == -1){
-                host->numRunningApp -= 1;
-                return;
-            }
-
-            releaseResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, host_key);
-            allocateResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, host_key);
-
-//            host->numRunningApp += 1;
-
-            EV << "VirtualisationInfrastructureManagerDyn:: response - print" << endl;
-            printResources();
-
-//            printRequests();
-//            printHandledApp();
-
-            // Response to Mepm
-            inet::Packet* toSend = new inet::Packet("instantiationApplicationResponse");
-            auto responsePkt = inet::makeShared<InstantiationApplicationResponse>();
-            responsePkt->setStatus(port != -1);
-            responsePkt->setMecHostId(getParentModule()->getParentModule()->getId());
-            responsePkt->setAppName(entry.moduleName.c_str()); // send back module name to avoid findingLoop
-            responsePkt->setDeviceAppId(std::to_string(ueAppID).c_str());
-            std::stringstream appName;
-            appName << entry.moduleName << "[" <<  entry.contextID << "]";
-
-            responsePkt->setInstanceId(appName.str().c_str());
-            responsePkt->setMecAppRemoteAddress(entry.endpoint.addr);
-            responsePkt->setMecAppRemotePort(entry.endpoint.port);
-            responsePkt->setContextId(entry.contextID);
-            responsePkt->setChunkLength(inet::B(1000));
-            toSend->insertAtBack(responsePkt);
-            //toSend->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
-
-            entry.appInstanceId = appName.str();
-            handledApp[std::to_string(ueAppID)] = entry;
-            waitingInstantiationRequests.erase(it);
-            //printHandledApp();
-
-            socket.sendTo(toSend, mepmAddress, mepmPort);
+            handleInstantiationResponse(msg);
 
             delete msg;
         }else if (!strcmp(msg->getName(), "TerminationResponse")){
@@ -520,26 +454,6 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
     EV << "VirtualisationInfrastructureManagerDyn:: instantiate - MEP endpoint is " << mp1Address << ":" << mp1Port << endl;
 
 
-    inet::Packet* packet = new inet::Packet("Instantiation");
-    auto registrationpck = inet::makeShared<InstantiationApplicationRequest>();
-
-    registrationpck->setUeAppID(msg->getUeAppID());
-    registrationpck->setMEModuleName(msg->getMEModuleName());
-    registrationpck->setMEModuleType(msg->getMEModuleType());
-    registrationpck->setRequiredCpu(msg->getRequiredCpu());
-    registrationpck->setRequiredRam(msg->getRequiredRam());
-    registrationpck->setRequiredDisk(msg->getRequiredDisk());
-    registrationpck->setRequiredService(msg->getRequiredService());
-    //registrationpck->setMp1Address(mp1Address_.c_str());
-    registrationpck->setMp1Address(mp1Address.str().c_str());
-    //registrationpck->setMp1Port(mp1Port_);
-    registrationpck->setMp1Port(mp1Port);
-    registrationpck->setContextId(msg->getContextId());
-    registrationpck->setChunkLength(inet::B(2000));
-    packet->insertAtBack(registrationpck);
-
-    EV << "VirtualisationInfrastructureManagerDyn:: instantiateMEApp - sending to " << bestHostAddress << ":" << bestHostPort << endl;
-
     // request registration
     requestCounter++;
     MecAppEntryDyn newAppEntry;
@@ -554,8 +468,11 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
     newAppEntry.usedResources.ram  = msg->getRequiredRam();
     newAppEntry.usedResources.disk = msg->getRequiredDisk();
     newAppEntry.usedResources.cpu  = msg->getRequiredCpu();
+    newAppEntry.ueEndpoint = msg->getUeIpAddress();
+    inet::Packet* packet = createInstantiationRequest(newAppEntry, msg->getRequiredService());
     waitingInstantiationRequests[std::to_string(msg->getUeAppID())] = newAppEntry;
 
+    EV << "VirtualisationInfrastructureManagerDyn:: instantiateMEApp - sending to " << bestHostAddress << ":" << bestHostPort << endl;
     socket.sendTo(packet, bestHostAddress, bestHostPort);
 
     bestHost->numRunningApp += 1;
@@ -591,31 +508,37 @@ bool VirtualisationInfrastructureManagerDyn::terminateMEApp(const TerminationApp
     EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp - looking for " << ueAppID << " ID" << endl;
     auto it = handledApp.find(std::to_string(ueAppID));
     if(it == handledApp.end()){
-        EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp - App not found" << endl;
+        EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp - App not found. Trying in migration set..." << endl;
 
-        inet::Packet *packet = new inet::Packet();
-        auto terminationResponse = inet::makeShared<TerminationAppInstResponse>();
-        terminationResponse->setDeviceAppId(msg->getDeviceAppId());
-        terminationResponse->setMecHostId(getParentModule()->getParentModule()->getId());
-        terminationResponse->setRequestId(msg->getRequestId());
-        terminationResponse->setContextId(msg->getContextId());
-        terminationResponse->setStatus(false);
-        terminationResponse->setChunkLength(inet::B(1000));
-        packet->insertAtBack(terminationResponse);
-        //packet->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
-        socket.sendTo(packet, mepmAddress, mepmPort);
-        return false;
+        it = migratingApps.find(std::to_string(ueAppID));
+        if(it == migratingApps.end())
+        {
+            EV << "VirtualisationInfrastractureManagerDyn::terminateMEApp - App not found - error" << endl;
+            inet::Packet *packet = new inet::Packet();
+            auto terminationResponse = inet::makeShared<TerminationAppInstResponse>();
+            terminationResponse->setDeviceAppId(msg->getDeviceAppId());
+            terminationResponse->setMecHostId(getParentModule()->getParentModule()->getId());
+            terminationResponse->setRequestId(msg->getRequestId());
+            terminationResponse->setContextId(msg->getContextId());
+            terminationResponse->setStatus(false);
+            terminationResponse->setChunkLength(inet::B(1000));
+            packet->insertAtBack(terminationResponse);
+            //packet->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
+            socket.sendTo(packet, mepmAddress, mepmPort);
+            return false;
+        }
     }
 
     inet::Packet* packet = new inet::Packet("Termination");
     auto terminationpck = inet::makeShared<DeleteAppMessage>();
     MecAppEntryDyn instantiatedApp = it->second;
     inet::L3Address address = instantiatedApp.endpoint.addr;
-    int port = 2222; // TODO Load this from viPort
+    //int port = 2222; // TODO Load this from viPort
+    int port = instantiatedApp.endpoint.port;
 
     terminationpck->setUeAppID(ueAppID);
     terminationpck->setSno(msg->getRequestId());
-    terminationpck->setChunkLength(inet::B(2000));
+    terminationpck->setChunkLength(inet::B(8)); // 4bytes + 4bytes
     packet->insertAtBack(terminationpck);
 
     EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp - sending to " << address << ":" << port <<endl;
@@ -956,6 +879,9 @@ void VirtualisationInfrastructureManagerDyn::manageNotification()
             {
                 uri.erase(0, uri.find(webHook) + webHook.length()); //now id
                 EV << "VIM::Unregister host: " << uri << endl;
+                // before unregistring the dynamic host, an event signaling
+                // app migration should be generated
+                // TODO app migration event
                 unregisterHost(std::atoi(uri.c_str()));
             }
             else
@@ -985,4 +911,210 @@ void VirtualisationInfrastructureManagerDyn::socketEstablished(
         subscriptionBody_ = infoToJson();
         sendSubscription();
     }
+}
+
+void VirtualisationInfrastructureManagerDyn::handleMobilityRequest(cMessage* msg)
+{
+    /*
+     * This method manages only local apps - migration from dynamic resource to
+     * local resource.
+     * TODO implement case where MECApp is already allocated on the buffer
+     */
+    EV << "VIM::handleMobilityRequest" << endl;
+    inet::Packet* resourcePacket = check_and_cast<inet::Packet*>(msg);
+    auto data = resourcePacket->peekData<ServiceMobilityRequest>();
+    const ServiceMobilityRequest *receivedData = data.get();
+
+
+    if(receivedData->getAssociateIdArraySize() == 0)
+    {
+        EV << "VIM::managing migration from dynamic resources!" << endl;
+        for(auto value : handledApp)
+        {
+            if(std::strcmp(receivedData->getAppInstanceId(), value.second.appInstanceId.c_str()) == 0)
+            {
+                EV <<  "VIM::MECApp found on host: " << value.second.endpoint.addr.str() << ":" << std::to_string(value.second.endpoint.port) << endl;
+                // get partial data
+                if(isAllocableOnBuffer(value.second.usedResources.ram, value.second.usedResources.disk, value.second.usedResources.cpu))
+                {
+                    instantiateMEAppLocally(value.second);
+                }
+                return;
+            }
+        }
+    }
+    else
+    {
+        EV_ERROR << "VIM::vim does not manage associateId migration type so far.."<< endl;
+        /*
+         * In this scenario multiple mecapps may be migrated
+         * The correspondence MECapp UE is 1 to 1 so far, thus
+         * only one MECApp at time will be migrated
+         */
+        return;
+    }
+
+}
+
+void VirtualisationInfrastructureManagerDyn::instantiateMEAppLocally(
+         MecAppEntryDyn meapp) {
+
+    HostDescriptor* bestHost = &handledHosts[getId()];
+
+    EV << "VirtualisationInfrastructureManagerDyn:: instantiateMEAppLocally - " << bestHost->address.str() << ":" << bestHost->viPort << endl;
+
+
+    bestHost->numRunningApp += 1;
+
+
+    inet::Packet *packet =  createInstantiationRequest(meapp);
+    // changing endpoint characteristics
+    meapp.endpoint.addr = bestHost->address;
+    meapp.endpoint.port = -1;
+    waitingInstantiationRequests[std::to_string(meapp.ueAppID)] = meapp;
+
+    EV << "VirtualisationInfrastructureManagerDyn::create new app instance - " << meapp.appInstanceId << " -" << endl;
+    socket.sendTo(packet, bestHost->address, bestHost->viPort);
+
+}
+inet::Packet* VirtualisationInfrastructureManagerDyn::createInstantiationRequest(
+        MecAppEntryDyn& meapp, std::string requiredOmnetppService)
+{
+
+    inet::Packet* packet = new inet::Packet("Instantiation");
+    auto registrationpck = inet::makeShared<InstantiationApplicationRequest>();
+
+    registrationpck->setUeAppID(meapp.ueAppID);
+    registrationpck->setMEModuleName(meapp.moduleName.c_str());
+    registrationpck->setMEModuleType(meapp.moduleType.c_str());
+    registrationpck->setRequiredCpu(meapp.usedResources.cpu);
+    registrationpck->setRequiredRam(meapp.usedResources.ram);
+    registrationpck->setRequiredDisk(meapp.usedResources.disk);
+    registrationpck->setRequiredService(requiredOmnetppService.c_str());
+    registrationpck->setMp1Address(mp1Address.str().c_str());
+    registrationpck->setMp1Port(mp1Port);
+    registrationpck->setContextId(meapp.contextID);
+    registrationpck->setChunkLength(inet::B(sizeof(meapp) + mp1Address.str().size() + 4));
+    packet->insertAtBack(registrationpck);
+
+    return packet;
+}
+
+void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
+        cMessage* msg)
+{
+    inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+    if (pPacket == 0)
+       throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
+
+    auto data = pPacket->peekData<InstantiationResponse>();
+//            inet::PacketPrinter printer;
+//            printer.printPacket(std::cout, pPacket);
+
+    int ueAppID = data->getUeAppID();
+    int port = data->getAllocatedPort();
+    int packetLength = 0;
+
+    auto it = waitingInstantiationRequests.find(std::to_string(ueAppID));
+    if(it == waitingInstantiationRequests.end()){
+        throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - InstantiationResponse - cannot find registered app");
+    }
+
+    MecAppEntryDyn entry = it->second;
+    entry.endpoint.port = port;
+
+    auto existingApp = handledApp.find(std::to_string(entry.ueAppID));
+    if(existingApp != handledApp.end() && port != -1)
+    {
+        // App migration ----
+        EV << "VirtualisationInfrastructureManagerDyn::migration status: APP CREATED" << endl;
+        // Next step create a method that:
+        // - sends an ServiceMobilityResponse to the MEC platform manager
+        // - deletes and replace the old meapp from the list (release only diminish the used resources)
+        EV << "VirtualisationInfrastructureManagerDyn::new mec app address: " << entry.endpoint.addr.str() << endl;
+
+        // Remove from the waiting queue
+        waitingInstantiationRequests.erase(it);
+
+        // Delete old app and adding at the map of app in migration phase (they still need context synchronization)
+        migratingApps[std::to_string(existingApp->second.ueAppID)] = existingApp->second;
+        handledApp.erase(existingApp);
+
+        // Add new mecApp at list of handledApp
+        handledApp[std::to_string(entry.ueAppID)] = entry;
+
+        // sending service mobility response
+        inet::Packet* packet = new inet::Packet("ServiceMobilityResponse");
+        auto toSend = inet::makeShared<ServiceMobilityResponse>();
+        toSend->setAppInstanceId(entry.appInstanceId.c_str());
+        packetLength = packetLength + entry.appInstanceId.size();
+
+        toSend->setTargetAddress(entry.endpoint.addr);
+        toSend->setTargetPort(entry.endpoint.port);
+        packetLength = packetLength + entry.endpoint.addr.str().size() + 4;
+
+        // FIXME Correspondence one-to-one
+        toSend->setAssociateIdArraySize(1);
+        AssociateId associateId;
+        associateId.setType("UE_IPV4_ADDRESS");
+        associateId.setValue(entry.ueEndpoint.str());
+        toSend->setAssociateId(0, associateId);
+        packetLength = packetLength + associateId.getType().size() + associateId.getValue().size();
+
+        toSend->setChunkLength(inet::B(packetLength));
+
+        packet->insertAtBack(toSend);
+        EV << "VirtualisationInfrastructureManagerDyn::sending application mobility response to mepm" << endl;
+
+        socket.sendTo(packet, mepmAddress, mepmPort);
+
+        return;
+
+        // done
+    }
+
+    //Allocate resources
+    int host_key = findHostIDByAddress(entry.endpoint.addr);
+    HostDescriptor* host = &((handledHosts.find(host_key))->second);
+
+    if(port == -1){
+        host->numRunningApp -= 1;
+        return;
+    }
+
+    releaseResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, host_key);
+    allocateResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, host_key);
+
+//            host->numRunningApp += 1;
+
+    EV << "VirtualisationInfrastructureManagerDyn:: response - print" << endl;
+    printResources();
+
+//            printRequests();
+//            printHandledApp();
+
+    // Response to Mepm
+    inet::Packet* toSend = new inet::Packet("instantiationApplicationResponse");
+    auto responsePkt = inet::makeShared<InstantiationApplicationResponse>();
+    responsePkt->setStatus(port != -1);
+    responsePkt->setMecHostId(getParentModule()->getParentModule()->getId());
+    responsePkt->setAppName(entry.moduleName.c_str()); // send back module name to avoid findingLoop
+    responsePkt->setDeviceAppId(std::to_string(ueAppID).c_str());
+    std::stringstream appName;
+    appName << entry.moduleName << "[" <<  entry.contextID << "]";
+
+    responsePkt->setInstanceId(appName.str().c_str());
+    responsePkt->setMecAppRemoteAddress(entry.endpoint.addr);
+    responsePkt->setMecAppRemotePort(entry.endpoint.port);
+    responsePkt->setContextId(entry.contextID);
+    responsePkt->setChunkLength(inet::B(1000));
+    toSend->insertAtBack(responsePkt);
+    //toSend->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
+
+    entry.appInstanceId = appName.str();
+    handledApp[std::to_string(ueAppID)] = entry;
+    waitingInstantiationRequests.erase(it);
+    //printHandledApp();
+
+    socket.sendTo(toSend, mepmAddress, mepmPort);
 }

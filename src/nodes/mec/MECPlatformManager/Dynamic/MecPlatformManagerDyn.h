@@ -74,6 +74,9 @@ class MecPlatformManagerDyn : public SubscriberBase
     inet::L3Address vimAddress;
     int vimPort;
 
+    // ams parameters
+    std::string triggerURI;
+
     inet::IInterfaceTable* ifacetable;
 
     //std::map<std::string, std::string> subscriptions_; // link -
@@ -107,6 +110,7 @@ class MecPlatformManagerDyn : public SubscriberBase
         void handleInstantiationResponse(inet::Packet* instantiationPacket);
         void handleTerminationRequest(inet::Packet *packet);
         void handleTerminationResponse(inet::Packet * packet);
+        void handleServiceMobilityResponse(inet::Packet * packet);
         bool checkServiceAvailability(const char* serviceName);
 
 };

@@ -118,6 +118,7 @@ std::vector<std::string> ApplicationMobilityResource::getAppInstanceIds(
                 if(devInfo.getAssociateId().getType() == id.getType()
                         && devInfo.getAssociateId().getValue() == id.getValue())
                 {
+                    EV << "ApplicationMobilityResource::an app has been found!" << endl;
                     appInstanceIds.push_back(serviceConsumer.second->getServiceConsumerId().appInstanceId);
                     found = true;
                     break;

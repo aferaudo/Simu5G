@@ -35,7 +35,7 @@ nlohmann::ordered_json TargetAppInfo::toJson() const {
         nlohmann::ordered_json arrayVal;
         arrayVal["host"] = it->addr.str();
         arrayVal["port"] = it->port;
-        val["commonInterface"]["ipAddresses"].push_back(arrayVal);
+        val["commInterface"]["ipAddresses"].push_back(arrayVal);
     }
 
     return val;
@@ -52,13 +52,12 @@ bool TargetAppInfo::fromJson(const nlohmann::ordered_json &json)
 
     if(json["commInterface"]["ipAddresses"].size() != 0)
     {
-        for(auto it=json["commInterface"]["ipAddresses"].begin(); it != json["commInterface"]["ipAddresses"].end(); ++it)
+        for(auto& it : json["commInterface"]["ipAddresses"].items())
         {
             SockAddr host;
-            if(it.key() == "host")
-                host.addr = inet::L3AddressResolver().resolve(std::string(it.value()).c_str());
-            if(it.key() == "port")
-                host.port = it.value();
+            nlohmann::ordered_json val = it.value();
+            host.addr = inet::L3Address(std::string(val["host"]).c_str());
+            host.port = val["port"];
             commInterface_.push_back(host);
         }
     }

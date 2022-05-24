@@ -44,17 +44,16 @@ bool MobilityProcedureNotification::fromJson(const nlohmann::ordered_json& json)
         timestamp_.setSeconds(json["timeStamp"]["seconds"]);
         timestamp_.setNanoSeconds(json["timeStamp"]["nanoSeconds"]);
     }
-
-    for(auto it=json["associateId"].begin(); it != json["associateId"].end(); ++it)
+    for(auto& it : json["associateId"].items())
     {
         AssociateId a;
-        if(it.key() == "type")
-            a.setType(json["type"]);
-        if(it.key() == "port")
-            a.setValue(json["value"]);
+
+        nlohmann::ordered_json val = it.value();
+
+        a.setType(val["type"]);
+        a.setValue(val["value"]);
         associateId_.push_back(a);
     }
-
     // FIXME use a global method without static bounds
     for(int i = 0; i < 3; i++)
     {
@@ -109,11 +108,13 @@ EventNotification* MobilityProcedureNotification::handleNotification(FilterCrite
     MobilityProcedureEvent *event = nullptr;
 
     FilterCriteria* filterCriteria = static_cast<FilterCriteria*>(filters);
-    bool found = false;
+    bool found = true;
 
     if(filterCriteria->getMobilityStatus() == mobilityStatus)
     {
         if(!noCheck)
+        {
+            found = false;
             for(auto &ids : associateId_)
             {
 
@@ -130,6 +131,7 @@ EventNotification* MobilityProcedureNotification::handleNotification(FilterCrite
                     break;
                 }
             }
+        }
 
         if(found || (!appInstanceId_.empty() && filterCriteria->getAppInstanceId() == appInstanceId_))
         {

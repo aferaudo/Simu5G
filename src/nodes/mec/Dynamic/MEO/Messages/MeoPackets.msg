@@ -48,6 +48,7 @@ class InstantiationApplicationRequest extends GeneralMessage
     double requiredDisk = 0;
     double requiredRam = 0;
     double requiredCpu = 0;
+    inet::L3Address ueIpAddress;
     string requiredService;
     string providedService;
     string mp1Address;

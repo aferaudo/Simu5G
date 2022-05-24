@@ -303,6 +303,7 @@ void ApplicationMobilityService::handleNotificationCallback(inet::TcpSocket *soc
     NotificationBase *notification = nullptr;
     std::string subscriptionType = "";
     std::vector<int> ids;
+    EV << "AMS::received notification request: " << request.dump(2) << endl;
     if(request["notificationType"]=="MobilityProcedureNotification")
     {
         notification = new MobilityProcedureNotification();
@@ -323,6 +324,8 @@ void ApplicationMobilityService::handleNotificationCallback(inet::TcpSocket *soc
     EV << "AMS::Trigger - " << request["notificationType"] << " - received!" << endl;
 
     bool res = notification->fromJson(request);
+    EV << "Notification processed: " << notification->toJson() << endl;
+    bool removeChecks;
     if(res){
         std::vector<std::string> appInstanceId = registrationResources_.getAppInstanceIds(notification->getAssociateId());
 
@@ -332,7 +335,7 @@ void ApplicationMobilityService::handleNotificationCallback(inet::TcpSocket *soc
             EventNotification *event = nullptr;
             if(subscriptionType==subscriber.second->getSubscriptionType())
             {
-                bool removeChecks = false;
+                removeChecks = false;
                 if(!appInstanceId.empty() && std::find(appInstanceId.begin(), appInstanceId.end(), subscriber.second->getFilterCriteria()->getAppInstanceId())
                         != appInstanceId.end())
                 {

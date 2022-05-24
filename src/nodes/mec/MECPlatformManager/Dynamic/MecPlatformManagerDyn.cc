@@ -49,15 +49,14 @@ void MecPlatformManagerDyn::initialize(int stage)
         //Broker settings
         brokerPort = par("brokerPort");
         localToBrokerPort = localPort;
+
         subscribeURI = std::string(par("subscribeURI").stringValue());
         webHook = std::string(par("webHook").stringValue());
 
-    }
-    // avoid multiple initializations
-//    if (stage!=inet::INITSTAGE_APPLICATION_LAYER-1){
-//        return;
-//    }
+        //triggeruri
+        triggerURI = std::string(par("triggerURI").stringValue());
 
+    }
 
     inet::ApplicationBase::initialize(stage);
 
@@ -110,23 +109,18 @@ void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
         delete msg;
     }else if (!msg->isSelfMessage() && socket.belongsToSocket(msg))
     {
+        EV << "MecPlatformManagerDyn::handleMessage - TYPE: "<< msg->getName() << endl;
         if(!strcmp(msg->getName(), "ServiceRequest")){
-                EV << "MecPlatformManagerDyn::handleMessage - TYPE: ServiceRequest" << endl;
-
                 inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
                 handleServiceRequest(pPacket);
                 delete msg;
         }
         else if (!strcmp(msg->getName(), "instantiationApplicationRequest")){
-            EV << "MecPlatformManagerDyn::handleMessage - TYPE: instantiationApplicationRequest" << endl;
-
             inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
             handleInstantiationRequest(pPacket);
     //            delete msg;
         }
         else if (!strcmp(msg->getName(), "instantiationApplicationResponse")){
-            EV << "MecPlatformManagerDyn::handleMessage - TYPE: instantiationApplicationResponse" << endl;
-
             inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
             handleInstantiationResponse(pPacket);
 
@@ -134,17 +128,20 @@ void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
         }
         else if(!strcmp(msg->getName(), "terminationAppInstRequest"))
         {
-            EV << "MecPlatformManagerDyn::handleMessage - TYPE: terminationAppInstRequest" << endl;
             inet::Packet* packet = check_and_cast<inet::Packet*>(msg);
             handleTerminationRequest(packet);
         }
         else if(!strcmp(msg->getName(), "terminationAppInstResponse"))
         {
-            EV << "MecPlatformManagerDyn::handleMessage - TYPE: "<< msg->getName() << endl;
             inet::Packet* packet = check_and_cast<inet::Packet*>(msg);
             handleTerminationResponse(packet);
         }
-
+        else if(!strcmp(msg->getName(), "ServiceMobilityResponse"))
+        {
+            inet::Packet* packet = check_and_cast<inet::Packet*>(msg);
+            handleServiceMobilityResponse(packet);
+            delete msg;
+        }
         else{
             EV << "MecPlatformManagerDyn::handleMessage - unknown package" << endl;
         }
@@ -408,9 +405,10 @@ void MecPlatformManagerDyn::manageNotification()
             {
                 // MobilityProcedureNotification
                 MobilityProcedureNotification *notification = new MobilityProcedureNotification();
-                EV << "notification: " << jsonBody.dump(2) << endl;
+                EV << "MecPlatformManagerDyn::notification received: " << jsonBody.dump(2) << endl;
                 bool res = notification->fromJson(jsonBody);
-                if(res)
+                bool condition = res && notification->getTargetAppInfo().getCommInterface().size() == 0; // event with targetAppInfo are ignored
+                if(condition)
                 {
                     inet::L3Address destinationAddr;
                     int destPort;
@@ -464,7 +462,7 @@ void MecPlatformManagerDyn::manageNotification()
                 }
                 else
                 {
-                    EV << "MecPlatformManagerDyn::problems during notification parsing" << endl;
+                    EV << "MecPlatformManagerDyn::notification not recognised" << endl;
                 }
 
             }
@@ -481,4 +479,39 @@ void MecPlatformManagerDyn::manageNotification()
 
 
     }
+}
+
+void MecPlatformManagerDyn::handleServiceMobilityResponse(
+        inet::Packet *packet) {
+
+    //generate a notification with targetappinfo
+
+    auto data = packet->peekData<ServiceMobilityResponse>().get();
+
+    // target data
+    TargetAppInfo *targetInfo = new TargetAppInfo();
+    targetInfo->setAppInstanceId(std::string(data->getAppInstanceId()));
+    SockAddr targetAddress;
+    targetAddress.addr = data->getTargetAddress();
+    targetAddress.port = data->getTargetPort();
+    targetInfo->setCommInterface(std::vector<SockAddr>(1,targetAddress));
+
+    // AssociateId
+    std::vector<AssociateId> associateId;
+    for(int i = 0; i < data->getAssociateIdArraySize(); i++)
+    {
+        associateId.push_back(data->getAssociateId(i));
+    }
+
+    // Creating a MobilityProcedureNotification with targetAppInfo information
+    MobilityProcedureNotification *notification = new MobilityProcedureNotification();
+    notification->setMobilityStatus(INTERHOST_MOVEOUT_TRIGGERED);
+    notification->setTargetAppInfo(*targetInfo);
+    notification->setAssociateId(associateId);
+
+    EV << "MecPlatformManagerDyn::Received service mobility response json object: " << notification->toJson().dump()<< endl;
+
+    // Exploiting socket used for subscribing phase
+    Http::sendPostRequest(&tcpSocket, notification->toJson().dump().c_str(), serverHost.c_str(), triggerURI.c_str());
+
 }

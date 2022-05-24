@@ -36,6 +36,9 @@
 #include "nodes/mec/Dynamic/MEO/Messages/MeoPackets_m.h"
 #include "inet/linklayer/common/InterfaceTag_m.h"
 
+// AMS packets
+#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/Messages/MobilityMessages_m.h"
+
 //###########################################################################
 //data structures and values
 
@@ -60,6 +63,7 @@ struct MecAppEntryDyn
     int ueAppID;
     ResourceDescriptor usedResources;
     SockAddr endpoint;
+    inet::L3Address ueEndpoint; // 1-to-1 correspondence
     std::string moduleName;
     std::string moduleType;
     bool isBuffered;
@@ -95,8 +99,9 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     int port;
 
     std::map<int, HostDescriptor> handledHosts; // Resource Handling
-    std::map<std::string, MecAppEntryDyn> handledApp; // App Handling
+    std::map<std::string, MecAppEntryDyn> handledApp; // App Handling(key DeviceAppId)
     std::map<std::string, MecAppEntryDyn> waitingInstantiationRequests; // vim waits for response from cars on which have requested instantiation
+    std::map<std::string, MecAppEntryDyn> migratingApps; // map used for termination of migrated apps
 
     int hostCounter = 0;    // counter to generate host ids
     int requestCounter = 0;
@@ -126,7 +131,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 
 
     public:
-        VirtualisationInfrastructureManagerDyn();
+        VirtualisationInfrastructureManagerDyn() {};
 
         /*
          * Istantiate ME Application on an handled car
@@ -204,6 +209,8 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 
         void printRequests();
 
+
+        void  instantiateMEAppLocally(MecAppEntryDyn);
         /*
          * Allocate resources on specific host (car)
          */
@@ -260,7 +267,13 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         void handleResourceRequest(inet::Packet* resourcePacket);
         void handleMepmMessage(cMessage*);
 
-        void handleMobilityRequest(cMessage *) {EV << "VIM::handleMobilityRequest to be implemented" << endl;};
+        void handleInstantiationResponse(cMessage*);
+
+        inet::Packet* createInstantiationRequest(MecAppEntryDyn &, std::string requiredOmnetppService="NULL");
+        /*
+         * Method that migrates from dynamic resources to local resources
+         */
+        void handleMobilityRequest(cMessage *);
 };
 
 #endif

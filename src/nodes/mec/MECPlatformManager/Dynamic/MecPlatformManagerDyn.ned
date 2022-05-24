@@ -29,8 +29,9 @@ simple MecPlatformManagerDyn like IApp
 		string brokerAddress = default(""); // address for notification system
        	//int localBrokerPort = default(3334); // port for TCP communications VIM <--> Broker
     	int brokerPort = default(3005); // destination broker port
-    	
+    	// AMS data
     	string subscribeURI = default("/example/amsi/v1/subscriptions/");
+    	string triggerURI = default("/example/amsi/v1/eventNotification/");
 		string webHook = default("/mobilityProcedure/");
     	
         string localAddress;

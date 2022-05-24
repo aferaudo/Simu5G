@@ -37,4 +37,5 @@ class ServiceMobilityResponse extends inet::FieldsChunk
 	 string appInstanceId;
 	 inet::L3Address targetAddress;
 	 int targetPort;
+	 AssociateId associateId[];
 }
