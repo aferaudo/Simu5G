@@ -972,7 +972,7 @@ void VirtualisationInfrastructureManagerDyn::instantiateMEAppLocally(
     meapp.endpoint.addr = bestHost->address;
     meapp.endpoint.port = -1;
     waitingInstantiationRequests[std::to_string(meapp.ueAppID)] = meapp;
-
+    reserveResources(meapp.usedResources.ram, meapp.usedResources.disk, meapp.usedResources.cpu, getId());
     EV << "VirtualisationInfrastructureManagerDyn::create new app instance - " << meapp.appInstanceId << " -" << endl;
     socket.sendTo(packet, bestHost->address, bestHost->viPort);
 
@@ -1036,6 +1036,9 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
         // Remove from the waiting queue
         waitingInstantiationRequests.erase(it);
 
+        // isBuffered
+        entry.isBuffered = true;
+
         // Delete old app and adding at the map of app in migration phase (they still need context synchronization)
         migratingApps[std::to_string(existingApp->second.ueAppID)] = existingApp->second;
         handledApp.erase(existingApp);
@@ -1065,6 +1068,9 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
 
         packet->insertAtBack(toSend);
         EV << "VirtualisationInfrastructureManagerDyn::sending application mobility response to mepm" << endl;
+
+        releaseResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, getId());
+        allocateResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, getId());
 
         socket.sendTo(packet, mepmAddress, mepmPort);
 

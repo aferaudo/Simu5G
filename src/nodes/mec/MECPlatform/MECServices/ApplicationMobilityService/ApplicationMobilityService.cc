@@ -211,6 +211,7 @@ void ApplicationMobilityService::handlePUTRequest(const HttpRequestMessage *curr
     if(uri.find(baseUriSerDer_) == 0)
     {
         uri.erase(0, uri.find(baseUriSerDer_) + baseUriSerDer_.length());
+        EV << "AMS::received registration update from " << uri << endl;
         nlohmann::ordered_json request = nlohmann::json::parse(currentRequestMessageServed->getBody());
         // build registration info
         //RegistrationInfo *r = registrationResources_.buildRegistrationInfoFromJson(request);
@@ -234,10 +235,47 @@ void ApplicationMobilityService::handlePUTRequest(const HttpRequestMessage *curr
             Http::send404Response(socket);
         }
     }
+    else if(uri.find(baseUriSubscriptions_) == 0)
+    {
+
+        uri.erase(0, baseUriSubscriptions_.length());
+        EV << "AMS::Received subscriptions update from " << uri << endl;
+        nlohmann::ordered_json request = nlohmann::json::parse(currentRequestMessageServed->getBody());
+        SubscriptionBase *subscription = nullptr;
+
+        if(request["subscriptionType"] == "MobilityProcedureSubscription")
+        {
+            subscription = new MobilityProcedureSubscription(subscriptionId_, socket, baseSubscriptionLocation_, eNodeB_);
+        }
+
+        if(subscription != nullptr)
+        {
+            subscription->fromJson(request);
+            int subscriptionId = std::stoi(uri.erase(0, std::string("sub").length()));
+
+            auto sub = subscriptions_.find(subscriptionId);
+            if(sub != subscriptions_.end())
+            {
+                subscriptions_[sub->first] = subscription;
+                EV << "AMS::Subscription Updated" << endl;
+             }
+            else
+            {
+                EV << "AMS::PUT request - subscription not found " << endl;
+                Http::send404Response(socket);
+            }
+        }
+        else
+        {
+            EV << "AMS::Subscription type not recognised!" << endl;
+            Http::send400Response(socket);
+        }
+
+    }
     else
     {
         EV << "AMS::PUT request - bad uri " << endl;
-        Http::send404Response(socket);
+        Http::send400Response(socket);
     }
 }
 
