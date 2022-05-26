@@ -937,7 +937,7 @@ void VirtualisationInfrastructureManagerDyn::handleMobilityRequest(cMessage* msg
                 // get partial data
                 if(isAllocableOnBuffer(value.second.usedResources.ram, value.second.usedResources.disk, value.second.usedResources.cpu))
                 {
-                    instantiateMEAppLocally(value.second);
+                    instantiateMEAppLocally(value.second, true);
                 }
                 return;
             }
@@ -957,7 +957,7 @@ void VirtualisationInfrastructureManagerDyn::handleMobilityRequest(cMessage* msg
 }
 
 void VirtualisationInfrastructureManagerDyn::instantiateMEAppLocally(
-         MecAppEntryDyn meapp) {
+         MecAppEntryDyn meapp, bool migration) {
 
     HostDescriptor* bestHost = &handledHosts[getId()];
 
@@ -966,8 +966,8 @@ void VirtualisationInfrastructureManagerDyn::instantiateMEAppLocally(
 
     bestHost->numRunningApp += 1;
 
-
-    inet::Packet *packet =  createInstantiationRequest(meapp);
+    // FIXME the value of migration should be loaded from an upper method
+    inet::Packet *packet =  createInstantiationRequest(meapp, "NULL", migration);
     // changing endpoint characteristics
     meapp.endpoint.addr = bestHost->address;
     meapp.endpoint.port = -1;
@@ -978,7 +978,7 @@ void VirtualisationInfrastructureManagerDyn::instantiateMEAppLocally(
 
 }
 inet::Packet* VirtualisationInfrastructureManagerDyn::createInstantiationRequest(
-        MecAppEntryDyn& meapp, std::string requiredOmnetppService)
+        MecAppEntryDyn& meapp, std::string requiredOmnetppService, bool migration)
 {
 
     inet::Packet* packet = new inet::Packet("Instantiation");
@@ -994,7 +994,8 @@ inet::Packet* VirtualisationInfrastructureManagerDyn::createInstantiationRequest
     registrationpck->setMp1Address(mp1Address.str().c_str());
     registrationpck->setMp1Port(mp1Port);
     registrationpck->setContextId(meapp.contextID);
-    registrationpck->setChunkLength(inet::B(sizeof(meapp) + mp1Address.str().size() + 4));
+    registrationpck->setIsMigrating(migration);
+    registrationpck->setChunkLength(inet::B(sizeof(meapp) + mp1Address.str().size() + 8));
     packet->insertAtBack(registrationpck);
 
     return packet;

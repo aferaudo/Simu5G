@@ -70,16 +70,13 @@ void MECWarningAlertApp::initialize(int stage)
     localAddress = L3AddressResolver().resolve(getParentModule()->getFullPath().c_str());
     isMigrating = par("isMigrating").boolValue();
 
-    if(getId()==1010){
-        isMigrating=true;
-    }
 
     if(isMigrating){
-        EV << "LISTEN on " << localAddress << ":" << localUePort << endl;
+        EV << "MECWarningAlertApp::migrating state: LISTEN for context information on " << localAddress << ":" << localUePort << endl;
         serverSocket_.setOutputGate(gate("socketOut"));
         serverSocket_.setCallback(this);
         serverSocket_.bind(localAddress, localUePort);
-        serverSocket_.listen();
+        serverSocket_.listenOnce();
     }
 
 
@@ -160,7 +157,7 @@ void MECWarningAlertApp::handleMessage(cMessage *msg)
     }
     else if (msg->isSelfMessage() && strcmp(msg->getName(), "migrateState") == 0){
         EV << "Connecting to new app " << migrationAddress << ":" << migrationPort << endl;
-        connect(&stateSocket_, migrationAddress, migrationPort);
+        connect(stateSocket_, migrationAddress, migrationPort);
     }
     MecAppBase::handleMessage(msg);
 
@@ -354,7 +351,7 @@ void MECWarningAlertApp::established(int connId)
         sendSubscription();
         return;
     }
-    else if (connId == stateSocket_.getSocketId()){
+    else if (connId == stateSocket_->getSocketId()){
         EV << "MECWarningAlertApp::established - stateSocket"<< endl;
 
         if(!isMigrating){
@@ -367,15 +364,18 @@ void MECWarningAlertApp::established(int connId)
             syncMessage->setPositionY(centerPositionY);
             syncMessage->setRadius(radius);
             syncMessage->setContextId(std::stoi(module_name.substr(module_name.find('[') + 1, module_name.find(']') - module_name.find('[') - 1)));
-            syncMessage->setChunkLength(inet::B(1000));
+            syncMessage->setChunkLength(inet::B(28));
 
             packet->insertAtBack(syncMessage);
 
-            stateSocket_.send(packet);
+            stateSocket_->send(packet);
+
+            EV << "MECWarningAlertApp::context message sent closing socket" << endl;
+            stateSocket_->close();
         }
     }
     else if (connId == serverSocket_.getSocketId()){
-        EV << "MECWarningAlertApp::established - serverSocket"<< endl;
+        EV << "MECWarningAlertApp::established - serverSocket: waiting for state transfer"<< endl;
 
     }
     else
@@ -626,14 +626,15 @@ void MECWarningAlertApp::handleServiceMessage()
 
 }
 
-void MECWarningAlertApp::handleInjectionMessage(){
-    EV << "MECWarningAlertApp::handleInjectionMessage - received message " << endl;
-}
 
 void MECWarningAlertApp::handleStateMessage(){
     EV << "MECWarningAlertApp::handleStateMessage - received message " << endl;
-
-
+    auto data = stateMessage->peekData<MecWarningAppSyncMessage>();
+    EV << "MECWarningAlertApp::setting new state: " << endl;
+    EV << "MECWarningAlertApp::position x: " << data->getPositionX() << endl;
+    EV << "MECWarningAlertApp::position y: " << data->getPositionY() << endl;
+    EV << "MECWarningAlertApp::radius: " << data->getRadius() << endl;
+    EV << "MECWarningAlertApp::contextId: " << data->getContextId() << endl;
 
 }
 

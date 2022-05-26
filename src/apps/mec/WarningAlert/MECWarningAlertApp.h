@@ -86,11 +86,10 @@ class MECWarningAlertApp : public MecAppBaseDyn
 
         virtual void finish() override;
 
-        virtual void handleServiceMessage() override;
-        virtual void handleMp1Message() override;
-        virtual void handleAmsMessage() override;
-        virtual void handleStateMessage() override;
-        virtual void handleInjectionMessage() override;
+        virtual void handleServiceMessage() override; // This method must be always redefined
+        virtual void handleMp1Message() override; // This method must be always redefined
+        virtual void handleAmsMessage() override; // This method must be always redefined when ams is supported, otherwise {}
+        virtual void handleStateMessage() override;  // This method must be always redefined when ams is supported, otherwise {}
 
         virtual void handleUeMessage(omnetpp::cMessage *msg) override;
 

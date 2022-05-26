@@ -210,7 +210,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         void printRequests();
 
 
-        void  instantiateMEAppLocally(MecAppEntryDyn);
+        void  instantiateMEAppLocally(MecAppEntryDyn, bool);
         /*
          * Allocate resources on specific host (car)
          */
@@ -269,7 +269,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 
         void handleInstantiationResponse(cMessage*);
 
-        inet::Packet* createInstantiationRequest(MecAppEntryDyn &, std::string requiredOmnetppService="NULL");
+        inet::Packet* createInstantiationRequest(MecAppEntryDyn &, std::string requiredOmnetppService="NULL", bool migration = false);
         /*
          * Method that migrates from dynamic resources to local resources
          */

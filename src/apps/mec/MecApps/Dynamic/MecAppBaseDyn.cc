@@ -12,6 +12,7 @@ MecAppBaseDyn::MecAppBaseDyn()
     mp1HttpMessage = nullptr;
     vim = nullptr;
     vi = nullptr;
+    stateSocket_ = nullptr;
 }
 
 MecAppBaseDyn::~MecAppBaseDyn()
@@ -57,16 +58,17 @@ void MecAppBaseDyn::initialize(int stage)
     mp1Address = L3AddressResolver().resolve(mp1Ip);
     mp1Port = par("mp1Port");
 
+    stateSocket_ = new inet::TcpSocket();
     serviceSocket_.setOutputGate(gate("socketOut"));
     mp1Socket_.setOutputGate(gate("socketOut"));
     amsSocket_.setOutputGate(gate("socketOut"));
-    stateSocket_.setOutputGate(gate("socketOut"));
+    stateSocket_->setOutputGate(gate("socketOut"));
 //    serverSocket_.setOutputGate(gate("socketOut"));
 
     serviceSocket_.setCallback(this);
     mp1Socket_.setCallback(this);
     amsSocket_.setCallback(this);
-    stateSocket_.setCallback(this);
+    stateSocket_->setCallback(this);
 //    serverSocket_.setCallback(this);
 
     mecAppId = par("mecAppId"); // FIXME mecAppId is the deviceAppId (it does not change anything, though)
@@ -91,7 +93,6 @@ void MecAppBaseDyn::initialize(int stage)
     processedMp1Response = new cMessage("processedMp1Response");
     processedAmsResponse = new cMessage("processedAmsResponse");
     processedStateResponse = new cMessage("processedStateResponse");
-    processedStateResponse = new cMessage("processedInjectStateResponse");
 
 }
 
@@ -99,12 +100,10 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
 {
     EV << "MecAppBaseDyn::socketDataArrived" << endl;
 
-    std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
-    std::string packet(bytes.begin(), bytes.end());
-    EV << "data arrived" << endl;
-
     if(serviceSocket_.belongsToSocket(msg))
     {
+        std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
+        std::string packet(bytes.begin(), bytes.end());
         bool res =  Http::parseReceivedMsg(packet, &bufferedData, &serviceHttpMessage);
         if(res)
         {
@@ -117,6 +116,8 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
     }
     else if (mp1Socket_.belongsToSocket(msg))
     {
+        std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
+        std::string packet(bytes.begin(), bytes.end());
         bool res =  Http::parseReceivedMsg(packet, &bufferedData, &mp1HttpMessage);
         if(res)
         {
@@ -133,6 +134,8 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
         if(amsHttpMessage != nullptr){
             amsHttpMessage = nullptr;
         }
+        std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
+        std::string packet(bytes.begin(), bytes.end());
         bool res =  Http::parseReceivedMsg(packet, &bufferedData, &amsHttpMessage);
         if(res)
         {
@@ -146,34 +149,21 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
         }
 
     }
-    else if (stateSocket_.belongsToSocket(msg))
+    else if (serverSocket_.belongsToSocket(msg))
     {
-       EV << "it is a state message" << endl;
-       stateMessage = check_and_cast<inet::Packet*>(msg);
+       EV << "MECAppNaseDyn::it is a state message" << endl;
+       stateMessage = check_and_cast<inet::Packet*>(msg)->dup();
        if(vi == nullptr)
            throw cRuntimeError("MecAppBase::socketDataArrived - vi is null (state)!");
        double time = vi->calculateProcessingTime(mecAppId, 150);
-       scheduleAt(simTime()+time, processedStateResponse);
+       if(!processedStateResponse->isScheduled())
+           scheduleAt(simTime()+time, processedStateResponse);
 
     }
-    else {
-        EV << "searching in socket map" << endl;
-        inet::TcpSocket *socket = check_and_cast_nullable<inet::TcpSocket *>(socketMap.findSocketFor(msg));
-        if (socket){
-            injectStateMessage = check_and_cast<inet::Packet*>(msg);
-            if(vim == nullptr)
-                throw cRuntimeError("MecAppBase::socketDataArrived - vim is null (ams)!");
-            double time = vim->calculateProcessingTime(mecAppId, 150);
-            scheduleAt(simTime()+time, processedInjectStateResponse);
-        }
-        else {
-            throw cRuntimeError("MecAppBase::socketDataArrived - Socket %d not recognized", socket->getSocketId());
-        }
+    else
+    {
+        throw cRuntimeError("MecAppBase::socketDataArrived - Socket %d not recognized", socket->getSocketId());
     }
-//    else
-//    {
-//        throw cRuntimeError("MecAppBase::socketDataArrived - Socket %d not recognized", socket->getSocketId());
-//    }
     delete msg;
 
 }

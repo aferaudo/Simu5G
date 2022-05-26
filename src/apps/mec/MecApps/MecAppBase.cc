@@ -163,19 +163,11 @@ void MecAppBase::handleMessage(cMessage *msg)
         else if (strcmp(msg->getName(), "processedStateResponse") == 0)
         {
             handleStateMessage();
+
             if(stateMessage != nullptr)
             {
                 delete stateMessage;
                 stateMessage = nullptr;
-            }
-        }
-        else if (strcmp(msg->getName(), "processedInjectStateResponse") == 0)
-        {
-            handleInjectionMessage();
-            if(injectStateMessage != nullptr)
-            {
-                delete injectStateMessage;
-                injectStateMessage = nullptr;
             }
         }
         else
@@ -198,13 +190,13 @@ void MecAppBase::handleMessage(cMessage *msg)
         {
             amsSocket_.processMessage(msg);
         }
-        else if(stateSocket_.belongsToSocket(msg))
+        else if(stateSocket_->belongsToSocket(msg))
         {
-            stateSocket_.processMessage(msg);
+            stateSocket_->processMessage(msg);
         }
         else if(serverSocket_.belongsToSocket(msg))
         {
-            stateSocket_.processMessage(msg);
+            serverSocket_.processMessage(msg);
         }
 
     }
@@ -278,7 +270,7 @@ void MecAppBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, b
         }
 
     }
-    else if (stateSocket_.belongsToSocket(msg))
+    else if (stateSocket_->belongsToSocket(msg))
     {
         EV << "it is a state message" << endl;
         stateMessage = check_and_cast<inet::Packet*>(msg);
@@ -288,24 +280,10 @@ void MecAppBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, b
         scheduleAt(simTime()+time, processedStateResponse);
 
     }
-    else {
-        EV << "searching in socket map" << endl;
-        inet::TcpSocket *socket = check_and_cast_nullable<inet::TcpSocket *>(socketMap.findSocketFor(msg));
-        if (socket){
-            injectStateMessage = check_and_cast<inet::Packet*>(msg);
-            if(vim == nullptr)
-                throw cRuntimeError("MecAppBase::socketDataArrived - vim is null (ams)!");
-            double time = vim->calculateProcessingTime(mecAppId, 150);
-            scheduleAt(simTime()+time, processedInjectStateResponse);
-        }
-        else {
-            throw cRuntimeError("MecAppBase::socketDataArrived - Socket %d not recognized", socket->getSocketId());
-        }
+    else
+    {
+        throw cRuntimeError("MecAppBase::socketDataArrived - Socket %d not recognized", socket->getSocketId());
     }
-//    else
-//    {
-//        throw cRuntimeError("MecAppBase::socketDataArrived - Socket %d not recognized", socket->getSocketId());
-//    }
     delete msg;
 
 }
@@ -314,12 +292,15 @@ void MecAppBase::socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo
 {
     EV << "MecAppBase::socketAvailable - accepting " << availableInfo->getNewSocketId() << endl;
 
-    auto newSocket = new TcpSocket(availableInfo);
-    newSocket->setOutputGate(gate("socketOut"));
-    newSocket->setCallback(this);
+    stateSocket_ = new TcpSocket(availableInfo);
+    stateSocket_->setOutputGate(gate("socketOut"));
+    stateSocket_->setCallback(this);
 
-    socketMap.addSocket(newSocket);
+    EV << "MecAPPBase::stateSocket created with id " << stateSocket_->getSocketId() << endl;
+
+
     serverSocket_.accept(availableInfo->getNewSocketId());
+    EV << "MECAppBase::only one open socket is supported: stop listening!" << endl;
 }
 
 void MecAppBase::socketPeerClosed(TcpSocket *socket_)
@@ -347,8 +328,8 @@ void MecAppBase::finish()
         mp1Socket_.close();
     if(amsSocket_.getState() == inet::TcpSocket::CONNECTED)
         amsSocket_.close();
-    if(stateSocket_.getState() == inet::TcpSocket::CONNECTED)
-        stateSocket_.close();
+    if(stateSocket_->getState() == inet::TcpSocket::CONNECTED)
+        stateSocket_->close();
 
 }
 

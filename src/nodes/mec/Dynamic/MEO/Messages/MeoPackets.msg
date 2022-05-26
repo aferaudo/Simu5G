@@ -53,6 +53,7 @@ class InstantiationApplicationRequest extends GeneralMessage
     string providedService;
     string mp1Address;
     int mp1Port;
+    bool isMigrating = false;
 }
 
 class InstantiationApplicationResponse extends GeneralMessage

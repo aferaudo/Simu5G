@@ -49,7 +49,7 @@ simple MECWarningAlertApp like IMECApp, IApp
         double requiredDisk @unit("B");
         double requiredCpu;
         
-        bool isMigrating;
+        bool isMigrating = default(false);
 
 		// IApp parameters
 		int timeToLive = default(-1); // if not -1, set the TTL (IPv4) or Hop Limit (IPv6) field of sent packets to this value

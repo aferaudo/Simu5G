@@ -19,6 +19,7 @@
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpRequestMessage/HttpRequestMessage.h"
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpResponseMessage/HttpResponseMessage.h"
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpMessages_m.h"
+#include "apps/mec/WarningAlert/packets/MecWarningAppSyncMessage_m.h"
 #include "inet/transportlayer/contract/udp/UdpSocket.h"
 
 #include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h"
@@ -46,9 +47,8 @@ class  MecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICall
     inet::TcpSocket serviceSocket_;
     inet::TcpSocket mp1Socket_;
     inet::TcpSocket amsSocket_;
-    inet::TcpSocket stateSocket_;
+    inet::TcpSocket* stateSocket_;
     inet::TcpSocket serverSocket_;
-    inet::SocketMap socketMap;
 
     inet::L3Address mp1Address;
     int mp1Port;
@@ -97,8 +97,6 @@ class  MecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICall
     omnetpp::cMessage* processedMp1Response;
     omnetpp::cMessage* processedAmsResponse;
     omnetpp::cMessage* processedStateResponse;
-    omnetpp::cMessage* processedInjectStateResponse;
-
 
 protected:
     virtual void initialize(int stage) override;
@@ -110,9 +108,8 @@ protected:
     virtual void handleSelfMessage(omnetpp::cMessage *msg) = 0;
     virtual void handleServiceMessage() = 0;
     virtual void handleMp1Message() = 0;
-    virtual void handleAmsMessage() {};
-    virtual void handleStateMessage() {};
-    virtual void handleInjectionMessage() {};
+    virtual void handleAmsMessage(){};
+    virtual void handleStateMessage(){};
     virtual void handleUeMessage(omnetpp::cMessage *msg) = 0;
     virtual void established(int connId) = 0;
 
