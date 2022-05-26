@@ -115,6 +115,7 @@ std::vector<std::string> ApplicationMobilityResource::getAppInstanceIds(
         {
             for(auto id : associateId)
             {
+                EV << "Comparing " << devInfo.getAssociateId().getValue() << " with " << id.getValue() << " and " << devInfo.getAssociateId().getType() << " with " << id.getType() << endl;
                 if(devInfo.getAssociateId().getType() == id.getType()
                         && devInfo.getAssociateId().getValue() == id.getValue())
                 {

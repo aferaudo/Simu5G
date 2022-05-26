@@ -40,15 +40,11 @@ bool FilterCriteria::fromJson(const nlohmann::ordered_json& json)
     EV << "FilterCriteria::Building FilterCriteria attribute from json" << endl;
     // FIXME do value checking
     appInstanceId_ = json["appInstanceId"];
-    for(auto it=json["associateId"].begin(); it != json["associateId"].end(); ++it)
-    {
+    for(auto &val : json["associateId"].items()){
+        nlohmann::ordered_json associateId_ = val.value();
         AssociateId a;
-        // FIXME does this work?
-        if(it.key() == "type")
-            a.setType(it.value());
-        if(it.key() == "value")
-            a.setValue(it.value());
-        associateId_.push_back(a);
+        a.setType(associateId_["type"]);
+        a.setValue(associateId_["value"]);
     }
     setMobilityStatusFromString(json["mobilityStatus"]);
 

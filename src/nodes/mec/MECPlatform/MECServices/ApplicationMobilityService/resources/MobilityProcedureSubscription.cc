@@ -44,6 +44,7 @@ void MobilityProcedureSubscription::sendNotification(EventNotification *event)
     MobilityProcedureNotification *notification = mobilityEvent->getMobilityProcedureNotification();
     notification->setLinks(links_);
 
+    EV << socket_->getRemoteAddress() << " " << socket_->getRemotePort() << " " << clientHost_ << " MobilityProcedureSubscription debug message " << endl;
     Http::sendPostRequest(socket_, notification->toJson().dump().c_str(), clientHost_.c_str(), clientUri_.c_str());
 
 }
@@ -103,6 +104,7 @@ bool MobilityProcedureSubscription::fromJson(const nlohmann::ordered_json& json)
     {
          clientHost_ = notifyURL.substr(0, found);
          clientUri_ = notifyURL.substr(found);
+         EV << "clientHost: " << clientHost_ << " clientUri: " << clientUri_ << endl;
     }
 
     if(json.contains("_links"))

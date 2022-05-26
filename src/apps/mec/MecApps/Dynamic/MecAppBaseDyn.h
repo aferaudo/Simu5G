@@ -28,6 +28,9 @@ class  MecAppBaseDyn : public MecAppBase
         virtual void handleSelfMessage(omnetpp::cMessage *msg) override {};
         virtual void handleServiceMessage() override {};
         virtual void handleMp1Message() override {};
+        virtual void handleAmsMessage() override {};
+        virtual void handleStateMessage() override {};
+        virtual void handleInjectionMessage() override {};
         virtual void handleUeMessage(omnetpp::cMessage *msg) override {};
         virtual void established(int connId) override {};
 

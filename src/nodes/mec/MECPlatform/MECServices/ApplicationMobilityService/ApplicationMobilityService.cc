@@ -245,20 +245,22 @@ void ApplicationMobilityService::handlePUTRequest(const HttpRequestMessage *curr
 
         if(request["subscriptionType"] == "MobilityProcedureSubscription")
         {
-            subscription = new MobilityProcedureSubscription(subscriptionId_, socket, baseSubscriptionLocation_, eNodeB_);
+            int subscriptionId = std::stoi(uri.erase(0, std::string("sub").length()));
+            subscription = new MobilityProcedureSubscription(subscriptionId, socket, baseSubscriptionLocation_, eNodeB_);
         }
 
         if(subscription != nullptr)
         {
             subscription->fromJson(request);
-            int subscriptionId = std::stoi(uri.erase(0, std::string("sub").length()));
 
-            auto sub = subscriptions_.find(subscriptionId);
+            auto sub = subscriptions_.find(subscription->getSubscriptionId());
             if(sub != subscriptions_.end())
             {
+                subscription->set_links(baseSubscriptionLocation_);
+                EV << "AMS::Subscription ID più brutto " << sub->first << endl;
                 subscriptions_[sub->first] = subscription;
                 EV << "AMS::Subscription Updated" << endl;
-             }
+            }
             else
             {
                 EV << "AMS::PUT request - subscription not found " << endl;
@@ -315,8 +317,8 @@ void ApplicationMobilityService::handleSubscriptionRequest(SubscriptionBase *sub
 
         nlohmann::ordered_json response = subscription->toJson();
         response["subscriptionId"] = subscriptionId_;
+        EV << "AMS::subscribed with id " << subscriptionId_ << "\n" << subscription->toJson() << endl;
         subscriptionId_ ++;
-        EV << "AMS::subscribed" << subscription->toJson() << endl;
         Http::send201Response(socket, response.dump().c_str());
 
         // TODO Add new parameter in MobilityProcedureSubscription:

@@ -1059,7 +1059,7 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
         // FIXME Correspondence one-to-one
         toSend->setAssociateIdArraySize(1);
         AssociateId associateId;
-        associateId.setType("UE_IPV4_ADDRESS");
+        associateId.setType("UE_IPv4_ADDRESS");
         associateId.setValue(entry.ueEndpoint.str());
         toSend->setAssociateId(0, associateId);
         packetLength = packetLength + associateId.getType().size() + associateId.getValue().size();

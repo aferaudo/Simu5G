@@ -20,8 +20,10 @@
 //MEWarningAlertPacket
 //#include "nodes/mec/MECPlatform/MECAppPacket_Types.h"
 #include "apps/mec/WarningAlert/packets/WarningAlertPacket_m.h"
+#include "apps/mec/WarningAlert/packets/MecWarningAppSyncMessage_m.h"
 
 #include "nodes/mec/MECPlatform/ServiceRegistry/ServiceRegistry.h"
+#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/resources/TargetAppInfo.h"
 
 #include "apps/mec/MecApps/MecAppBase.h"
 #include "apps/mec/MecApps/Dynamic/MecAppBaseDyn.h"
@@ -53,13 +55,20 @@ using namespace omnetpp;
 class MECWarningAlertApp : public MecAppBaseDyn
 {
 
+    inet::UdpSocket stateSocket;
     //UDP socket to communicate with the UeApp
     inet::UdpSocket ueSocket;
     int localUePort;
 
     inet::L3Address ueAppAddress;
     int ueAppPort;
+    bool ueRegistered;
 
+    std::string webHook;
+
+    bool isMigrating;
+    inet::L3Address migrationAddress;
+    int migrationPort;
 
     int size_;
     std::string subId;
@@ -79,6 +88,9 @@ class MECWarningAlertApp : public MecAppBaseDyn
 
         virtual void handleServiceMessage() override;
         virtual void handleMp1Message() override;
+        virtual void handleAmsMessage() override;
+        virtual void handleStateMessage() override;
+        virtual void handleInjectionMessage() override;
 
         virtual void handleUeMessage(omnetpp::cMessage *msg) override;
 
@@ -95,6 +107,9 @@ class MECWarningAlertApp : public MecAppBaseDyn
     public:
        MECWarningAlertApp();
        virtual ~MECWarningAlertApp();
+
+    private:
+       void getServiceData(const char* uri);
 
 };
 

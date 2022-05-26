@@ -54,6 +54,7 @@ bool MobilityProcedureNotification::fromJson(const nlohmann::ordered_json& json)
         a.setValue(val["value"]);
         associateId_.push_back(a);
     }
+    EV << "AssociateId::FromJSON " << associateId_.size() << endl;
     // FIXME use a global method without static bounds
     for(int i = 0; i < 3; i++)
     {
