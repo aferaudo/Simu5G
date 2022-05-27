@@ -69,7 +69,7 @@ void MECWarningAlertApp::initialize(int stage)
 
     localAddress = L3AddressResolver().resolve(getParentModule()->getFullPath().c_str());
     isMigrating = par("isMigrating").boolValue();
-
+    isMigrated=false;
 
     if(isMigrating){
         EV << "MECWarningAlertApp::migrating state: LISTEN for context information on " << localAddress << ":" << localUePort << endl;
@@ -103,62 +103,6 @@ void MECWarningAlertApp::handleMessage(cMessage *msg)
             return;
         }
     }
-    else if (msg->isSelfMessage() && strcmp(msg->getName(), "getServiceData") == 0){
-        const char *uri = "/example/mec_service_mgmt/v1/services?ser_name=LocationService";
-        getServiceData(uri);
-    }
-    else if (msg->isSelfMessage() && strcmp(msg->getName(), "subscribeAms") == 0){
-        EV << "MECWarningAlertApp::handleMessage sending subscription" << endl;
-        EV << getParentModule()->getFullPath() << endl;
-        nlohmann::ordered_json subscriptionBody_;
-        subscriptionBody_ = nlohmann::ordered_json();
-        subscriptionBody_["_links"]["self"]["href"] = "";
-        subscriptionBody_["callbackReference"] = localAddress.str() + ":" + std::to_string(par("localUePort").intValue()) + webHook;
-        subscriptionBody_["requestTestNotification"] = false;
-        subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
-        subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
-        subscriptionBody_["filterCriteria"]["appInstanceId"] = getName();
-        subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
-        subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_TRIGGERED";
-        subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
-        EV << subscriptionBody_;
-
-        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
-        std::string uristring = "/example/amsi/v1/subscriptions/";
-        Http::sendPostRequest(&amsSocket_, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
-    }
-    else if (msg->isSelfMessage() && strcmp(msg->getName(), "updateSubscription") == 0){
-        // Update registration
-        EV << getParentModule()->getFullPath() << endl;
-        nlohmann::ordered_json subscriptionBody_;
-        subscriptionBody_ = nlohmann::ordered_json();
-        subscriptionBody_["_links"]["self"]["href"] = "";
-        subscriptionBody_["callbackReference"] = localAddress.str() + ":" + std::to_string(par("localUePort").intValue()) + webHook;
-        subscriptionBody_["requestTestNotification"] = false;
-        subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
-        subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
-        subscriptionBody_["filterCriteria"]["appInstanceId"] = getName();
-        subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
-
-        nlohmann::ordered_json val_;
-        val_["type"] = "UE_IPv4_ADDRESS";
-        val_["value"] = ueAppAddress.str();
-        subscriptionBody_["filterCriteria"]["associateId"].push_back(val_);
-        subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_TRIGGERED";
-        subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
-        EV << subscriptionBody_;
-
-        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
-        std::string uristring = "/example/amsi/v1/subscriptions/" + amsSubscriptionId;
-        Http::sendPutRequest(&amsSocket_, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
-
-        cMessage *m = new cMessage("getServiceData");
-        scheduleAt(simTime()+0.001, m);
-    }
-    else if (msg->isSelfMessage() && strcmp(msg->getName(), "migrateState") == 0){
-        EV << "Connecting to new app " << migrationAddress << ":" << migrationPort << endl;
-        connect(stateSocket_, migrationAddress, migrationPort);
-    }
     MecAppBase::handleMessage(msg);
 
 }
@@ -185,24 +129,11 @@ void MECWarningAlertApp::handleUeMessage(omnetpp::cMessage *msg)
     if(registered && subscribed && !ueRegistered){
         ueRegistered = true;
 
-        // Update registration
-        std::string body = "{\"serviceConsumerId\":{"
-                               "\"appInstanceId\" :\"" + std::string(getName()) + "\","
-                               "\"mepId\":\"1234\""
-                           "},"
-                           "\"appMobiltyServiceId\":\"" + amsRegistrationId + "\","
-                           "\"deviceInformation\":[{\"associateId\":{\"type\":\"UE_IPv4_ADDRESS\", \"value\":\"" + ueAppAddress.str() + "\"},\"appMobilityServiceLevel\":\"APP_MOBILITY_NOT_ALLOWED\", \"contextTransferState\":\"NOT_TRANSFERRED\"}]"
-                           "}\r\n";
-        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
-        std::string uristring = "/example/amsi/v1/app_mobility_services/" + amsRegistrationId;
-        const char *uri = uristring.c_str();
-        Http::sendPutRequest(&amsSocket_, body.c_str(), host.c_str(), uri);
-
-        cMessage *m = new cMessage("updateSubscription");
+        cMessage *m = new cMessage("updateRegistration");
         scheduleAt(simTime()+0.001, m);
 
-//        cMessage *m = new cMessage("getServiceData");
-//        scheduleAt(simTime()+0.001, m);
+        cMessage *p = new cMessage("updateSubscription");
+        scheduleAt(simTime()+0.001, p);
     }
 
     if(strcmp(mecPk->getType(), START_WARNING) == 0)
@@ -246,6 +177,9 @@ void MECWarningAlertApp::handleUeMessage(omnetpp::cMessage *msg)
 
 void MECWarningAlertApp::modifySubscription()
 {
+    if(isMigrated)
+        return;
+
     std::string body = "{  \"circleNotificationSubscription\": {"
                        "\"callbackReference\" : {"
                         "\"callbackData\":\"1234\","
@@ -268,6 +202,9 @@ void MECWarningAlertApp::modifySubscription()
 
 void MECWarningAlertApp::sendSubscription()
 {
+    if(isMigrated)
+        return;
+
     std::string body = "{  \"circleNotificationSubscription\": {"
                            "\"callbackReference\" : {"
                             "\"callbackData\":\"1234\","
@@ -325,15 +262,29 @@ void MECWarningAlertApp::established(int connId)
         EV << "MECWarningAlertApp::established - AMSSocket"<< endl;
 
         // Send registration
-        std::string body = "{\"serviceConsumerId\":{"
-                               "\"appInstanceId\" :\"" + std::string(getName()) + "\","
-                               "\"mepId\":\"1234\""
-                           "},"
-                           "\"deviceInformation\":[]"
-                           "}\r\n";
+
+        nlohmann::ordered_json registrationBody;
+        registrationBody = nlohmann::ordered_json();
+        registrationBody["serviceConsumerId"]["appInstanceId"] = std::string(getName());
+        registrationBody["serviceConsumerId"]["mepId"] = "1234";
+        registrationBody["deviceInformation"] = nlohmann::json::array();
+//        if(!ueAppAddress.isUnspecified() && ueAppPort > 0){
+//            nlohmann::ordered_json deviceInformation;
+//            nlohmann::ordered_json associateId;
+//
+//            associateId["type"] = "UE_IPv4_ADDRESS";
+//            associateId["value"] = ueAppAddress.str();
+//            deviceInformation["associateId"] = associateId;
+//            deviceInformation["appMobilityServiceLevel"] = "APP_MOBILITY_NOT_ALLOWED";
+//            deviceInformation["contextTransferState"] = "NOT_TRANSFERRED";
+//
+//            registrationBody["deviceInformation"].push_back(deviceInformation);
+//        }
+
+        EV << "Registration with body" << registrationBody.dump().c_str() << endl;
         std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
         const char *uri = "/example/amsi/v1/app_mobility_services/";
-        Http::sendPostRequest(&amsSocket_, body.c_str(), host.c_str(), uri);
+        Http::sendPostRequest(&amsSocket_, registrationBody.dump().c_str(), host.c_str(), uri);
 
         return;
     }
@@ -363,6 +314,8 @@ void MECWarningAlertApp::established(int connId)
             syncMessage->setPositionX(centerPositionX);
             syncMessage->setPositionY(centerPositionY);
             syncMessage->setRadius(radius);
+            syncMessage->setUeAddress(ueAppAddress);
+            syncMessage->setUePort(ueAppPort);
             syncMessage->setContextId(std::stoi(module_name.substr(module_name.find('[') + 1, module_name.find(']') - module_name.find('[') - 1)));
             syncMessage->setChunkLength(inet::B(28));
 
@@ -372,6 +325,18 @@ void MECWarningAlertApp::established(int connId)
 
             EV << "MECWarningAlertApp::context message sent closing socket" << endl;
             stateSocket_->close();
+
+            isMigrated = true;
+
+            if(!subId.empty()){
+                EV << "MECWarningAlertApp::deleting subscription " << subId << endl;
+                sendDeleteSubscription();
+            }
+
+            if(!amsRegistrationId.empty()){
+               cMessage *m = new cMessage("updateRegistration");
+               scheduleAt(simTime()+0.001, m);
+            }
         }
     }
     else if (connId == serverSocket_.getSocketId()){
@@ -629,12 +594,26 @@ void MECWarningAlertApp::handleServiceMessage()
 
 void MECWarningAlertApp::handleStateMessage(){
     EV << "MECWarningAlertApp::handleStateMessage - received message " << endl;
+
     auto data = stateMessage->peekData<MecWarningAppSyncMessage>();
     EV << "MECWarningAlertApp::setting new state: " << endl;
     EV << "MECWarningAlertApp::position x: " << data->getPositionX() << endl;
     EV << "MECWarningAlertApp::position y: " << data->getPositionY() << endl;
     EV << "MECWarningAlertApp::radius: " << data->getRadius() << endl;
+    EV << "MECWarningAlertApp::ue addr: " << data->getUeAddress() << endl;
+    EV << "MECWarningAlertApp::ue port: " << data->getUePort() << endl;
     EV << "MECWarningAlertApp::contextId: " << data->getContextId() << endl;
+
+    centerPositionX = data->getPositionX();
+    centerPositionY = data->getPositionY();
+    radius = data->getRadius();
+    ueAppAddress = data->getUeAddress();
+    ueAppPort = data->getUePort();
+
+    EV << "MECWarningAlertApp::handleStateMessage - new state injected!" << endl;
+
+    cMessage *b = new cMessage("waitForInitialization");
+    scheduleAt(simTime()+0.001, b);
 
 }
 
@@ -645,7 +624,22 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         EV << "MecAppBase::handleMessage- " << msg->getName() << endl;
         connect(&mp1Socket_, mp1Address, mp1Port);
     }
+    else if(strcmp(msg->getName(), "waitForInitialization") == 0){
+        if(registered && subscribed){
+            cMessage *a = new cMessage("updateRegistration");
+            scheduleAt(simTime()+0.001, a);
 
+            cMessage *m = new cMessage("updateSubscription");
+            scheduleAt(simTime()+0.001, m);
+
+            cMessage *p = new cMessage("connectServiceStandalone");
+            scheduleAt(simTime()+0.2, p);
+        }else{
+            EV << "not registered/subscribed yet" << endl;
+            cMessage *b = new cMessage("waitForInitialization");
+            scheduleAt(simTime()+0.005, b);
+        }
+    }
     else if(strcmp(msg->getName(), "connectService") == 0)
     {
         EV << "MecAppBase::handleMessage- " << msg->getName() << endl;
@@ -670,11 +664,111 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
 
 //            throw cRuntimeError("service socket already connected, or service IP address is unspecified");
         }
+    }else if(strcmp(msg->getName(), "connectServiceStandalone") == 0)
+    {
+        EV << "MecAppBase::handleMessage- " << msg->getName() << endl;
+        if(!serviceAddress.isUnspecified() && serviceSocket_.getState() != inet::TcpSocket::CONNECTED)
+        {
+            connect(&serviceSocket_, serviceAddress, servicePort);
+        }
+        else
+        {
+            if(serviceAddress.isUnspecified()){
+                EV << "MECWarningAlertApp::handleSelfMessage - service IP address is  unspecified (maybe response from the service registry is arriving)" << endl;
+                cMessage *m = new cMessage("connectServiceStandalone");
+                scheduleAt(simTime()+0.01, m);
+            }
+            else if(serviceSocket_.getState() == inet::TcpSocket::CONNECTED)
+                EV << "MECWarningAlertApp::handleSelfMessage - service socket is already connected" << endl;
+        }
     }else if(strcmp(msg->getName(), "connectAMS") == 0){
         EV << "MecAppBase::handleMessage- " << msg->getName() << endl;
         if(!amsAddress.isUnspecified() && amsSocket_.getState() != inet::TcpSocket::CONNECTED)
 
             connect(&amsSocket_, amsAddress, amsPort);
+    }else if (strcmp(msg->getName(), "getServiceData") == 0){
+        EV << "MECWarningAlertApp::handleMessage get location data" << endl;
+        const char *uri = "/example/mec_service_mgmt/v1/services?ser_name=LocationService";
+        getServiceData(uri);
+    }
+    else if (strcmp(msg->getName(), "subscribeAms") == 0){
+        EV << "MECWarningAlertApp::handleMessage sending subscription" << endl;
+        EV << getParentModule()->getFullPath() << endl;
+        nlohmann::ordered_json subscriptionBody_;
+        subscriptionBody_ = nlohmann::ordered_json();
+        subscriptionBody_["_links"]["self"]["href"] = "";
+        subscriptionBody_["callbackReference"] = localAddress.str() + ":" + std::to_string(par("localUePort").intValue()) + webHook;
+        subscriptionBody_["requestTestNotification"] = false;
+        subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
+        subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
+        subscriptionBody_["filterCriteria"]["appInstanceId"] = getName();
+        subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
+        subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_TRIGGERED";
+        subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
+        EV << subscriptionBody_;
+
+        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
+        std::string uristring = "/example/amsi/v1/subscriptions/";
+        Http::sendPostRequest(&amsSocket_, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
+    }
+    else if (strcmp(msg->getName(), "updateSubscription") == 0){
+        // Update registration
+        EV << getParentModule()->getFullPath() << endl;
+        nlohmann::ordered_json subscriptionBody_;
+        subscriptionBody_ = nlohmann::ordered_json();
+        subscriptionBody_["_links"]["self"]["href"] = "";
+        subscriptionBody_["callbackReference"] = localAddress.str() + ":" + std::to_string(par("localUePort").intValue()) + webHook;
+        subscriptionBody_["requestTestNotification"] = false;
+        subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
+        subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
+        subscriptionBody_["filterCriteria"]["appInstanceId"] = getName();
+        subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
+
+        nlohmann::ordered_json val_;
+        val_["type"] = "UE_IPv4_ADDRESS";
+        val_["value"] = ueAppAddress.str();
+        subscriptionBody_["filterCriteria"]["associateId"].push_back(val_);
+        subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_TRIGGERED";
+        subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
+        EV << subscriptionBody_;
+
+        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
+        std::string uristring = "/example/amsi/v1/subscriptions/" + amsSubscriptionId;
+        Http::sendPutRequest(&amsSocket_, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
+
+        cMessage *m = new cMessage("getServiceData");
+        scheduleAt(simTime()+0.001, m);
+    }
+    else if (strcmp(msg->getName(), "updateRegistration") == 0){
+
+        // Update registration
+        nlohmann::ordered_json registrationBody;
+        registrationBody = nlohmann::ordered_json();
+        registrationBody["serviceConsumerId"]["appInstanceId"] = std::string(getName());
+        registrationBody["serviceConsumerId"]["mepId"] = "1234";
+        registrationBody["deviceInformation"] = nlohmann::json::array();
+        nlohmann::ordered_json deviceInformation;
+        nlohmann::ordered_json associateId;
+
+        associateId["type"] = "UE_IPv4_ADDRESS";
+        associateId["value"] = ueAppAddress.str();
+        deviceInformation["associateId"] = associateId;
+        deviceInformation["appMobilityServiceLevel"] = "APP_MOBILITY_NOT_ALLOWED";
+        if(isMigrated)
+            deviceInformation["contextTransferState"] = "TRANSFERRED";
+        else
+            deviceInformation["contextTransferState"] = "NOT_TRANSFERRED";
+
+        registrationBody["deviceInformation"].push_back(deviceInformation);
+
+        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
+        std::string uristring = "/example/amsi/v1/app_mobility_services/" + amsRegistrationId;
+        const char *uri = uristring.c_str();
+        Http::sendPutRequest(&amsSocket_, registrationBody.dump().c_str(), host.c_str(), uri);
+    }
+    else if (strcmp(msg->getName(), "migrateState") == 0){
+        EV << "Connecting to new app " << migrationAddress << ":" << migrationPort << endl;
+        connect(stateSocket_, migrationAddress, migrationPort);
     }
 
     delete msg;

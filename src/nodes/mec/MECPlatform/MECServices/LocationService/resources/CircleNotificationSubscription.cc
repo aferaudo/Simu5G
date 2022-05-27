@@ -87,6 +87,7 @@ void CircleNotificationSubscription::sendNotification(EventNotification *event)
 
 //    if(socket_->getState())
 //        throw cRuntimeError("%d", socket_->getState());
+    EV << "Sending notification to " << clientHost_ << " " << clientUri_ << endl;
     Http::sendPostRequest(socket_, notification.dump(2).c_str(), clientHost_.c_str(), clientUri_.c_str());
 
     // update last notification sent
@@ -141,6 +142,8 @@ bool CircleNotificationSubscription::fromJson(const nlohmann::ordered_json& body
           {
               clientHost_ = notifyURL.substr(0, found);
               clientUri_ = notifyURL.substr(found);
+
+              EV << "clientHost_: " << clientHost_ << " clientHost_: " << clientUri_ << endl;
           }
 
         }

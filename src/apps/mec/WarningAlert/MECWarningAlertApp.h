@@ -67,6 +67,7 @@ class MECWarningAlertApp : public MecAppBaseDyn
     std::string webHook;
 
     bool isMigrating;
+    bool isMigrated;
     inet::L3Address migrationAddress;
     int migrationPort;
 
