@@ -33,9 +33,11 @@ class MobilityProcedureNotification : public NotificationBase{
     std::string appInstanceId_; // we use this parameter for dynamic case
     MobilityStatus mobilityStatus; //optional: no
     TargetAppInfo targetAppInfo; //optional: yes
+    ApplicationMobilityResource *resources_;
 
  public:
     MobilityProcedureNotification();
+    MobilityProcedureNotification(ApplicationMobilityResource*);
 //    MobilityProcedureNotification(MobilityStatus ms, std::vector<AssociateId> ids);
 
     virtual ~MobilityProcedureNotification();
@@ -48,12 +50,14 @@ class MobilityProcedureNotification : public NotificationBase{
     void setMobilityStatus(MobilityStatus m) {mobilityStatus = m;};
     void setTargetAppInfo(TargetAppInfo target){targetAppInfo = target;};
     void setLinks(std::string links) {links_ = links;};
+//    void setResources(ApplicationMobilityResource resources) {resources_ = resource;}
 
 
     // get methods
     std::string getMobilityStatusString() const {return MobilityStatusString[mobilityStatus];};
     std::string getAppInstanceId() const {return appInstanceId_;};
     TargetAppInfo getTargetAppInfo() const {return targetAppInfo;};
+
 
 
 };

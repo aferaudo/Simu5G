@@ -4,12 +4,14 @@
 
 ApplicationMobilityResource::ApplicationMobilityResource()
 {
+    migratedApps_.clear();
     serviceConsumers_.clear();
 }
 
 ApplicationMobilityResource::~ApplicationMobilityResource()
 {
     serviceConsumers_.clear();
+    migratedApps_.clear();
 }
 
 nlohmann::ordered_json ApplicationMobilityResource::toJson() const
@@ -67,6 +69,23 @@ bool ApplicationMobilityResource::updateRegistrationInfo(std::string appMobility
         return false;
     }
     r->setAppMobilityServiceId(appMobilityServiceId);
+    // If app has been migrated change its state
+    // remeber correspondence 1 to 1 (1 mecapp 1 ue)
+    if(r->getDeviceInformation()[0].getContextTransferState() == USER_CONTEXT_TRANSFER_COMPLETED)
+    {
+        auto migratingApp = migratingApps_.find(r->getServiceConsumerId().appInstanceId);
+        if(migratingApp == migratingApps_.end())
+        {
+            EV_ERROR << "ApplicationMobilityResource::app has not been migrated" << endl;
+        }
+        else
+        {
+           EV << "ApplicationMobilityResource::migration of app: " << migratingApp->second->getAppInstanceId() << " completed!" << endl;
+           addMigratedApp(migratingApp->second);
+           migratingApps_.erase(migratingApp);
+        }
+
+    }
     it->second = r;
     printRegisteredServiceConsumers();
     return true;
@@ -134,4 +153,83 @@ std::vector<std::string> ApplicationMobilityResource::getAppInstanceIds(
     EV << "ApplicationMobilityResource::getAppInstanceIds - result: " << found << endl;
 
     return appInstanceIds;
+}
+
+bool ApplicationMobilityResource::addMigratedApp(TargetAppInfo* targetInfo)
+{
+    auto it = migratedApps_.find(targetInfo->getAppInstanceId());
+    if(it != migratedApps_.end())
+    {
+        EV << "ApplicationMobilityResource::migrating app already present" << endl;
+
+//        if(targetInfo->getCommInterface() == it->second->getCommInterface())
+//        {
+//            EV << "ApplicationMobilityResource::same event received...nothing to do" << endl;
+//            return false;
+//        }
+
+        migratedApps_.erase(it);
+    }
+    migratedApps_.insert(std::pair<std::string, TargetAppInfo *>(targetInfo->getAppInstanceId(), targetInfo));
+
+    EV << "ApplicationMobilityResource::migrating app updated correctly..." << endl;
+
+    return true;
+}
+
+bool ApplicationMobilityResource::removingMigratedApp(std::string appInstanceId)
+{
+    auto it = migratedApps_.find(appInstanceId);
+    if(it == migratedApps_.end())
+    {
+        EV << "ApplicationMobilityResource::migrated app not found!" << endl;
+        return false;
+    }
+
+    migratedApps_.erase(it);
+    EV << "ApplicationMobilityResource::app - " << appInstanceId << " - deleted!" << endl;
+
+    return true;
+}
+
+void ApplicationMobilityResource::addMigratingApp(TargetAppInfo* target) {
+    EV << "ApplicationMobilityResource:: app - " << target->getAppInstanceId() << " - migrating to " << target->getCommInterface()[0].str() << endl;
+
+    auto itApp = migratingApps_.find(target->getAppInstanceId());
+
+    if(itApp != migratingApps_.end())
+    {
+        EV << "ApplicationMobilityResource:: app - " << target->getAppInstanceId() << " - already added! Nothing to do..." <<endl;
+        return;
+    }
+
+    migratingApps_.insert(std::pair<std::string, TargetAppInfo *>(target->getAppInstanceId(), target));
+    EV << "ApplicationMobilityResource:: app - " << target->getAppInstanceId() << " - correctly added!" << endl;
+
+}
+
+bool ApplicationMobilityResource::removeMigratingApp(std::string migratingApp) {
+
+    auto it = migratingApps_.find(migratingApp);
+    if(it == migratingApps_.end())
+    {
+        EV << "ApplicationMobilityResource::migrating app not found!" << endl;
+        return false;
+    }
+
+    migratingApps_.erase(it);
+    EV << "ApplicationMobilityResource:: app - " << migratingApp << " - correctly deleted!" << endl;
+    return true;
+}
+
+RegistrationInfo* ApplicationMobilityResource::getRegistrationInfoFromAppId(
+        std::string appInstanceId) const {
+
+    for(auto &el : serviceConsumers_)
+    {
+        if(el.second->getServiceConsumerId().appInstanceId.compare(appInstanceId) == 0)
+            return el.second;
+    }
+
+    return nullptr;
 }

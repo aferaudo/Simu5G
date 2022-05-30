@@ -8,7 +8,11 @@
 #include "MobilityProcedureNotification.h"
 #include "nodes/mec/MECPlatform/EventNotification/MobilityProcedureEvent.h"
 
-MobilityProcedureNotification::MobilityProcedureNotification() {
+
+MobilityProcedureNotification::MobilityProcedureNotification():MobilityProcedureNotification(nullptr) {
+}
+MobilityProcedureNotification::MobilityProcedureNotification(ApplicationMobilityResource* resources) {
+    resources_ = resources;
     notificationType_ = "MobilityProcedureNotification";
     appInstanceId_ = "";
 }
@@ -34,6 +38,7 @@ bool MobilityProcedureNotification::fromJson(const nlohmann::ordered_json& json)
         EV << "MobilityProcedureNotification::Some required parameters is missing!" << endl;
         return false;
     }
+    EV << "MobilityProcedureNotification: notificationType: " << notificationType_ << endl;
     if(json["notificationType"]!= notificationType_)
     {
         EV << "MobilityProcedureNotification::notificationType not valid!" << endl;
@@ -113,6 +118,14 @@ EventNotification* MobilityProcedureNotification::handleNotification(FilterCrite
 
     if(filterCriteria->getMobilityStatus() == mobilityStatus)
     {
+        //taking trace of an app that starts its migration-phase
+        if(resources_ != nullptr && mobilityStatus == INTERHOST_MOVEOUT_TRIGGERED
+                && targetAppInfo.getCommInterface().size() != 0)
+        {
+            EV << "MobilityProcedureNotification::an app has started its migration" << endl;
+            resources_->addMigratingApp(&targetAppInfo);
+        }
+
         if(!noCheck)
         {
             found = false;
@@ -137,6 +150,7 @@ EventNotification* MobilityProcedureNotification::handleNotification(FilterCrite
         if(found || (!appInstanceId_.empty() && filterCriteria->getAppInstanceId() == appInstanceId_))
         {
             EV << "MobilityProcedureNotification::An event has been created" << endl;
+
             event = new MobilityProcedureEvent(notificationType_);
         }
 
@@ -148,3 +162,5 @@ EventNotification* MobilityProcedureNotification::handleNotification(FilterCrite
 
     return event;
 }
+
+

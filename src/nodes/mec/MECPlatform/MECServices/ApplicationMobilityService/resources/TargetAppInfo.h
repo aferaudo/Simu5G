@@ -35,6 +35,7 @@ class TargetAppInfo: public AttributeBase {
     void setAppInstanceId(std::string appInstanceId){appInstanceId_ = appInstanceId;};
     void setCommInterface(std::vector<SockAddr> commInterface){commInterface_ = commInterface;};
 
+    std::string getAppInstanceId() const {return appInstanceId_;};
     std::vector<SockAddr> getCommInterface() const{ return commInterface_;};
 };
 

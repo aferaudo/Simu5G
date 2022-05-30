@@ -20,6 +20,7 @@ Define_Module(ApplicationMobilityService);
 
 ApplicationMobilityService::ApplicationMobilityService()
 {
+    registrationResources_ = new ApplicationMobilityResource();
     baseUriQueries_ = "/example/amsi/v1/queries/";
     baseUriSerDer_ = "/example/amsi/v1/app_mobility_services/"; // registration and deregistration uri
     callbackUri_ = "/example/amsi/v1/eventNotification/";
@@ -47,9 +48,40 @@ void ApplicationMobilityService::initialize(int stage)
 
 void ApplicationMobilityService::handleMessage(cMessage *msg)
 {
-    if(msg->isSelfMessage())
+    if(msg->isSelfMessage() && std::strcmp(msg->getFullName(),"localMigration"))
     {
-        // TODO - No message so far
+        EV << "AMS::LOCAL MIGRATION RECEIVED----" << endl;
+        if(registrationResources_->getMigratedApps().size() > 0)
+        {
+            EV << "AMS::an app has been correctly migrated -- generate local event" << endl;
+            for(auto &el : registrationResources_->getMigratedApps())
+            {
+                // Generating notification
+                MobilityProcedureNotification *notification = new MobilityProcedureNotification();
+
+                RegistrationInfo *r = registrationResources_->getRegistrationInfoFromAppId(el.second->getAppInstanceId());
+                if(r != nullptr)
+                {
+                    notification->setMobilityStatus(INTERHOST_MOVEOUT_COMPLETED);
+                    notification->setTargetAppInfo(*el.second);
+
+                    std::vector<AssociateId> associateId;
+                    for(auto devInfo : r->getDeviceInformation())
+                    {
+                        associateId.push_back(devInfo.getAssociateId());
+                    }
+
+                    EV << "AMS::local notification generated " << notification->toJson().dump(2) << endl;
+                    // removing migrated app from the list
+                    registrationResources_->removingMigratedApp(el.first);
+                }
+                else
+                {
+                    EV << "AMS:: no information regarding migrated app - " << el.second->getAppInstanceId() << " - has been found" << endl;
+
+                }
+            }
+        }
     }
     MecServiceBase::handleMessage(msg);
 }
@@ -66,7 +98,7 @@ void ApplicationMobilityService::handleGETRequest(const HttpRequestMessage *curr
     else if(uri.compare(baseUriSerDer_) == 0)
     {
         EV << "AMS::Retrieve information about the registered application mobility service" << endl;
-        nlohmann::ordered_json response = registrationResources_.toJson();
+        nlohmann::ordered_json response = registrationResources_->toJson();
         Http::send200Response(socket, response.dump().c_str());
     }
     else if(uri.find(baseUriSerDer_) == 0)
@@ -76,7 +108,7 @@ void ApplicationMobilityService::handleGETRequest(const HttpRequestMessage *curr
         {
             EV << "AMS::Getting specific id " << endl;
 
-            Http::send200Response(socket,registrationResources_.toJsonFromId(uri.c_str()).dump().c_str());
+            Http::send200Response(socket,registrationResources_->toJsonFromId(uri.c_str()).dump().c_str());
         }
         else
         {
@@ -134,7 +166,7 @@ void ApplicationMobilityService::handlePOSTRequest(const HttpRequestMessage *cur
     {
 
         nlohmann::ordered_json request = nlohmann::json::parse(currentRequestMessageServed->getBody());
-        RegistrationInfo* r = new RegistrationInfo();//registrationResources_.buildRegistrationInfoFromJson(request);
+        RegistrationInfo* r = new RegistrationInfo();//registrationResources_->buildRegistrationInfoFromJson(request);
         bool res = r->fromJson(request);
         if(!res)
         {
@@ -144,7 +176,7 @@ void ApplicationMobilityService::handlePOSTRequest(const HttpRequestMessage *cur
         }
         r->setAppMobilityServiceId(std::to_string(applicationServiceIds));
         //request["appMobilityServiceId"] =  std::to_string(applicationServiceIds);
-        registrationResources_.addRegistrationInfo(r);
+        registrationResources_->addRegistrationInfo(r);
 
         applicationServiceIds ++;
         nlohmann::ordered_json response = r->toJson();
@@ -214,7 +246,7 @@ void ApplicationMobilityService::handlePUTRequest(const HttpRequestMessage *curr
         EV << "AMS::received registration update from " << uri << endl;
         nlohmann::ordered_json request = nlohmann::json::parse(currentRequestMessageServed->getBody());
         // build registration info
-        //RegistrationInfo *r = registrationResources_.buildRegistrationInfoFromJson(request);
+        //RegistrationInfo *r = registrationResources_->buildRegistrationInfoFromJson(request);
         RegistrationInfo *r = new RegistrationInfo();
         bool res = r->fromJson(request);
         if(!res)
@@ -223,11 +255,20 @@ void ApplicationMobilityService::handlePUTRequest(const HttpRequestMessage *curr
             Http::send400Response(socket);
             return;
         }
-        res = registrationResources_.updateRegistrationInfo(uri, r);
+        res = registrationResources_->updateRegistrationInfo(uri, r);
         if(res)
         {
             EV << "AMS::Service Consumer " << uri << " correctly updated! " << endl;
             Http::send200Response(socket, request.dump().c_str());
+
+            // this message is generated for each put: it allows to generate self-notification, useful for
+            // app migrated from dynamic resource to local resouce
+            cMessage *message = new cMessage("localMigration");
+            if(message->isScheduled())
+            {
+                double time = exponential(0.0005);
+                scheduleAt(simTime() + time, message);
+            }
         }
         else
         {
@@ -257,7 +298,6 @@ void ApplicationMobilityService::handlePUTRequest(const HttpRequestMessage *curr
             if(sub != subscriptions_.end())
             {
                 subscription->set_links(baseSubscriptionLocation_);
-                EV << "AMS::Subscription ID più brutto " << sub->first << endl;
                 subscriptions_[sub->first] = subscription;
                 EV << "AMS::Subscription Updated" << endl;
             }
@@ -289,7 +329,7 @@ void ApplicationMobilityService::handleDELETERequest(const HttpRequestMessage *c
     {
         EV << "AMS::Delete registration info " <<  endl;
         uri.erase(0, uri.find(baseUriSerDer_) + baseUriSerDer_.length());
-        if(!registrationResources_.removeRegistrationInfo(uri.c_str()))
+        if(!registrationResources_->removeRegistrationInfo(uri.c_str()))
         {
             EV << "AMS::Delete request - service consumer not found!" << endl;
             Http::send404Response(socket);
@@ -346,7 +386,7 @@ void ApplicationMobilityService::handleNotificationCallback(inet::TcpSocket *soc
     EV << "AMS::received notification request: " << request.dump(2) << endl;
     if(request["notificationType"]=="MobilityProcedureNotification")
     {
-        notification = new MobilityProcedureNotification();
+        notification = new MobilityProcedureNotification(registrationResources_);
         subscriptionType = "MobilityProcedureSubscription";
     }
     else if(request["notificationType"]=="AdjacentAppInfoNotification")
@@ -367,7 +407,7 @@ void ApplicationMobilityService::handleNotificationCallback(inet::TcpSocket *soc
     EV << "Notification processed: " << notification->toJson() << endl;
     bool removeChecks;
     if(res){
-        std::vector<std::string> appInstanceId = registrationResources_.getAppInstanceIds(notification->getAssociateId());
+        std::vector<std::string> appInstanceId = registrationResources_->getAppInstanceIds(notification->getAssociateId());
 
         for(auto subscriber : subscriptions_)
         {

@@ -755,7 +755,7 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         deviceInformation["associateId"] = associateId;
         deviceInformation["appMobilityServiceLevel"] = "APP_MOBILITY_NOT_ALLOWED";
         if(isMigrated)
-            deviceInformation["contextTransferState"] = "TRANSFERRED";
+            deviceInformation["contextTransferState"] = "USER_CONTEXT_TRANSFER_COMPLETED";
         else
             deviceInformation["contextTransferState"] = "NOT_TRANSFERRED";
 

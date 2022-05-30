@@ -48,7 +48,7 @@ class ApplicationMobilityService : public MecServiceBase
   std::string baseUriSerDer_;
   std::string callbackUri_; // uri used to receive notification from RNI service
   int applicationServiceIds;
-  ApplicationMobilityResource registrationResources_;
+  ApplicationMobilityResource *registrationResources_;
   // id = id device
   // list of subscription for that device
   std::map<std::string, SubscriptionLinkList> subscriptionLinkList; // Not used so far..
