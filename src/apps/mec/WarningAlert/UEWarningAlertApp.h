@@ -13,6 +13,11 @@
 #define __UEWARNINGALERTAPP_H_
 
 #include "inet/transportlayer/contract/udp/UdpSocket.h"
+#include "inet/transportlayer/contract/tcp/TcpSocket.h"
+#include "nodes/mec/MECPlatform/MECServices/packets/HttpRequestMessage/HttpRequestMessage.h"
+#include "nodes/mec/MECPlatform/MECServices/packets/HttpResponseMessage/HttpResponseMessage.h"
+#include "nodes/mec/utils/httpUtils/httpUtils.h"
+#include "nodes/mec/MECPlatform/MECServices/packets/HttpMessages_m.h"
 #include "inet/networklayer/common/L3Address.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
 
@@ -44,11 +49,12 @@ using namespace omnetpp;
  * 4) send delete MEC app to the Device App
  */
 
-class UEWarningAlertApp: public cSimpleModule
+class UEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallback
 {
 
     //communication to device app and mec app
     inet::UdpSocket socket;
+    inet::TcpSocket amsSocket;
 
     int size_;
     simtime_t period_;
@@ -76,6 +82,15 @@ class UEWarningAlertApp: public cSimpleModule
 
     cMessage *selfMecAppStart_;
 
+    inet::L3Address amsAddress;
+    int amsPort;
+
+    std::string amsSubscriptionId;
+    std::string webHook;
+
+    std::string bufferedData;
+    HttpBaseMessage* amsHttpMessage;
+
     // uses to write in a log a file
     bool log;
 
@@ -97,6 +112,18 @@ class UEWarningAlertApp: public cSimpleModule
         void handleAckStartMEWarningAlertApp(cMessage* msg);
         void handleInfoMEWarningAlertApp(cMessage* msg);
         void handleAckStopMEWarningAlertApp(cMessage* msg);
+
+
+        void connect(inet::TcpSocket* socket, const inet::L3Address& address, const int port);
+        // Tcp callback
+        virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent) override;
+        virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override {};
+        virtual void socketEstablished(inet::TcpSocket *socket) override;
+        virtual void socketPeerClosed(inet::TcpSocket *socket) override;
+        virtual void socketClosed(inet::TcpSocket *socket) override;
+        virtual void socketFailure(inet::TcpSocket *socket, int code) override {}
+        virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
+        virtual void socketDeleted(inet::TcpSocket *socket) override {}
 };
 
 #endif

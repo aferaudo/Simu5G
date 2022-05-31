@@ -533,8 +533,8 @@ bool VirtualisationInfrastructureManagerDyn::terminateMEApp(const TerminationApp
     auto terminationpck = inet::makeShared<DeleteAppMessage>();
     MecAppEntryDyn instantiatedApp = it->second;
     inet::L3Address address = instantiatedApp.endpoint.addr;
-    //int port = 2222; // TODO Load this from viPort
-    int port = instantiatedApp.endpoint.port;
+    int port = 2222; // TODO Load this from viPort
+//    int port = instantiatedApp.endpoint.port;
 
     terminationpck->setUeAppID(ueAppID);
     terminationpck->setSno(msg->getRequestId());

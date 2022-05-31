@@ -43,6 +43,8 @@ simple UEWarningAlertApp like IApp
         int packetSize = default(10);
         
         int tos = default(-1); // if not -1, set the Type Of Service (IPv4) / Traffic Class (IPv6) field of sent packets to this value
+        int dscp = default(-1); // if not -1, set the DSCP (IPv4/IPv6) field of sent packets to this value
+        int timeToLive = default(-1); // if not -1, set the TTL (IPv4) or Hop Limit (IPv6) field of sent packets to this value
         
         //autoscheduling infos
         double period @unit("s") = default(1s);
@@ -58,6 +60,9 @@ simple UEWarningAlertApp like IApp
         
         bool logger = default(false);
         string interfaceTableModule;
+        
+        string amsAddress;
+        int amsPort;
                     
     gates:
         output socketOut;

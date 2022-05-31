@@ -61,9 +61,17 @@ void UEWarningAlertApp::initialize(int stage)
     deviceSimbolicAppAddress_ = (char*)par("deviceAppAddress").stringValue();
     deviceAppAddress_ = inet::L3AddressResolver().resolve(deviceSimbolicAppAddress_);
 
+    // AMS parameters
+    amsAddress = inet::L3AddressResolver().resolve(par("amsAddress").stringValue());
+    amsPort = par("amsPort").intValue();
+
     //binding socket
     socket.setOutputGate(gate("socketOut"));
     socket.bind(localPort_);
+    amsSocket.setCallback(this);
+    amsSocket.setOutputGate(gate("socketOut"));
+
+    webHook ="/amsWebHook_" + std::to_string(getId());
 
     int tos = par("tos");
     if (tos != -1)
@@ -89,10 +97,13 @@ void UEWarningAlertApp::initialize(int stage)
     selfStop_ = new cMessage("selfStop");
     selfMecAppStart_ = new cMessage("selfMecAppStart");
 
+    cMessage * connectAmsMessage_ = new cMessage("connectAms");
+
     //starting UEWarningAlertApp
     simtime_t startTime = par("startTime");
     EV << "UEWarningAlertApp::initialize - starting sendStartMEWarningAlertApp() in " << startTime << " seconds " << endl;
     scheduleAt(simTime() + startTime, selfStart_);
+    scheduleAt(simTime() + 0.5, connectAmsMessage_);
 
     //testing
     EV << "UEWarningAlertApp::initialize - sourceAddress: " << sourceSimbolicAddress << " [" << inet::L3AddressResolver().resolve(sourceSimbolicAddress).str()  <<"]"<< endl;
@@ -102,7 +113,7 @@ void UEWarningAlertApp::initialize(int stage)
 
 void UEWarningAlertApp::handleMessage(cMessage *msg)
 {
-    EV << "UEWarningAlertApp::handleMessage" << endl;
+    EV << "UEWarningAlertApp::handleMessage - " << msg->getFullName() << endl;
     // Sender Side
     if (msg->isSelfMessage())
     {
@@ -117,10 +128,38 @@ void UEWarningAlertApp::handleMessage(cMessage *msg)
             scheduleAt(simTime() + period_, selfMecAppStart_);
         }
 
+        else if(!strcmp(msg->getName(), "connectAms")){
+            connect(&amsSocket, amsAddress, amsPort);
+        }
+        else if(!strcmp(msg->getName(), "subscribeAms")){
+            nlohmann::ordered_json subscriptionBody_;
+            subscriptionBody_ = nlohmann::ordered_json();
+            subscriptionBody_["_links"]["self"]["href"] = "";
+            subscriptionBody_["callbackReference"] = deviceAppAddress_.str() + ":" + std::to_string(localPort_) + webHook;
+            subscriptionBody_["requestTestNotification"] = false;
+            subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
+            subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
+            subscriptionBody_["filterCriteria"]["appInstanceId"] = "";
+            subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
+
+            nlohmann::ordered_json val_;
+            val_["type"] = "UE_IPv4_ADDRESS";
+            val_["value"] = deviceAppAddress_.str();
+            subscriptionBody_["filterCriteria"]["associateId"].push_back(val_);
+
+            subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_COMPLETED";
+            subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
+            EV << subscriptionBody_ << endl;
+
+            std::string host = amsSocket.getRemoteAddress().str()+":"+std::to_string(amsSocket.getRemotePort());
+            std::string uristring = "/example/amsi/v1/subscriptions/";
+            Http::sendPostRequest(&amsSocket, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
+        }
+
         else    throw cRuntimeError("UEWarningAlertApp::handleMessage - \tWARNING: Unrecognized self message");
     }
     // Receiver Side
-    else{
+    else if(socket.belongsToSocket(msg)){
         inet::Packet* packet = check_and_cast<inet::Packet*>(msg);
 
         inet::L3Address ipAdd = packet->getTag<L3AddressInd>()->getSrcAddress();
@@ -173,11 +212,16 @@ void UEWarningAlertApp::handleMessage(cMessage *msg)
         }
         delete msg;
     }
+    else if(amsSocket.belongsToSocket(msg))
+    {
+        amsSocket.processMessage(msg);
+    }
 }
 
 void UEWarningAlertApp::finish()
 {
-
+    if(amsSocket.getState() == inet::TcpSocket::CONNECTED)
+        amsSocket.close();
 }
 /*
  * -----------------------------------------------Sender Side------------------------------------------
@@ -361,4 +405,94 @@ void UEWarningAlertApp::handleAckStopMEWarningAlertApp(cMessage* msg)
     ue->getDisplayString().setTagArg("i",1, "white");
 
     cancelEvent(selfStop_);
+}
+
+/*
+ * ---------------------------------------------TCP Callback Implementation------------------------------------------
+ */
+
+void UEWarningAlertApp::connect(inet::TcpSocket* socket, const inet::L3Address& address, const int port)
+{
+    // we need a new connId if this is not the first connection
+    socket->renewSocket();
+
+    int timeToLive = par("timeToLive");
+    if (timeToLive != -1)
+        socket->setTimeToLive(timeToLive);
+
+    int dscp = par("dscp");
+    if (dscp != -1)
+        socket->setDscp(dscp);
+
+    int tos = par("tos");
+    if (tos != -1)
+        socket->setTos(tos);
+
+    if (address.isUnspecified()) {
+        EV_ERROR << "Connecting to " << address << " port=" << port << ": cannot resolve destination address\n";
+    }
+    else {
+        EV_INFO << "Connecting to " << address << " port=" << port << endl;
+
+        socket->connect(address, port);
+    }
+}
+
+void UEWarningAlertApp::socketEstablished(TcpSocket * socket)
+{
+    EV << "UEWarningAlertApp::socketEstablished " << socket->getSocketId() << endl;
+
+    cMessage * subAmsMessage_ = new cMessage("subscribeAms");
+    scheduleAt(simTime() + 0.01, subAmsMessage_);
+}
+
+void UEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool)
+{
+    EV << "UEWarningAlertApp::socketDataArrived" << endl;
+
+
+    std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
+    std::string packet(bytes.begin(), bytes.end());
+
+    if(amsSocket.belongsToSocket(msg))
+    {
+        bool res =  Http::parseReceivedMsg(packet, &bufferedData, &amsHttpMessage);
+        if(res)
+        {
+            amsHttpMessage->setSockId(amsSocket.getSocketId());
+
+            if(amsHttpMessage->getType() == REQUEST){
+                EV << "UEWarningAlertApp::socketDataArrived - Received request - payload: " << " " << amsHttpMessage->getBody() << endl;
+
+            }else if(amsHttpMessage->getType() == RESPONSE){
+                EV << "UEWarningAlertApp::socketDataArrived - Received response - payload: " << " " << amsHttpMessage->getBody() << endl;
+
+                HttpResponseMessage* amsResponse = check_and_cast<HttpResponseMessage*>(amsHttpMessage);
+                nlohmann::json jsonBody = nlohmann::json::parse(amsResponse->getBody());
+                if(!jsonBody.empty()){
+                    if(jsonBody.contains("callbackReference")){
+                        std::stringstream stream;
+                        stream << "sub" << jsonBody["subscriptionId"];
+                        amsSubscriptionId = stream.str();
+                        EV << "UEWarningAlertApp::socketDataArrived - subscription ID: " << amsSubscriptionId << endl;
+                    }
+                }
+
+            }
+        }
+    }
+    else{
+        throw cRuntimeError("UEWarningAlertApp::socketDataArrived - Socket %d not recognized", socket->getSocketId());
+    }
+}
+
+void UEWarningAlertApp::socketPeerClosed(TcpSocket *socket_)
+{
+    EV << "UEWarningAlertApp::socketPeerClosed" << endl;
+    socket_->close();
+}
+
+void UEWarningAlertApp::socketClosed(TcpSocket *socket)
+{
+    EV << "UEWarningAlertApp::socketClosed" << endl;
 }

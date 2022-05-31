@@ -41,10 +41,11 @@ bool FilterCriteria::fromJson(const nlohmann::ordered_json& json)
     // FIXME do value checking
     appInstanceId_ = json["appInstanceId"];
     for(auto &val : json["associateId"].items()){
-        nlohmann::ordered_json associateId_ = val.value();
+        nlohmann::ordered_json associateId = val.value();
         AssociateId a;
-        a.setType(associateId_["type"]);
-        a.setValue(associateId_["value"]);
+        a.setType(associateId["type"]);
+        a.setValue(associateId["value"]);
+        associateId_.push_back(a);
     }
     setMobilityStatusFromString(json["mobilityStatus"]);
 

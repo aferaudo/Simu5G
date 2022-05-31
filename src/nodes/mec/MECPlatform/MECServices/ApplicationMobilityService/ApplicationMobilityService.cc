@@ -69,7 +69,9 @@ void ApplicationMobilityService::handleMessage(cMessage *msg)
                     for(auto devInfo : r->getDeviceInformation())
                     {
                         associateId.push_back(devInfo.getAssociateId());
+                        EV << "AMS::local notification generated - associateID " << devInfo.getAssociateId().getValue() << " added" << endl;
                     }
+                    notification->setAssociateId(associateId);
 
                     EV << "AMS::local notification generated " << notification->toJson().dump(2) << endl;
                     // removing migrated app from the list
@@ -299,6 +301,7 @@ void ApplicationMobilityService::handlePUTRequest(const HttpRequestMessage *curr
             {
                 subscription->set_links(baseSubscriptionLocation_);
                 subscriptions_[sub->first] = subscription;
+                EV << "AMS::Subscription " << subscription->toJson() << endl;
                 EV << "AMS::Subscription Updated" << endl;
             }
             else
