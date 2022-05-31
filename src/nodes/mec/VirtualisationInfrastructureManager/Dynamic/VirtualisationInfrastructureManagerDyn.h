@@ -274,6 +274,8 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
          * Method that migrates from dynamic resources to local resources
          */
         void handleMobilityRequest(cMessage *);
+
+        void mobilityTrigger(std::string appInstanceId);
 };
 
 #endif

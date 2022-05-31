@@ -39,3 +39,9 @@ class ServiceMobilityResponse extends inet::FieldsChunk
 	 int targetPort;
 	 AssociateId associateId[];
 }
+
+class ParkMigrationTrigger extends inet::FieldsChunk
+{
+    string appInstanceId;
+}
+

@@ -136,6 +136,12 @@ void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
             inet::Packet* packet = check_and_cast<inet::Packet*>(msg);
             handleTerminationResponse(packet);
         }
+        else if(!strcmp(msg->getName(), "ParkMigrationTrigger"))
+        {
+            inet::Packet* packet = check_and_cast<inet::Packet*>(msg);
+            handleParkMigrationTrigger(packet);
+            delete msg;
+        }
         else if(!strcmp(msg->getName(), "ServiceMobilityResponse"))
         {
             inet::Packet* packet = check_and_cast<inet::Packet*>(msg);
@@ -514,4 +520,22 @@ void MecPlatformManagerDyn::handleServiceMobilityResponse(
     // Exploiting socket used for subscribing phase
     Http::sendPostRequest(&tcpSocket, notification->toJson().dump().c_str(), serverHost.c_str(), triggerURI.c_str());
 
+}
+
+void MecPlatformManagerDyn::handleParkMigrationTrigger(inet::Packet* packet)
+{
+
+    auto data = packet->peekData<ParkMigrationTrigger>().get();
+    nlohmann::ordered_json request;
+    request["notificationType"] = "MobilityProcedureNotification";
+    request["associateId"] = nlohmann::json::array();
+
+    request["mobilityStatus"] = "INTERHOST_MOVEOUT_TRIGGERED";
+    request["_links"]["href"] = "";
+
+    request["appInstanceId"] = data->getAppInstanceId();
+
+    EV << "MecPlatformManagerDyn::Trigger ready: " << request.dump() << endl;
+
+    Http::sendPostRequest(&tcpSocket, request.dump().c_str(),  serverHost.c_str(), triggerURI.c_str());
 }

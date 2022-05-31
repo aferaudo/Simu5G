@@ -882,6 +882,17 @@ void VirtualisationInfrastructureManagerDyn::manageNotification()
                 // before unregistring the dynamic host, an event signaling
                 // app migration should be generated
                 // TODO app migration event
+                EV << "VIM::finding mecapp running on that host" << endl;
+
+                auto host = handledHosts.find(std::atoi(uri.c_str()));
+                for(auto &meAppEntry : handledApp)
+                {
+                    if(meAppEntry.second.endpoint.addr == host->second.address)
+                    {
+                        EV << "VIM::APP " << meAppEntry.second.appInstanceId << " running on a leaving host: migration starts..." << endl;
+                        mobilityTrigger(meAppEntry.second.appInstanceId);
+                    }
+                }
                 unregisterHost(std::atoi(uri.c_str()));
             }
             else
@@ -1124,4 +1135,16 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
     //printHandledApp();
 
     socket.sendTo(toSend, mepmAddress, mepmPort);
+}
+
+void VirtualisationInfrastructureManagerDyn::mobilityTrigger(
+        std::string appInstanceId) {
+    inet::Packet* toSend = new inet::Packet("ParkMigrationTrigger");
+    auto trigger = inet::makeShared<ParkMigrationTrigger>();
+    trigger->setAppInstanceId(appInstanceId.c_str());
+    trigger->setChunkLength(inet::B(appInstanceId.size()));
+    toSend->insertAtBack(trigger);
+
+    socket.sendTo(toSend, mepmAddress, mepmPort);
+
 }

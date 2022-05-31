@@ -111,6 +111,7 @@ class MecPlatformManagerDyn : public SubscriberBase
         void handleTerminationRequest(inet::Packet *packet);
         void handleTerminationResponse(inet::Packet * packet);
         void handleServiceMobilityResponse(inet::Packet * packet);
+        void handleParkMigrationTrigger(inet::Packet*);
         bool checkServiceAvailability(const char* serviceName);
 
 };
