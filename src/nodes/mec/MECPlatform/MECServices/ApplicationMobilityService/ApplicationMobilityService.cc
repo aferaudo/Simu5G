@@ -73,9 +73,14 @@ void ApplicationMobilityService::handleMessage(cMessage *msg)
                     }
                     notification->setAssociateId(associateId);
 
-                    EV << "AMS::local notification generated " << notification->toJson().dump(2) << endl;
                     // removing migrated app from the list
                     registrationResources_->removingMigratedApp(el.first);
+
+
+                    nlohmann::ordered_json jsonObject = notification->toJson();
+                    EV << "AMS::local notification generated " << jsonObject.dump(2) << endl;
+                    handleNotificationCallback(jsonObject);
+
                 }
                 else
                 {
@@ -223,7 +228,7 @@ void ApplicationMobilityService::handlePOSTRequest(const HttpRequestMessage *cur
         nlohmann::ordered_json request = nlohmann::json::parse(currentRequestMessageServed->getBody());
         if(request.contains("notificationType"))
         {
-            handleNotificationCallback(socket,request);
+            handleNotificationCallback(request);
         }
         else
         {
@@ -376,7 +381,7 @@ void ApplicationMobilityService::handleSubscriptionRequest(SubscriptionBase *sub
     }
 }
 
-void ApplicationMobilityService::handleNotificationCallback(inet::TcpSocket *socket, const nlohmann::ordered_json &request)
+void ApplicationMobilityService::handleNotificationCallback(const nlohmann::ordered_json &request)
 {
     /*
      * This method manages two types of notification
@@ -395,13 +400,13 @@ void ApplicationMobilityService::handleNotificationCallback(inet::TcpSocket *soc
     else if(request["notificationType"]=="AdjacentAppInfoNotification")
     {
         EV << "AMS::Notification type not implemented" << endl;
-        Http::send400Response(socket);
+        //Http::send400Response(socket);
         return;
     }
     else
     {
         EV << "AMS::Notification type not managed " << endl;
-        Http::send400Response(socket);
+//        Http::send400Response(socket);
         return;
     }
     EV << "AMS::Trigger - " << request["notificationType"] << " - received!" << endl;

@@ -33,6 +33,7 @@ Define_Module(UEWarningAlertApp);
 UEWarningAlertApp::UEWarningAlertApp(){
     selfStart_ = NULL;
     selfStop_ = NULL;
+    amsHttpMessage = nullptr;
 }
 
 UEWarningAlertApp::~UEWarningAlertApp(){
@@ -185,7 +186,7 @@ void UEWarningAlertApp::handleMessage(cMessage *msg)
                 throw cRuntimeError("UEWarningAlertApp::handleMessage - \tFATAL! Error, DeviceAppPacket type %s not recognized", mePkt->getType());
             }
         }
-        // From MEC application
+
         else
         {
             auto mePkt = packet->peekAtFront<WarningAppPacket>();
@@ -462,8 +463,17 @@ void UEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet 
             amsHttpMessage->setSockId(amsSocket.getSocketId());
 
             if(amsHttpMessage->getType() == REQUEST){
-                EV << "UEWarningAlertApp::socketDataArrived - Received request - payload: " << " " << amsHttpMessage->getBody() << endl;
-
+                EV << "UEWarningAlertApp::socketDataArrived - Received notification - payload: " << " " << amsHttpMessage->getBody() << endl;
+                HttpRequestMessage* amsNot = check_and_cast<HttpRequestMessage*>(amsHttpMessage);
+                nlohmann::json jsonBody = nlohmann::json::parse(amsNot->getBody());
+                if(!jsonBody.empty())
+                {
+                    nlohmann::json interfaces = nlohmann::json::array();
+                    interfaces = jsonBody["targetAppInfo"]["commInterface"]["ipAddresses"];
+                    mecAppAddress_ = L3AddressResolver().resolve(std::string(interfaces.at(0)["host"]).c_str()); // take first interface
+                    mecAppPort_ = interfaces.at(0)["port"];
+                    EV << "UEWarningAlertApp::received new mecapp address: " <<  mecAppAddress_.str() << ":" << mecAppPort_ << endl;
+                }
             }else if(amsHttpMessage->getType() == RESPONSE){
                 EV << "UEWarningAlertApp::socketDataArrived - Received response - payload: " << " " << amsHttpMessage->getBody() << endl;
 
@@ -479,6 +489,10 @@ void UEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet 
                 }
 
             }
+        }
+        if(amsHttpMessage != nullptr)
+        {
+            amsHttpMessage = nullptr;
         }
     }
     else{

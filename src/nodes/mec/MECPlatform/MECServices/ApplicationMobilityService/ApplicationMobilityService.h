@@ -68,7 +68,7 @@ class ApplicationMobilityService : public MecServiceBase
     virtual void handleDELETERequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket) override;
 
     void handleSubscriptionRequest(SubscriptionBase *subscription, inet::TcpSocket* socket, const nlohmann::ordered_json& request);
-    void handleNotificationCallback(inet::TcpSocket* socket, const nlohmann::ordered_json& request);
+    void handleNotificationCallback(const nlohmann::ordered_json& request);
 
 
     /*
