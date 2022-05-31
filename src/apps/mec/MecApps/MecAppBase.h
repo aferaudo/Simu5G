@@ -72,6 +72,7 @@ class  MecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICall
     bool subscribed;
     std::string amsRegistrationId;
     std::string amsSubscriptionId;
+    std::string amsSubscriptionId_completed;
     inet::L3Address amsAddress;
     int amsPort;
 

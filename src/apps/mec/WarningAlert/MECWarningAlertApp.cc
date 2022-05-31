@@ -411,9 +411,17 @@ void MECWarningAlertApp::handleAmsMessage()
             HttpRequestMessage* amsRequest = check_and_cast<HttpRequestMessage*>(amsHttpMessage);
             nlohmann::json jsonBody = nlohmann::json::parse(amsRequest->getBody());
 
+
             if(std::string(amsRequest->getUri()).compare(webHook) == 0 && !jsonBody.empty()){
+                MobilityProcedureNotification *notification = new MobilityProcedureNotification();
+                notification->fromJson(jsonBody);
+                std::string type = notification->getMobilityStatusString();
+                if(type.empty()){
+                    throw cRuntimeError("mobility status not specified in the notification");
+                }
+
                 EV << "MECWarningAlertApp::handleAmsMessage - Analyzing notification - payload: " << " " << amsHttpMessage->getBody() << endl;
-                if(jsonBody.contains("targetAppInfo")){
+                if(type.compare("INTERHOST_MOVEOUT_TRIGGERED") == 0 && jsonBody.contains("targetAppInfo")){
                    TargetAppInfo* targetAppInfo = new TargetAppInfo();
                    targetAppInfo->fromJson(jsonBody["targetAppInfo"]);
 
@@ -424,6 +432,16 @@ void MECWarningAlertApp::handleAmsMessage()
                        cMessage *m = new cMessage("migrateState");
                        scheduleAt(simTime()+0.005, m);
                    }
+                }
+                else if(type.compare("INTERHOST_MOVEOUT_COMPLETED") == 0 && jsonBody.contains("targetAppInfo")){
+
+                    cMessage *m = new cMessage("deleteRegistration");
+                    scheduleAt(simTime()+0.005, m);
+
+                    cMessage *d = new cMessage("deleteModule");
+                    scheduleAt(simTime()+0.7, d);
+
+                    EV << "MECWarningAlertApp::handleAmsMessage - Deletion has been scheduled" << endl;
                 }
             }
 
@@ -443,11 +461,29 @@ void MECWarningAlertApp::handleAmsMessage()
                     scheduleAt(simTime()+0.001, m);
                 }
                 else if(jsonBody.contains("callbackReference")){
-                    subscribed = true;
-                    std::stringstream stream;
-                    stream << "sub" << jsonBody["subscriptionId"];
-                    amsSubscriptionId = stream.str();
-                    EV << "MECWarningAlertApp::handleAmsMessage - subscription ID: " << amsSubscriptionId << endl;
+
+                    std::string type = jsonBody["filterCriteria"]["mobilityStatus"];
+
+                    if(type.compare("INTERHOST_MOVEOUT_TRIGGERED") == 0){
+                        std::stringstream stream;
+                        stream << "sub" << jsonBody["subscriptionId"];
+                        amsSubscriptionId = stream.str();
+                        EV << "MECWarningAlertApp::handleAmsMessage - subscription ID triggered: " << amsSubscriptionId << endl;
+
+                        cMessage *b = new cMessage("subscribeAmsCompleted");
+                        scheduleAt(simTime()+0.003, b);
+                    }
+                    else if(type.compare("INTERHOST_MOVEOUT_COMPLETED") == 0){
+                        std::stringstream stream;
+                        stream << "sub" << jsonBody["subscriptionId"];
+                        amsSubscriptionId_completed = stream.str();
+                        EV << "MECWarningAlertApp::handleAmsMessage - subscription ID completed: " << amsSubscriptionId_completed << endl;
+                    }
+
+                    if(!amsSubscriptionId.empty() && !amsSubscriptionId_completed.empty()){
+                        subscribed = true;
+                    }
+
                 }
             }
         }
@@ -710,6 +746,27 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
         std::string uristring = "/example/amsi/v1/subscriptions/";
         Http::sendPostRequest(&amsSocket_, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
+
+    }
+    else if (strcmp(msg->getName(), "subscribeAmsCompleted") == 0){
+        EV << "MECWarningAlertApp::handleMessage sending subscription" << endl;
+        EV << getParentModule()->getFullPath() << endl;
+        nlohmann::ordered_json subscriptionBody_;
+        subscriptionBody_ = nlohmann::ordered_json();
+        subscriptionBody_["_links"]["self"]["href"] = "";
+        subscriptionBody_["callbackReference"] = localAddress.str() + ":" + std::to_string(par("localUePort").intValue()) + webHook;
+        subscriptionBody_["requestTestNotification"] = false;
+        subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
+        subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
+        subscriptionBody_["filterCriteria"]["appInstanceId"] = getName();
+        subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
+        subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_COMPLETED";
+        subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
+        EV << subscriptionBody_;
+
+        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
+        std::string uristring = "/example/amsi/v1/subscriptions/";
+        Http::sendPostRequest(&amsSocket_, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
     }
     else if (strcmp(msg->getName(), "updateSubscription") == 0){
         // Update registration
@@ -738,6 +795,35 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
 
         cMessage *m = new cMessage("getServiceData");
         scheduleAt(simTime()+0.001, m);
+
+        cMessage *b = new cMessage("updateSubscriptionCompleted");
+        scheduleAt(simTime()+0.02, b);
+    }
+    else if (strcmp(msg->getName(), "updateSubscriptionCompleted") == 0){
+        // Update registration
+        EV << getParentModule()->getFullPath() << endl;
+        nlohmann::ordered_json subscriptionBody_;
+        subscriptionBody_ = nlohmann::ordered_json();
+        subscriptionBody_["_links"]["self"]["href"] = "";
+        subscriptionBody_["callbackReference"] = localAddress.str() + ":" + std::to_string(par("localUePort").intValue()) + webHook;
+        subscriptionBody_["requestTestNotification"] = false;
+        subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
+        subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
+        subscriptionBody_["filterCriteria"]["appInstanceId"] = getName();
+        subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
+
+        nlohmann::ordered_json val_;
+        val_["type"] = "UE_IPv4_ADDRESS";
+        val_["value"] = ueAppAddress.str();
+        subscriptionBody_["filterCriteria"]["associateId"].push_back(val_);
+        subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_COMPLETED";
+        subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
+        EV << subscriptionBody_;
+
+        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
+        std::string uristring = "/example/amsi/v1/subscriptions/" + amsSubscriptionId_completed;
+        Http::sendPutRequest(&amsSocket_, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
+
     }
     else if (strcmp(msg->getName(), "updateRegistration") == 0){
 
@@ -769,6 +855,45 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
     else if (strcmp(msg->getName(), "migrateState") == 0){
         EV << "Connecting to new app " << migrationAddress << ":" << migrationPort << endl;
         connect(stateSocket_, migrationAddress, migrationPort);
+    }
+    else if (strcmp(msg->getName(), "deleteRegistration") == 0){
+        EV << "Deleting registration"<< endl;
+
+        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
+        std::string uristring = "/example/amsi/v1/app_mobility_services/" + amsRegistrationId;
+        const char *uri = uristring.c_str();
+        Http::sendDeleteRequest(&amsSocket_, host.c_str(), uri);
+
+        cMessage *b = new cMessage("deleteSubscriptionTriggered");
+        scheduleAt(simTime()+0.001, b);
+
+    }
+    else if (strcmp(msg->getName(), "deleteSubscriptionTriggered") == 0){
+        EV << "Deleting subscription triggered"<< endl;
+
+        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
+        std::string uristring = "/example/amsi/v1/subscriptions/" + amsSubscriptionId;
+        const char *uri = uristring.c_str();
+        Http::sendDeleteRequest(&amsSocket_, host.c_str(), uri);
+
+        cMessage *b = new cMessage("deleteSubscriptionCompleted");
+        scheduleAt(simTime()+0.02, b);
+
+    }
+    else if (strcmp(msg->getName(), "deleteSubscriptionCompleted") == 0){
+        EV << "Deleting subscription completed"<< endl;
+
+        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
+        std::string uristring = "/example/amsi/v1/subscriptions/" + amsSubscriptionId_completed;
+        const char *uri = uristring.c_str();
+        Http::sendDeleteRequest(&amsSocket_, host.c_str(), uri);
+
+    }
+    else if (strcmp(msg->getName(), "deleteModule") == 0){
+        EV << "Deleting module"<< endl;
+
+        callFinish();
+        deleteModule();
     }
 
     delete msg;
