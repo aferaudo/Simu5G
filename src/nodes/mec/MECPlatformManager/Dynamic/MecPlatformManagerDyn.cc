@@ -105,6 +105,22 @@ void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
                 connectToBroker();
             }
         }
+        else if(strcmp(msg->getName(), "nextSubsription") == 0)
+        {
+            EV << "MecPlatformManagerDyn::received nextSubscription self message" << endl;
+            if(appInstanceIds_.size() != 0)
+            {
+                //std::string appInstanceId = appInstanceIds_.front();
+                EV << "MecPlatformManagerDyn::subscribing for " << appInstanceIds_.front() << " with mobility status = INTERHOST_MOVEOUT_COMPLETED" <<endl;
+
+
+                handleSubscription("INTERHOST_MOVEOUT_COMPLETED");
+
+                appInstanceIds_.pop();
+                EV << "MecPlatformManagerDyn::appinstanceIds size after pop " << appInstanceIds_.size() << endl;
+
+            }
+        }
 
         delete msg;
     }else if (!msg->isSelfMessage() && socket.belongsToSocket(msg))
@@ -319,8 +335,13 @@ void MecPlatformManagerDyn::handleTerminationResponse(inet::Packet * packet)
 {
     inet::Packet* pktdup = new inet::Packet("terminationAppInstResponse");
     auto deleteAppResponse = inet::makeShared<TerminationAppInstResponse>();
-    auto data = packet->peekData<TerminationAppInstResponse>();
-    deleteAppResponse = data.get()->dup();
+    auto data = packet->peekData<TerminationAppInstResponse>().get();
+    if(data->isMigrating())
+    {
+        EV << "MecPlatformManagerDyn::handleTerminationResponse - app of " << data->getDeviceAppId() << " migrated (nothing to do)" << endl;
+        return;
+    }
+    deleteAppResponse = data->dup();
     pktdup->insertAtBack(deleteAppResponse);
 
     // Choosing interface for communications inside the MEC Host
@@ -342,18 +363,8 @@ void MecPlatformManagerDyn::handleInstantiationResponse(
     EV << "MecPlatformManagerDyn:: App instance id: " << responsemsg->getInstanceId()<< endl;
     if(amsEnabled && responsemsg->getStatus())
     {
-        subscriptionBody_ = nlohmann::ordered_json();
-        subscriptionBody_["_links"]["self"]["href"] = "";
-        subscriptionBody_["callbackReference"] = localAddress.str() + ":" + std::to_string(localToBrokerPort)  + webHook;
-        subscriptionBody_["requestTestNotification"] = false;
-        subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
-        subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
-        subscriptionBody_["filterCriteria"]["appInstanceId"] = responsemsg->getInstanceId();
-        subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
-        subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_TRIGGERED";
-        subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
-        EV << subscriptionBody_;
-        sendSubscription();
+        appInstanceIds_.push(responsemsg->getInstanceId());
+        handleSubscription();
     }
 
 }
@@ -409,66 +420,96 @@ void MecPlatformManagerDyn::manageNotification()
             // TODO we can ignore packets that contains targetappinfo
             if(jsonBody["notificationType"] == "MobilityProcedureNotification")
             {
-                // MobilityProcedureNotification
-                MobilityProcedureNotification *notification = new MobilityProcedureNotification();
-                EV << "MecPlatformManagerDyn::notification received: " << jsonBody.dump(2) << endl;
-                bool res = notification->fromJson(jsonBody);
-                bool condition = res && notification->getTargetAppInfo().getCommInterface().size() == 0; // event with targetAppInfo are ignored
-                if(condition)
+                EV << "MecPlatformManagerDyn::MobilityProcedureNotification - " << jsonBody["mobilityStatus"] << endl;
+                if(jsonBody["mobilityStatus"] == "INTERHOST_MOVEOUT_TRIGGERED")
                 {
-                    inet::L3Address destinationAddr;
-                    int destPort;
-                    int packetLength = 0;
-
-                    // Preparing ServiceMobilityRequest
-                    inet::Packet* packet = new inet::Packet("ServiceMobilityRequest");
-
-                    auto toSend = inet::makeShared<ServiceMobilityRequest>();
-                    toSend->setAssociateIdArraySize(notification->getAssociateId().size());
-
-                    // the index is needed to populate the other packet array
-                    // so we use the old fashioned way
-                    for(int i = 0; i < notification->getAssociateId().size(); i++)
+                    EV << "MecPlatformManagerDyn::notification with mobilityStatus:  INTERHOST_MOVEOUT_TRIGGERD" << endl;
+                    // MobilityProcedureNotification
+                    MobilityProcedureNotification *notification = new MobilityProcedureNotification();
+                    EV << "MecPlatformManagerDyn::notification received: " << jsonBody.dump(2) << endl;
+                    bool res = notification->fromJson(jsonBody);
+                    bool condition = res && notification->getTargetAppInfo().getCommInterface().size() == 0; // event with targetAppInfo are ignored
+                    if(condition)
                     {
-                        toSend->setAssociateId(i, notification->getAssociateId()[i]);
-                        // Computing packetLength
-                        packetLength = packetLength + notification->getAssociateId()[i].getType().size();
-                        packetLength = packetLength + notification->getAssociateId()[i].getType().size();
-                    }
+                        inet::L3Address destinationAddr;
+                        int destPort;
+                        int packetLength = 0;
 
-                    // Selecting migration type
-                    if(jsonBody.contains("appInstanceId")) // -- dynamic resource migration (from dynamic resources to local resources)
+                        // Preparing ServiceMobilityRequest
+                        inet::Packet* packet = new inet::Packet("ServiceMobilityRequest");
+
+                        auto toSend = inet::makeShared<ServiceMobilityRequest>();
+                        toSend->setAssociateIdArraySize(notification->getAssociateId().size());
+
+                        // the index is needed to populate the other packet array
+                        // so we use the old fashioned way
+                        for(int i = 0; i < notification->getAssociateId().size(); i++)
+                        {
+                            toSend->setAssociateId(i, notification->getAssociateId()[i]);
+                            // Computing packetLength
+                            packetLength = packetLength + notification->getAssociateId()[i].getType().size();
+                            packetLength = packetLength + notification->getAssociateId()[i].getType().size();
+                        }
+
+                        // Selecting migration type
+                        if(jsonBody.contains("appInstanceId")) // -- dynamic resource migration (from dynamic resources to local resources)
+                        {
+                            EV << "MecPlatformManagerDyn::moving app " << notification->getAppInstanceId() << " from a dynamic to local resources" << endl;
+                            // Sending Application Mobility Request to VIM
+                            destinationAddr = vimAddress;
+                            destPort = vimPort;
+                            std::string appInstanceId = jsonBody["appInstanceId"];
+                            toSend->setAppInstanceId(appInstanceId.c_str());
+                            packetLength = packetLength + appInstanceId.size();
+                        }
+                        else // -- global migration (from mechost to mechost)
+                        {
+                            EV << "MecPlatformManagerDyn::request app migration to MEC Orchestrator" << endl;
+                            // Do we need app related information?
+                            // in such a case we should request to the ams our request by using
+                            // the _links field in the notification
+                            // Sending Application Mobility Request to MEO
+                            destinationAddr = meoAddress;
+                            destPort = meoPort;
+                        }
+
+                        EV << "MecPlatformManagerDyn::ServiceMobilityRequest built! total packet length: " << packetLength << endl;
+
+                        toSend->setChunkLength(inet::B(packetLength));
+                        packet->insertAtBack(toSend);
+                        EV << "MecPlatformManagerDyn::Sending serviceMobilityRequest to " << destinationAddr.str() << ":"<<std::to_string(destPort)<<endl;
+                        socket.sendTo(packet, destinationAddr, destPort);
+                    }
+                    else
                     {
-                        EV << "MecPlatformManagerDyn::moving app " << notification->getAppInstanceId() << " from a dynamic to local resources" << endl;
-                        // Sending Application Mobility Request to VIM
-                        destinationAddr = vimAddress;
-                        destPort = vimPort;
-                        std::string appInstanceId = jsonBody["appInstanceId"];
-                        toSend->setAppInstanceId(appInstanceId.c_str());
-                        packetLength = packetLength + appInstanceId.size();
-                    }
-                    else // -- global migration (from mechost to mechost)
-                    {
-                        EV << "MecPlatformManagerDyn::request app migration to MEC Orchestrator" << endl;
-                        // Do we need app related information?
-                        // in such a case we should request to the ams our request by using
-                        // the _links field in the notification
-                        // Sending Application Mobility Request to MEO
-                        destinationAddr = meoAddress;
-                        destPort = meoPort;
-                    }
-
-                    EV << "MecPlatformManagerDyn::ServiceMobilityRequest built! total packet length: " << packetLength << endl;
-
-                    toSend->setChunkLength(inet::B(packetLength));
-                    packet->insertAtBack(toSend);
-
-                    EV << "MecPlatformManagerDyn::Sending serviceMobilityRequest to " << destinationAddr.str() << ":"<<std::to_string(destPort)<<endl;
-                    socket.sendTo(packet, destinationAddr, destPort);
+                        EV << "MecPlatformManagerDyn::notification not recognised" << endl;
+                        }
                 }
-                else
+                else if(jsonBody["mobilityStatus"] == "INTERHOST_MOVEOUT_COMPLETED")
                 {
-                    EV << "MecPlatformManagerDyn::notification not recognised" << endl;
+                    EV << "MecPlatformManagerDyn::notification with mobilityStatus:  INTERHOST_MOVEOUT_COMPLETED" << endl;
+                    // Generate Termination message
+                    inet::Packet* pkt = new inet::Packet("terminationAppInstRequest");
+                    auto deleteAppRequest = inet::makeShared<TerminationAppInstRequest>();
+
+
+                    // where can i get ueappid?
+                    // you can take it from the address
+                    MobilityProcedureNotification *notification = new MobilityProcedureNotification();
+                    EV << "MecPlatformManagerDyn::notification received: " << jsonBody.dump(2) << endl;
+                    notification->fromJson(jsonBody);
+                    std::string appInstanceId = notification->getTargetAppInfo().getAppInstanceId();
+                    deleteAppRequest->setAppInstanceId(appInstanceId.c_str());
+                    deleteAppRequest->setDeviceAppId("-1");
+
+//                    inet::L3Address ipAddress = inet::L3AddressResolver().resolve(notification->getAssociateId()[0].getValue().c_str());
+//                    cModule *ue = inet::L3AddressResolver().findHostWithAddress(ipAddress);
+//                    EV << "MecPlatformManagerDyn::UE id: " << ue->getId() << " node id : "<< endl;
+
+                    deleteAppRequest->setChunkLength(inet::B(appInstanceId.size() + 8));
+
+                    pkt->insertAtBack(deleteAppRequest);
+                    socket.sendTo(pkt, vimAddress, vimPort);
                 }
 
             }
@@ -538,4 +579,32 @@ void MecPlatformManagerDyn::handleParkMigrationTrigger(inet::Packet* packet)
     EV << "MecPlatformManagerDyn::Trigger ready: " << request.dump() << endl;
 
     Http::sendPostRequest(&tcpSocket, request.dump().c_str(),  serverHost.c_str(), triggerURI.c_str());
+}
+
+void MecPlatformManagerDyn::handleSubscription(
+        std::string mobilityStatus) {
+
+
+    subscriptionBody_ = nlohmann::ordered_json();
+    subscriptionBody_["_links"]["self"]["href"] = "";
+    subscriptionBody_["callbackReference"] = localAddress.str() + ":" + std::to_string(localToBrokerPort)  + webHook;
+    subscriptionBody_["requestTestNotification"] = false;
+    subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
+    subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
+    subscriptionBody_["filterCriteria"]["appInstanceId"] = appInstanceIds_.front();
+    subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
+    subscriptionBody_["filterCriteria"]["mobilityStatus"] = mobilityStatus;
+    subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
+    EV << subscriptionBody_;
+    sendSubscription();
+
+
+    // FIXME -- this should be avoided by using as mobility status an array
+    cMessage *moveoutCompleted = new cMessage("nextSubsription");
+    if(!moveoutCompleted->isScheduled())
+    {
+        double time = exponential(0.005);
+        EV << "MecPlatformManagerDyn::sending subscription in "<< time << " seconds" << endl;
+        scheduleAt(simTime()+time, moveoutCompleted);
+    }
 }

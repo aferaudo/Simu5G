@@ -435,11 +435,11 @@ void MECWarningAlertApp::handleAmsMessage()
                 }
                 else if(type.compare("INTERHOST_MOVEOUT_COMPLETED") == 0 && jsonBody.contains("targetAppInfo")){
 
-                    cMessage *m = new cMessage("deleteRegistration");
-                    scheduleAt(simTime()+0.005, m);
-
-                    cMessage *d = new cMessage("deleteModule");
-                    scheduleAt(simTime()+0.7, d);
+//                    cMessage *m = new cMessage("deleteRegistration");
+//                    scheduleAt(simTime()+0.005, m);
+//
+//                    cMessage *d = new cMessage("deleteModule");
+//                    scheduleAt(simTime()+0.7, d);
 
                     EV << "MECWarningAlertApp::handleAmsMessage - Deletion has been scheduled" << endl;
                 }
@@ -470,8 +470,8 @@ void MECWarningAlertApp::handleAmsMessage()
                         amsSubscriptionId = stream.str();
                         EV << "MECWarningAlertApp::handleAmsMessage - subscription ID triggered: " << amsSubscriptionId << endl;
 
-                        cMessage *b = new cMessage("subscribeAmsCompleted");
-                        scheduleAt(simTime()+0.003, b);
+//                        cMessage *b = new cMessage("subscribeAmsCompleted");
+//                        scheduleAt(simTime()+0.003, b);
                     }
                     else if(type.compare("INTERHOST_MOVEOUT_COMPLETED") == 0){
                         std::stringstream stream;
@@ -480,7 +480,8 @@ void MECWarningAlertApp::handleAmsMessage()
                         EV << "MECWarningAlertApp::handleAmsMessage - subscription ID completed: " << amsSubscriptionId_completed << endl;
                     }
 
-                    if(!amsSubscriptionId.empty() && !amsSubscriptionId_completed.empty()){
+                    if(!amsSubscriptionId.empty())
+                    {//&& !amsSubscriptionId_completed.empty()){
                         subscribed = true;
                     }
 
@@ -796,8 +797,8 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         cMessage *m = new cMessage("getServiceData");
         scheduleAt(simTime()+0.001, m);
 
-        cMessage *b = new cMessage("updateSubscriptionCompleted");
-        scheduleAt(simTime()+0.02, b);
+//        cMessage *b = new cMessage("updateSubscriptionCompleted");
+//        scheduleAt(simTime()+0.02, b);
     }
     else if (strcmp(msg->getName(), "updateSubscriptionCompleted") == 0){
         // Update registration
@@ -890,10 +891,10 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
 
     }
     else if (strcmp(msg->getName(), "deleteModule") == 0){
-        EV << "Deleting module"<< endl;
+        EV << "Deleting module - nothing to do"<< endl;
 
-        callFinish();
-        deleteModule();
+//        callFinish();
+//        deleteModule();
     }
 
     delete msg;

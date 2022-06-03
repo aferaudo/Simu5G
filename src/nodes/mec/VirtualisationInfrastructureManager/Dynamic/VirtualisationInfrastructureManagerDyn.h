@@ -101,7 +101,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     std::map<int, HostDescriptor> handledHosts; // Resource Handling
     std::map<std::string, MecAppEntryDyn> handledApp; // App Handling(key DeviceAppId)
     std::map<std::string, MecAppEntryDyn> waitingInstantiationRequests; // vim waits for response from cars on which have requested instantiation
-    std::map<std::string, MecAppEntryDyn> migratingApps; // map used for termination of migrated apps
+    std::map<std::string, MecAppEntryDyn> migratingApps; // map that maintains the old mecapp that are currently migrating in another location
 
     int hostCounter = 0;    // counter to generate host ids
     int requestCounter = 0;

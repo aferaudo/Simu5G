@@ -184,12 +184,29 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             printer.printPacket(std::cout, pPacket);
 
             int ueAppID = data->getUeAppID();
-            auto it = handledApp.find(std::to_string(ueAppID));
-            if(it == handledApp.end()){
-                throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - TerminationResponse - cannot find registered app");
+            MecAppEntryDyn entry;
+            if(data->isMigrating())
+            {
+                // migration
+                EV << "VirtualisationInfrastructureManagerDyn::TerminationResponse for migrating app" << endl;
+                auto it = migratingApps.find(std::to_string(ueAppID));
+                if(it == migratingApps.end())
+                {
+                    throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - TerminationResponse - cannot find registered app");
+                }
+                entry = it->second;
+                migratingApps.erase(it);
+            }
+            else
+            {
+                auto it = handledApp.find(std::to_string(ueAppID));
+                if(it == handledApp.end()){
+                    throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - TerminationResponse - cannot find registered app");
+                }
+                entry = it->second;
+                handledApp.erase(it);
             }
 
-            MecAppEntryDyn entry = it->second;
             int host_key = findHostIDByAddress(entry.endpoint.addr);
             HostDescriptor* host = &((handledHosts.find(host_key))->second);
             host->numRunningApp -= 1;
@@ -204,6 +221,7 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             terminationResponse->setMecHostId(getParentModule()->getParentModule()->getId());
             terminationResponse->setRequestId(data->getRequestId());
             terminationResponse->setStatus(true);
+            terminationResponse->setIsMigrating(data->isMigrating()); // migration
             terminationResponse->setChunkLength(inet::B(1000));
 
             packet->insertAtBack(terminationResponse);
@@ -501,18 +519,54 @@ bool VirtualisationInfrastructureManagerDyn::terminateMEApp(const TerminationApp
 {
     EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp" << endl;
 
-//    Enter_Method_Silent();
-
+    //    Enter_Method_Silent();
 
     int ueAppID = atoi(msg->getDeviceAppId());
-    EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp - looking for " << ueAppID << " ID" << endl;
-    auto it = handledApp.find(std::to_string(ueAppID));
-    if(it == handledApp.end()){
-        EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp - App not found. Trying in migration set..." << endl;
-
-        it = migratingApps.find(std::to_string(ueAppID));
-        if(it == migratingApps.end())
+    bool migrated = false;
+    MecAppEntryDyn instantiatedApp;
+    inet::Packet* packet = new inet::Packet("Termination");
+    auto terminationpck = inet::makeShared<DeleteAppMessage>();
+    if(ueAppID == -1)
+    {
+        // app migrated case
+        migrated = true;
+        std::string appInstanceId = std::string(msg->getAppInstanceId());
+        EV << "VirtualisationInfrastructureManagerDyn:: terminate migrated app - looking for " << appInstanceId << " ID" << endl;
+        bool found = false;
+        for(auto &app : migratingApps)
         {
+            if(app.second.appInstanceId.compare(appInstanceId) == 0)
+            {
+                EV << "VirtualisationInfrastructureManagerDyn:: Migrating app has been found! " << endl;
+                instantiatedApp = app.second;
+                ueAppID = app.second.ueAppID;
+                //migratingApps.erase(app.fi);
+                found = true;
+                break;
+            }
+        }
+        if(!found)
+        {
+            inet::Packet *packet = new inet::Packet();
+            auto terminationResponse = inet::makeShared<TerminationAppInstResponse>();
+            terminationResponse->setStatus(false);
+            terminationResponse->setIsMigrating(migrated);
+            terminationResponse->setChunkLength(inet::B(8));
+            packet->insertAtBack(terminationResponse);
+            socket.sendTo(packet, mepmAddress, mepmPort);
+            return false;
+        }
+
+        terminationpck->setSno(0); // this parameter is actually ignored in migration case - so it can be any value
+        //std::cout<<"VIM::snumber: " << terminationpck->getSno() << endl;
+    }
+
+    if(!migrated)
+    {
+        // standard case - looking in handled app
+        EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp - looking for " << ueAppID << " ID" << endl;
+        auto it = handledApp.find(std::to_string(ueAppID));
+        if(it == handledApp.end()){
             EV << "VirtualisationInfrastractureManagerDyn::terminateMEApp - App not found - error" << endl;
             inet::Packet *packet = new inet::Packet();
             auto terminationResponse = inet::makeShared<TerminationAppInstResponse>();
@@ -526,18 +580,19 @@ bool VirtualisationInfrastructureManagerDyn::terminateMEApp(const TerminationApp
             //packet->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
             socket.sendTo(packet, mepmAddress, mepmPort);
             return false;
+
         }
+        instantiatedApp = it->second;
+        terminationpck->setSno(msg->getRequestId());
     }
 
-    inet::Packet* packet = new inet::Packet("Termination");
-    auto terminationpck = inet::makeShared<DeleteAppMessage>();
-    MecAppEntryDyn instantiatedApp = it->second;
+
+
     inet::L3Address address = instantiatedApp.endpoint.addr;
     int port = 2222; // TODO Load this from viPort
-//    int port = instantiatedApp.endpoint.port;
 
     terminationpck->setUeAppID(ueAppID);
-    terminationpck->setSno(msg->getRequestId());
+    terminationpck->setIsMigrating(migrated); // migration
     terminationpck->setChunkLength(inet::B(8)); // 4bytes + 4bytes
     packet->insertAtBack(terminationpck);
 
@@ -881,12 +936,13 @@ void VirtualisationInfrastructureManagerDyn::manageNotification()
                 EV << "VIM::Unregister host: " << uri << endl;
                 // before unregistring the dynamic host, an event signaling
                 // app migration should be generated
-                // TODO app migration event
                 EV << "VIM::finding mecapp running on that host" << endl;
 
                 auto host = handledHosts.find(std::atoi(uri.c_str()));
-                for(auto &meAppEntry : handledApp)
+
+                for(auto meAppEntry : handledApp)
                 {
+                    // Generate Mobility Procedure event
                     if(meAppEntry.second.endpoint.addr == host->second.address)
                     {
                         EV << "VIM::APP " << meAppEntry.second.appInstanceId << " running on a leaving host: migration starts..." << endl;
@@ -1053,6 +1109,7 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
 
         // Delete old app and adding at the map of app in migration phase (they still need context synchronization)
         migratingApps[std::to_string(existingApp->second.ueAppID)] = existingApp->second;
+
         handledApp.erase(existingApp);
 
         // Add new mecApp at list of handledApp

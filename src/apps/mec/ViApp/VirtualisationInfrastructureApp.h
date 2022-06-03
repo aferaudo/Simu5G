@@ -69,7 +69,7 @@ class VirtualisationInfrastructureApp : public cSimpleModule
     std::list<std::string> managedApp;
     std::map<int, RunningAppEntry> runningApp;
     SchedulingMode scheduling;
-
+    cModule *toDelete;
     double maxCpu;
     double allocatedCpu;
 

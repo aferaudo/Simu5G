@@ -48,7 +48,7 @@ void ApplicationMobilityService::initialize(int stage)
 
 void ApplicationMobilityService::handleMessage(cMessage *msg)
 {
-    if(msg->isSelfMessage() && std::strcmp(msg->getFullName(),"localMigration"))
+    if(msg->isSelfMessage() && std::strcmp(msg->getFullName(),"localMigration") == 0)
     {
         EV << "AMS::LOCAL MIGRATION RECEIVED----" << endl;
         if(registrationResources_->getMigratedApps().size() > 0)
@@ -89,8 +89,10 @@ void ApplicationMobilityService::handleMessage(cMessage *msg)
                 }
             }
         }
+        delete msg;
     }
-    MecServiceBase::handleMessage(msg);
+    else
+        MecServiceBase::handleMessage(msg);
 }
 
 void ApplicationMobilityService::handleGETRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket)
@@ -271,7 +273,7 @@ void ApplicationMobilityService::handlePUTRequest(const HttpRequestMessage *curr
             // this message is generated for each put: it allows to generate self-notification, useful for
             // app migrated from dynamic resource to local resouce
             cMessage *message = new cMessage("localMigration");
-            if(message->isScheduled())
+            if(!message->isScheduled())
             {
                 double time = exponential(0.0005);
                 scheduleAt(simTime() + time, message);

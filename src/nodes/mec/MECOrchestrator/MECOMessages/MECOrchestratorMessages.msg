@@ -88,5 +88,8 @@ class DeleteAppMessage extends inet::FieldsChunk {
     
     //service required
     string requiredService;
+    
+    // migrating
+    bool isMigrating = false;
 }
 

@@ -95,12 +95,18 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
 {
     if (msg->isSelfMessage())
     {
-        EV << "VirtualisationInfrastructureApp::handleMessage - self message received!" << endl;
+        if(std::strcmp(msg->getFullName(), "deleteModule") == 0)
+        {
+            toDelete->deleteModule();
 
-        cModule* module = getParentModule()->getSubmodule("MECWarningAlertApp[0]");
-        std::cout << module << endl;
-//        module->callFinish();
-        module->deleteModule();
+            toDelete = nullptr;
+        }
+//        EV << "VirtualisationInfrastructureApp::handleMessage - self message received!" << endl;
+//
+//        cModule* module = getParentModule()->getSubmodule("MECWarningAlertApp[0]");
+//        std::cout << module << endl;
+////        module->callFinish();
+//        module->deleteModule();
 
     }else{
         EV << "VirtualisationInfrastructureApp::handleMessage - other message received!" << endl;
@@ -152,6 +158,7 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
             responsepck->setResponse(res);
             responsepck->setRequestId(data->getSno());
             responsepck->setUeAppID(data->getUeAppID());
+            responsepck->setIsMigrating(data->isMigrating()); //migration
             responsepck->setChunkLength(inet::B(100));
             packet->insertAtBack(responsepck);
             socket.sendTo(packet, vimAddress, vimPort);
@@ -245,7 +252,10 @@ bool VirtualisationInfrastructureApp::handleTermination(DeleteAppMessage* data)
     cModule* module = entry.module;
     std::cout << module << endl;
     module->callFinish();
-    module->deleteModule();
+    toDelete = module;
+    cMessage *msg = new cMessage("deleteModule");
+    scheduleAt(simTime()+0.1, msg);
+
 
     std::cout << "finish termination" << endl;
     return true;

@@ -80,7 +80,7 @@ class MecPlatformManagerDyn : public SubscriberBase
     inet::IInterfaceTable* ifacetable;
 
     //std::map<std::string, std::string> subscriptions_; // link -
-
+    std::queue<std::string> appInstanceIds_; //used to take trace of next subscriptions
     public:
         MecPlatformManagerDyn();
 
@@ -112,6 +112,7 @@ class MecPlatformManagerDyn : public SubscriberBase
         void handleTerminationResponse(inet::Packet * packet);
         void handleServiceMobilityResponse(inet::Packet * packet);
         void handleParkMigrationTrigger(inet::Packet*);
+        void handleSubscription(std::string mobilityStatus = "INTERHOST_MOVEOUT_TRIGGERED");
         bool checkServiceAvailability(const char* serviceName);
 
 };
