@@ -62,6 +62,8 @@ simple MECWarningAlertApp like IMECApp, IApp
 	  input mePlatformIn;
 	  output mePlatformOut;
 	  
+	  inout viAppGate;
+	  
 	  input socketIn;
 	  output socketOut;
                 

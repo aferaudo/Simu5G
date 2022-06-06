@@ -50,6 +50,9 @@ struct RunningAppEntry
     std::string moduleType;
     std::string requiredService;
     cModule* module;
+    int port;
+    cGate* inputGate;
+    cGate* outputGate;
 };
 
 class VirtualisationInfrastructureApp : public cSimpleModule

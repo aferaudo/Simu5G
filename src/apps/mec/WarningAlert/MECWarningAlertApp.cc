@@ -93,8 +93,17 @@ void MECWarningAlertApp::initialize(int stage)
 
 void MECWarningAlertApp::handleMessage(cMessage *msg)
 {
-//        MecAppBase::handleMessage(msg);
-    if (!msg->isSelfMessage())
+    EV << "MECWarningAlertApp::handleMessage - received " << msg << endl;
+
+    if(strcmp(msg->getName(), "startTerminationProcedure") == 0){
+        EV << "MECWarningAlertApp::handleMessage - scheduling termination " << endl;
+
+        cMessage *b = new cMessage("deleteRegistration");
+        scheduleAt(simTime()+0.001, b);
+
+        return;
+    }
+    else if (!msg->isSelfMessage())
     {
         if(ueSocket.belongsToSocket(msg))
         {
@@ -470,18 +479,10 @@ void MECWarningAlertApp::handleAmsMessage()
                         amsSubscriptionId = stream.str();
                         EV << "MECWarningAlertApp::handleAmsMessage - subscription ID triggered: " << amsSubscriptionId << endl;
 
-//                        cMessage *b = new cMessage("subscribeAmsCompleted");
-//                        scheduleAt(simTime()+0.003, b);
-                    }
-                    else if(type.compare("INTERHOST_MOVEOUT_COMPLETED") == 0){
-                        std::stringstream stream;
-                        stream << "sub" << jsonBody["subscriptionId"];
-                        amsSubscriptionId_completed = stream.str();
-                        EV << "MECWarningAlertApp::handleAmsMessage - subscription ID completed: " << amsSubscriptionId_completed << endl;
                     }
 
                     if(!amsSubscriptionId.empty())
-                    {//&& !amsSubscriptionId_completed.empty()){
+                    {
                         subscribed = true;
                     }
 
@@ -749,26 +750,6 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         Http::sendPostRequest(&amsSocket_, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
 
     }
-    else if (strcmp(msg->getName(), "subscribeAmsCompleted") == 0){
-        EV << "MECWarningAlertApp::handleMessage sending subscription" << endl;
-        EV << getParentModule()->getFullPath() << endl;
-        nlohmann::ordered_json subscriptionBody_;
-        subscriptionBody_ = nlohmann::ordered_json();
-        subscriptionBody_["_links"]["self"]["href"] = "";
-        subscriptionBody_["callbackReference"] = localAddress.str() + ":" + std::to_string(par("localUePort").intValue()) + webHook;
-        subscriptionBody_["requestTestNotification"] = false;
-        subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
-        subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
-        subscriptionBody_["filterCriteria"]["appInstanceId"] = getName();
-        subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
-        subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_COMPLETED";
-        subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
-        EV << subscriptionBody_;
-
-        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
-        std::string uristring = "/example/amsi/v1/subscriptions/";
-        Http::sendPostRequest(&amsSocket_, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
-    }
     else if (strcmp(msg->getName(), "updateSubscription") == 0){
         // Update registration
         EV << getParentModule()->getFullPath() << endl;
@@ -796,34 +777,6 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
 
         cMessage *m = new cMessage("getServiceData");
         scheduleAt(simTime()+0.001, m);
-
-//        cMessage *b = new cMessage("updateSubscriptionCompleted");
-//        scheduleAt(simTime()+0.02, b);
-    }
-    else if (strcmp(msg->getName(), "updateSubscriptionCompleted") == 0){
-        // Update registration
-        EV << getParentModule()->getFullPath() << endl;
-        nlohmann::ordered_json subscriptionBody_;
-        subscriptionBody_ = nlohmann::ordered_json();
-        subscriptionBody_["_links"]["self"]["href"] = "";
-        subscriptionBody_["callbackReference"] = localAddress.str() + ":" + std::to_string(par("localUePort").intValue()) + webHook;
-        subscriptionBody_["requestTestNotification"] = false;
-        subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
-        subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
-        subscriptionBody_["filterCriteria"]["appInstanceId"] = getName();
-        subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
-
-        nlohmann::ordered_json val_;
-        val_["type"] = "UE_IPv4_ADDRESS";
-        val_["value"] = ueAppAddress.str();
-        subscriptionBody_["filterCriteria"]["associateId"].push_back(val_);
-        subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_COMPLETED";
-        subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
-        EV << subscriptionBody_;
-
-        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
-        std::string uristring = "/example/amsi/v1/subscriptions/" + amsSubscriptionId_completed;
-        Http::sendPutRequest(&amsSocket_, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
 
     }
     else if (strcmp(msg->getName(), "updateRegistration") == 0){
@@ -877,24 +830,19 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         const char *uri = uristring.c_str();
         Http::sendDeleteRequest(&amsSocket_, host.c_str(), uri);
 
-        cMessage *b = new cMessage("deleteSubscriptionCompleted");
-        scheduleAt(simTime()+0.02, b);
-
-    }
-    else if (strcmp(msg->getName(), "deleteSubscriptionCompleted") == 0){
-        EV << "Deleting subscription completed"<< endl;
-
-        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
-        std::string uristring = "/example/amsi/v1/subscriptions/" + amsSubscriptionId_completed;
-        const char *uri = uristring.c_str();
-        Http::sendDeleteRequest(&amsSocket_, host.c_str(), uri);
+        cMessage *b = new cMessage("deleteModule");
+        scheduleAt(simTime()+0.001, b);
 
     }
     else if (strcmp(msg->getName(), "deleteModule") == 0){
         EV << "Deleting module - nothing to do"<< endl;
-
+//
 //        callFinish();
 //        deleteModule();
+
+        cGate* gate = this->gate("viAppGate$o");
+        cMessage* t = new cMessage("endTerminationProcedure");
+        send(t, gate->getName());
     }
 
     delete msg;

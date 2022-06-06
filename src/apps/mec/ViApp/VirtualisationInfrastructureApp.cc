@@ -93,6 +93,37 @@ void VirtualisationInfrastructureApp::initialize(int stage)
 
 void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
 {
+    if(strcmp(msg->getName(), "endTerminationProcedure") == 0){
+        EV << "VirtualisationInfrastructureApp::handleMessage - delete module! " << msg->getArrivalGate()->getIndex() <<endl;
+        int index = msg->getArrivalGate()->getIndex();
+
+        RunningAppEntry* selected = nullptr;
+        for(auto it = runningApp.begin(); it != runningApp.end(); ++it){
+            RunningAppEntry entry = (it->second);
+
+            if(entry.inputGate->getIndex() == index){
+                selected = &entry;
+                break;
+            }
+        }
+
+        if(selected != nullptr){
+
+            appcounter--;
+            delete runningApp[selected->ueAppID];
+            allocatedCpu -= selected->resources.cpu;
+            allocatedRam -= selected->resources.ram;
+            allocatedDisk -= selected->resources.disk;
+
+            cModule* module = selected->module;
+            module->callFinish();
+            toDelete = module;
+            cMessage *msg = new cMessage("deleteModule");
+            scheduleAt(simTime()+0.1, msg);
+        }
+
+        return;
+    }
     if (msg->isSelfMessage())
     {
         if(std::strcmp(msg->getFullName(), "deleteModule") == 0)
@@ -214,6 +245,13 @@ bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicati
     newAtOutGate->connectTo(module->gate("socketIn"));
     module->gate("socketOut")->connectTo(newAtInGate);
 
+    // Add gates for vi interaction
+    cGate* newAppInGate = this->getOrCreateFirstUnconnectedGate("appGates$i", 0, false, true);
+    cGate* newAppOutGate = this->getOrCreateFirstUnconnectedGate("appGates$o", 0, false, true);
+
+    newAppOutGate->connectTo(module->gate("viAppGate$i"));
+    module->gate("viAppGate$o")->connectTo(newAppInGate);
+
     module->buildInside();
     module->scheduleStart(simTime());
     std::cout << "VirtualisationInfrastructureApp::handleInstantiation - before initialization "<< endl;
@@ -223,6 +261,9 @@ bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicati
 
     RunningAppEntry* entry = new RunningAppEntry();
     entry->module = module;
+    entry->port = portCounter;
+    entry->inputGate = newAppInGate;
+    entry->outputGate = newAppOutGate;
     entry->ueAppID = data->getUeAppID();
     entry->moduleName = data->getMEModuleName();
     entry->moduleType = data->getMEModuleType();
@@ -249,12 +290,16 @@ bool VirtualisationInfrastructureApp::handleTermination(DeleteAppMessage* data)
         return false;
 
     RunningAppEntry entry = it->second;
-    cModule* module = entry.module;
-    std::cout << module << endl;
-    module->callFinish();
-    toDelete = module;
-    cMessage *msg = new cMessage("deleteModule");
-    scheduleAt(simTime()+0.1, msg);
+//    cModule* module = entry.module;
+//    std::cout << module << endl;
+//    module->callFinish();
+//    toDelete = module;
+//    cMessage *msg = new cMessage("deleteModule");
+//    scheduleAt(simTime()+0.1, msg);
+
+    cGate* gate = entry.outputGate;
+    cMessage* msg = new cMessage("startTerminationProcedure");
+    send(msg, gate->getName(), gate->getIndex());
 
 
     std::cout << "finish termination" << endl;

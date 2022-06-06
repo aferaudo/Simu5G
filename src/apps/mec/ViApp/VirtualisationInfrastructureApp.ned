@@ -36,5 +36,7 @@ simple VirtualisationInfrastructureApp like IApp
    	gates:
         output socketOut;
         input socketIn;
+        
+        inout appGates[];
     	
 }
