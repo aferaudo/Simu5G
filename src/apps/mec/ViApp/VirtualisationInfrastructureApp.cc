@@ -110,7 +110,7 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
         if(selected != nullptr){
 
             appcounter--;
-            delete runningApp[selected->ueAppID];
+            runningApp.erase(selected->ueAppID);
             allocatedCpu -= selected->resources.cpu;
             allocatedRam -= selected->resources.ram;
             allocatedDisk -= selected->resources.disk;
