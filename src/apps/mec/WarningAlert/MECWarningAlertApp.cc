@@ -249,6 +249,7 @@ void MECWarningAlertApp::sendSubscription()
 void MECWarningAlertApp::sendDeleteSubscription()
 {
     std::string uri = "/example/location/v2/subscriptions/area/circle/" + subId;
+    subId = "";
     std::string host = serviceSocket_.getRemoteAddress().str()+":"+std::to_string(serviceSocket_.getRemotePort());
     Http::sendDeleteRequest(&serviceSocket_, host.c_str(), uri.c_str());
 }
