@@ -25,6 +25,8 @@ class MecWarningAppSyncMessage extends inet::FieldsChunk {
     double positionY;
     double radius;
     
+    string state;
+    
     inet::L3Address ueAddress;
     int uePort;
     
