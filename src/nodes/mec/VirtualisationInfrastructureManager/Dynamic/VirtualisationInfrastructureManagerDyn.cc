@@ -125,29 +125,27 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
 {
     EV << "VirtualisationInfrastructureManagerDyn::handleMessage - message received! " << msg->getName() << endl;
     std::cout << "VirtualisationInfrastructureManagerDyn::handleMessage - message received! " << msg->getName() << endl;
-    if (msg->isSelfMessage() && strcmp(msg->getName(), "connect") != 0)
-    {
-        std::cout << "VirtualisationInfrastructureManagerDyn::handleMessage - dentro" << endl;
-        if(strcmp(msg->getName(), "print") == 0){
-            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - self message received!" << endl;
-            printResources();
-            allocateResources(1000,1000,1000, getParentModule()->getId());
-            printResources();
-            deallocateResources(1000,1000,1000, getParentModule()->getId());
-            printResources();
-            int addedHostId = registerHost(5555,2222,2222,2222,inet::L3Address("192.168.10.10"), 7890);
-            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - bestHost " << findBestHostDyn(1000,1000,1000) << endl;
-            unregisterHost(addedHostId);
-        }
-        else if(strcmp(msg->getName(), "register") == 0){
-            // Register to MECOrchestrator
-            EV << "VirtualisationInfrastructureManagerDyn::subscribing to broker and registring to MEO" << endl;
-            // connectToBroker
-            connectToBroker();
 
-            // send MEC Orchestrastor registration
-            sendMEORegistration();
-        }
+    if(msg->isSelfMessage() && strcmp(msg->getName(), "print") == 0){
+        EV << "VirtualisationInfrastructureManagerDyn::handleMessage - self message received!" << endl;
+        printResources();
+        allocateResources(1000,1000,1000, getParentModule()->getId());
+        printResources();
+        deallocateResources(1000,1000,1000, getParentModule()->getId());
+        printResources();
+        int addedHostId = registerHost(5555,2222,2222,2222,inet::L3Address("192.168.10.10"), 7890);
+        EV << "VirtualisationInfrastructureManagerDyn::handleMessage - bestHost " << findBestHostDyn(1000,1000,1000) << endl;
+        unregisterHost(addedHostId);
+        delete msg;
+    }
+    else if(msg->isSelfMessage() && strcmp(msg->getName(), "register") == 0){
+        // Register to MECOrchestrator
+        EV << "VirtualisationInfrastructureManagerDyn::subscribing to broker and registring to MEO" << endl;
+        // connectToBroker
+        connectToBroker();
+
+        // send MEC Orchestrastor registration
+        sendMEORegistration();
         delete msg;
     }
     else if(!msg->isSelfMessage() && socket.belongsToSocket(msg)){
@@ -267,6 +265,7 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
         }
     }
     else{
+        std::cout << "Else virtualisationinfrastracturedyn " << endl;
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TCP message received!" << endl;
         SubscriberBase::handleMessageWhenUp(msg);
     }
@@ -918,9 +917,9 @@ void VirtualisationInfrastructureManagerDyn::handleMepmMessage(cMessage* msg){
 
 void VirtualisationInfrastructureManagerDyn::manageNotification()
 {
-    if(currentHttpMessage->getType() == RESPONSE)
+    if(currentHttpMessageServed_->getType() == RESPONSE)
     {
-        HttpResponseMessage *response = dynamic_cast<HttpResponseMessage*> (currentHttpMessage);
+        HttpResponseMessage *response = dynamic_cast<HttpResponseMessage*> (currentHttpMessageServed_);
         EV << "VIM received a response - resources available for my zone" << endl;
         //EV << "VIM::Response received: " << response->getBody() << endl;
         nlohmann::json jsonResponseBody = nlohmann::json::parse(response->getBody());
@@ -938,9 +937,9 @@ void VirtualisationInfrastructureManagerDyn::manageNotification()
             registerHost(std::atoi(it.key().c_str()), (*it)["ram"], (*it)["disk"], (*it)["cpu"], inet::L3Address(ipAddress_str.c_str()), (*it)["viPort"]);
         }
     }
-    else if(currentHttpMessage->getType()  == REQUEST)
+    else if(currentHttpMessageServed_->getType()  == REQUEST)
     {
-        HttpRequestMessage *request = dynamic_cast<HttpRequestMessage*> (currentHttpMessage);
+        HttpRequestMessage *request = dynamic_cast<HttpRequestMessage*> (currentHttpMessageServed_);
         EV << "VIM::received a request - new resource available" << endl;
         std::string uri = request->getUri();
         // use webhook

@@ -88,40 +88,38 @@ void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
 {
     EV << "MecPlatformManagerDyn::handleMessage - message received - " << msg << endl;
 
-    if (msg->isSelfMessage()){
-        EV << "MecPlatformManagerDyn::handleMessage - self message received - " << msg << endl;
-        if(strcmp(msg->getName(), "register") == 0)
+
+    if(msg->isSelfMessage() && strcmp(msg->getName(), "register") == 0)
+    {
+        // Register to MECOrchestrator
+        std::cout << "MecPlatformManagerDyn::handleMessage - register to MEO " << msg << endl;
+        sendMEORegistration();
+
+        //Check Ams availability
+        // TODO amsname should be a parameters
+        amsEnabled = checkServiceAvailability("ApplicationMobilityService");
+        EV << "MecPlatformManagerDyn::ams is enabled? " << amsEnabled << endl;
+        if(amsEnabled)
         {
-            // Register to MECOrchestrator
-            std::cout << "MecPlatformManagerDyn::handleMessage - register to MEO " << msg << endl;
-            sendMEORegistration();
-
-            //Check Ams availability
-            // TODO amsname should be a parameters
-            amsEnabled = checkServiceAvailability("ApplicationMobilityService");
-            EV << "MecPlatformManagerDyn::ams is enabled? " << amsEnabled << endl;
-            if(amsEnabled)
-            {
-                connectToBroker();
-            }
+            connectToBroker();
         }
-        else if(strcmp(msg->getName(), "nextSubsription") == 0)
+        delete msg;
+    }
+    else if( msg->isSelfMessage() && strcmp(msg->getName(), "nextSubsription") == 0)
+    {
+        EV << "MecPlatformManagerDyn::received nextSubscription self message" << endl;
+        if(appInstanceIds_.size() != 0)
         {
-            EV << "MecPlatformManagerDyn::received nextSubscription self message" << endl;
-            if(appInstanceIds_.size() != 0)
-            {
-                //std::string appInstanceId = appInstanceIds_.front();
-                EV << "MecPlatformManagerDyn::subscribing for " << appInstanceIds_.front() << " with mobility status = INTERHOST_MOVEOUT_COMPLETED" <<endl;
+            //std::string appInstanceId = appInstanceIds_.front();
+            EV << "MecPlatformManagerDyn::subscribing for " << appInstanceIds_.front() << " with mobility status = INTERHOST_MOVEOUT_COMPLETED" <<endl;
 
 
-                handleSubscription("INTERHOST_MOVEOUT_COMPLETED");
+            handleSubscription("INTERHOST_MOVEOUT_COMPLETED");
 
-                appInstanceIds_.pop();
-                EV << "MecPlatformManagerDyn::appinstanceIds size after pop " << appInstanceIds_.size() << endl;
+            appInstanceIds_.pop();
+            EV << "MecPlatformManagerDyn::appinstanceIds size after pop " << appInstanceIds_.size() << endl;
 
-            }
         }
-
         delete msg;
     }else if (!msg->isSelfMessage() && socket.belongsToSocket(msg))
     {
@@ -390,11 +388,11 @@ void MecPlatformManagerDyn::manageNotification()
      * This methods manage both RESPONSE and REQUESTS
      * - responses are not actually notification, but notify the correct or failed registration to the broker (FIXME?)
      */
-    if(currentHttpMessage->getType() == RESPONSE)
+    if(currentHttpMessageServed_->getType() == RESPONSE)
     {
         EV << "MecPlatformManagerDyn::manageNotification - subscription" << endl;
-        HttpResponseMessage *response = check_and_cast<HttpResponseMessage*>(currentHttpMessage);
-        nlohmann::ordered_json jsonBody = nlohmann::json::parse(currentHttpMessage->getBody());
+        HttpResponseMessage *response = check_and_cast<HttpResponseMessage*>(currentHttpMessageServed_);
+        nlohmann::ordered_json jsonBody = nlohmann::json::parse(currentHttpMessageServed_->getBody());
         if(response->getCode() == 201)
         {
             MobilityProcedureSubscription subscription;
@@ -410,7 +408,7 @@ void MecPlatformManagerDyn::manageNotification()
 
         EV << "MecPlatformManagerDyn::manageNotification - notification" << endl;
         // This is a request, so notification
-        HttpRequestMessage *request = check_and_cast<HttpRequestMessage*>(currentHttpMessage);
+        HttpRequestMessage *request = check_and_cast<HttpRequestMessage*>(currentHttpMessageServed_);
         nlohmann::ordered_json jsonBody = nlohmann::json::parse(request->getBody());
 
         EV << "MecPlatformManagerDyn::notificationType: " << jsonBody["notificationType"] << endl;

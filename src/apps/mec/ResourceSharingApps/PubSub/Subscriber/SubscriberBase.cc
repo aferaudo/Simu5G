@@ -20,7 +20,7 @@
 
 SubscriberBase::SubscriberBase()
 {
-    currentHttpMessage = nullptr;
+    currentHttpMessageServed_ = nullptr;
 }
 
 void SubscriberBase::initialize(int stage)
@@ -64,11 +64,33 @@ void SubscriberBase::handleStartOperation(inet::LifecycleOperation *operation)
 
 void SubscriberBase::handleMessageWhenUp(omnetpp::cMessage *msg)
 {
+    std::cout << "Subscriber base: received message: " << msg->getName() << " " << msg->isSelfMessage() << endl;
     if(msg->isSelfMessage() && strcmp(msg->getName(), "connectToBroker") == 0)
     {
         EV << "SubscriberBase:: connecting to the broker" << endl;
         connectToBroker();
 
+        delete msg;
+    }
+    else if(msg->isSelfMessage() && strcmp(msg->getName(), "nextEvent") == 0)
+    {
+        std::cout << "I'm here" << endl;
+        if(httpMessageQueue_.size() != 0)
+        {
+
+            currentHttpMessageServed_ = httpMessageQueue_.front();
+            httpMessageQueue_.pop();
+            manageNotification();
+            EV << "SubscriberBase::http message to be processed: " << httpMessageQueue_.size() << endl;
+            cMessage *nextEvent = new cMessage("nextEvent");
+            if(!nextEvent->isScheduled() && httpMessageQueue_.size() > 0)
+               scheduleAt(simTime(), nextEvent);
+        }
+
+        if(currentHttpMessageServed_ != nullptr)
+        {
+            currentHttpMessageServed_ = nullptr;
+        }
         delete msg;
     }
     else if (msg->isSelfMessage() && strcmp(msg->getName(), "unsub") == 0)
@@ -167,7 +189,7 @@ void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *pa
     delete packet;
 
     std::string msg(bytes.begin(), bytes.end());
-
+    HttpBaseMessage* currentHttpMessage = new HttpBaseMessage();
     bool res = Http::parseReceivedMsg(msg, &buffer, &currentHttpMessage);
 
     if(res)
@@ -178,7 +200,16 @@ void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *pa
             {
                 if(currentHttpMessage->getType() == RESPONSE || currentHttpMessage->getType() == REQUEST)
                 {
-                    manageNotification();
+                    EV << "SubscriberBase::Put notification in queue " << endl;
+                    // In case of multiple notification a queue may be needed (AMS scenario)
+                    httpMessageQueue_.push(currentHttpMessage);
+
+                    cMessage *nextEvent = new cMessage("nextEvent");
+                    if(!nextEvent->isScheduled())
+                    {
+                       std::cout<<"Scheduling nextEvent " << httpMessageQueue_.size() << endl;
+                       scheduleAt(simTime(), nextEvent);
+                    }
                 }
                 else
                 {
@@ -203,10 +234,10 @@ void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *pa
         }
     }
 
-    if(currentHttpMessage != nullptr)
-    {
-        currentHttpMessage = nullptr;
-    }
+//    if(currentHttpMessage != nullptr)
+//    {
+//        currentHttpMessage = nullptr;
+//    }
 
 }
 
