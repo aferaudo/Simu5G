@@ -73,6 +73,8 @@ class VirtualisationInfrastructureApp : public cSimpleModule
     std::map<int, RunningAppEntry> runningApp;
     SchedulingMode scheduling;
     cModule *toDelete;
+    std::queue<cModule *> terminatingModules;
+
     double maxCpu;
     double allocatedCpu;
 
@@ -103,6 +105,9 @@ class VirtualisationInfrastructureApp : public cSimpleModule
 
         bool handleInstantiation(InstantiationApplicationRequest* data);
         bool handleTermination(DeleteAppMessage* data);
+
+        void handleEndTerminationProcedure(cMessage *);
+        void handleModuleRemoval(cMessage *);
 
 };
 
