@@ -170,7 +170,7 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
 bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicationRequest* data)
 {
     EV << "VirtualisationInfrastructureApp::handleInstantiation - " << data << endl;
-
+    std::cout << "viapp with id " << getId() << " " << data->getContextId() << endl;
     appcounter++;
     portCounter++;
 

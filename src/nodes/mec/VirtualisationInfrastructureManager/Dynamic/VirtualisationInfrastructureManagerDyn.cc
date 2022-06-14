@@ -671,15 +671,10 @@ void VirtualisationInfrastructureManagerDyn::printHandledApp()
         MecAppEntryDyn *entry = (it->second);
 
         EV << "VirtualisationInfrastructureManagerDyn::printHandledApp - APP ID: " << key << endl;
-        std::cout << "VirtualisationInfrastructureManagerDyn::printHandledApp - APP ID: " << key << endl;
         EV << "VirtualisationInfrastructureManagerDyn::printHandledApp - APP instance Id: " << entry->appInstanceId << endl;
-        std::cout << "VirtualisationInfrastructureManagerDyn::printHandledApp - APP instance Id: " << entry->appInstanceId << endl;
         EV << "VirtualisationInfrastructureManagerDyn::printHandledApp - Endpoint: " << entry->endpoint.str() << endl;
-        std::cout << "VirtualisationInfrastructureManagerDyn::printHandledApp - Endpoint: " << entry->endpoint.str() << endl;
         EV << "VirtualisationInfrastructureManagerDyn::printHandledApp - Module name: " << entry->moduleName << endl;
-        std::cout << "VirtualisationInfrastructureManagerDyn::printHandledApp - Module name: " << entry->moduleName << endl;
         EV << "VirtualisationInfrastructureManagerDyn::printHandledApp - Buffered: " << entry->isBuffered << endl;
-        std::cout << "VirtualisationInfrastructureManagerDyn::printHandledApp - Buffered: " << entry->isBuffered << endl;
     }
 }
 
@@ -1014,6 +1009,8 @@ void VirtualisationInfrastructureManagerDyn::socketEstablished(
     // We should distinguish between two sockets
     if(socket->getRemoteAddress() == brokerIPAddress)
     {
+        serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
+
         EV << "VirtualisationInfrastructureManagerDyn::Preparing subscription body" << endl;
         subscriptionBody_ = infoToJson();
         sendSubscription();
@@ -1040,6 +1037,7 @@ void VirtualisationInfrastructureManagerDyn::handleMobilityRequest(cMessage* msg
         {
             if(std::strcmp(receivedData->getAppInstanceId(), value.second->appInstanceId.c_str()) == 0)
             {
+                std::cout << "vim local instantiation " << receivedData->getAppInstanceId() << endl;
                 EV <<  "VIM::MECApp found on host: " << value.second->endpoint.addr.str() << ":" << std::to_string(value.second->endpoint.port) << endl;
                 // get partial data
                 if(isAllocableOnBuffer(value.second->usedResources.ram, value.second->usedResources.disk, value.second->usedResources.cpu))
@@ -1122,9 +1120,7 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
     int ueAppID = data->getUeAppID();
     int port = data->getAllocatedPort();
     int packetLength = 0;
-    std::cout << "handleInstantiationREsponse: " << waitingInstantiationRequests.size() << endl;
     auto it = waitingInstantiationRequests.find(std::to_string(ueAppID));
-    std::cout << "waitingInst" << endl;
     if(it == waitingInstantiationRequests.end()){
         throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - InstantiationResponse - cannot find registered app");
     }
@@ -1160,16 +1156,13 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
         // Delete old app and adding at the map of app in migration phase (they still need context synchronization)
         EV << "VirtualisationInfrastructureManagerDyn::adding address in migrating " << existingApp->second->endpoint.addr << endl;
         migratingApps[std::to_string(existingApp->second->ueAppID)] = (*existingApp->second);
-        std::cout << "InstatiationResponse1 " << handledApp.size() << endl;
         //handledApp.erase(existingApp);
 
         // Add new mecApp at list of handledApp
-        std::cout << "InstantiationReponse adding after migration : " << handledApp.size() << endl;
         //handledApp[std::to_string(entry->ueAppID)] = entry;
         existingApp->second->isBuffered = true;
         existingApp->second->endpoint.addr = entry->endpoint.addr;
         existingApp->second->endpoint.port = port;
-        std::cout << "InstatiationResponse2 " << handledApp.size() << endl;
         printHandledApp();
         // sending service mobility response
         inet::Packet* packet = new inet::Packet("ServiceMobilityResponse");
@@ -1243,7 +1236,6 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
     //toSend->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
 
     entry->appInstanceId = appName.str();
-    std::cout << "InstantiationReponse adding after normal : " << handledApp.size() << endl;
     handledApp[std::to_string(ueAppID)] = entry;
     printHandledApp();
     waitingInstantiationRequests.erase(it);

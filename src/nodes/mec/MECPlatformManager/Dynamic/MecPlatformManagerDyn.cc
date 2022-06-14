@@ -105,7 +105,7 @@ void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
         }
         delete msg;
     }
-    else if( msg->isSelfMessage() && strcmp(msg->getName(), "nextSubsription") == 0)
+    else if( msg->isSelfMessage() && strcmp(msg->getName(), "nextSubscription") == 0)
     {
         EV << "MecPlatformManagerDyn::received nextSubscription self message" << endl;
         if(appInstanceIds_.size() != 0)
@@ -114,9 +114,9 @@ void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
             EV << "MecPlatformManagerDyn::subscribing for " << appInstanceIds_.front() << " with mobility status = INTERHOST_MOVEOUT_COMPLETED" <<endl;
 
 
-            handleSubscription("INTERHOST_MOVEOUT_COMPLETED");
-
+            handleSubscription(appInstanceIds_.front(), "INTERHOST_MOVEOUT_COMPLETED");
             appInstanceIds_.pop();
+
             EV << "MecPlatformManagerDyn::appinstanceIds size after pop " << appInstanceIds_.size() << endl;
 
         }
@@ -362,7 +362,7 @@ void MecPlatformManagerDyn::handleInstantiationResponse(
     if(amsEnabled && responsemsg->getStatus())
     {
         appInstanceIds_.push(responsemsg->getInstanceId());
-        handleSubscription();
+        handleSubscription(responsemsg->getInstanceId());
     }
 
 }
@@ -429,6 +429,7 @@ void MecPlatformManagerDyn::manageNotification()
                     bool condition = res && notification->getTargetAppInfo().getCommInterface().size() == 0; // event with targetAppInfo are ignored
                     if(condition)
                     {
+
                         inet::L3Address destinationAddr;
                         int destPort;
                         int packetLength = 0;
@@ -458,6 +459,7 @@ void MecPlatformManagerDyn::manageNotification()
                             destPort = vimPort;
                             std::string appInstanceId = jsonBody["appInstanceId"];
                             toSend->setAppInstanceId(appInstanceId.c_str());
+                            std::cout << "MecPlatformManagerDyn:: appInstanceId " << appInstanceId << endl;
                             packetLength = packetLength + appInstanceId.size();
                         }
                         else // -- global migration (from mechost to mechost)
@@ -557,6 +559,7 @@ void MecPlatformManagerDyn::handleServiceMobilityResponse(
     EV << "MecPlatformManagerDyn::Received service mobility response json object: " << notification->toJson().dump()<< endl;
 
     // Exploiting socket used for subscribing phase
+    std::cout << "SENDING NOTIFICATION - MY HOST (Service mobilityResponse) " << serverHost.c_str() << endl;
     Http::sendPostRequest(&tcpSocket, notification->toJson().dump().c_str(), serverHost.c_str(), triggerURI.c_str());
 
 }
@@ -575,12 +578,13 @@ void MecPlatformManagerDyn::handleParkMigrationTrigger(inet::Packet* packet)
     request["appInstanceId"] = data->getAppInstanceId();
 
     EV << "MecPlatformManagerDyn::Trigger ready: " << request.dump() << endl;
+    std::cout << "SENDING NOTIFICATION - MY HOST (handleParkMigrationTrigger) " << serverHost.c_str() << endl;
 
     Http::sendPostRequest(&tcpSocket, request.dump().c_str(),  serverHost.c_str(), triggerURI.c_str());
 }
 
 void MecPlatformManagerDyn::handleSubscription(
-        std::string mobilityStatus) {
+       std::string appInstanceId, std::string mobilityStatus) {
 
 
     subscriptionBody_ = nlohmann::ordered_json();
@@ -589,7 +593,7 @@ void MecPlatformManagerDyn::handleSubscription(
     subscriptionBody_["requestTestNotification"] = false;
     subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
     subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
-    subscriptionBody_["filterCriteria"]["appInstanceId"] = appInstanceIds_.front();
+    subscriptionBody_["filterCriteria"]["appInstanceId"] = appInstanceId;
     subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
     subscriptionBody_["filterCriteria"]["mobilityStatus"] = mobilityStatus;
     subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
@@ -598,8 +602,8 @@ void MecPlatformManagerDyn::handleSubscription(
 
 
     // FIXME -- this should be avoided by using as mobility status an array
-    cMessage *moveoutCompleted = new cMessage("nextSubsription");
-    if(!moveoutCompleted->isScheduled())
+    cMessage *moveoutCompleted = new cMessage("nextSubscription");
+    if(!moveoutCompleted->isScheduled() && appInstanceIds_.size() > 0)
     {
         double time = exponential(0.005);
         EV << "MecPlatformManagerDyn::sending subscription in "<< time << " seconds" << endl;

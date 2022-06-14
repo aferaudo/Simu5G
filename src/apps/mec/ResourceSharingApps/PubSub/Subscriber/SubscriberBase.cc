@@ -50,7 +50,6 @@ void SubscriberBase::handleStartOperation(inet::LifecycleOperation *operation)
     tcpSocket.setOutputGate(gate("socketOut"));
     tcpSocket.bind(localToBrokerPort);
     tcpSocket.setCallback(this);
-    serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
     appState = UNSUB;
 
     // drawing a cricle
@@ -75,6 +74,7 @@ void SubscriberBase::handleMessageWhenUp(omnetpp::cMessage *msg)
     else if(msg->isSelfMessage() && strcmp(msg->getName(), "nextEvent") == 0)
     {
         std::cout << "I'm here" << endl;
+
         if(httpMessageQueue_.size() != 0)
         {
 
@@ -84,13 +84,15 @@ void SubscriberBase::handleMessageWhenUp(omnetpp::cMessage *msg)
             EV << "SubscriberBase::http message to be processed: " << httpMessageQueue_.size() << endl;
             cMessage *nextEvent = new cMessage("nextEvent");
             if(!nextEvent->isScheduled() && httpMessageQueue_.size() > 0)
-               scheduleAt(simTime(), nextEvent);
+               scheduleAt(simTime() +0.001, nextEvent);
         }
 
         if(currentHttpMessageServed_ != nullptr)
         {
             currentHttpMessageServed_ = nullptr;
         }
+
+
         delete msg;
     }
     else if (msg->isSelfMessage() && strcmp(msg->getName(), "unsub") == 0)
@@ -131,6 +133,8 @@ void SubscriberBase::connectToBroker()
 void SubscriberBase::socketEstablished(inet::TcpSocket *socket)
 {
     EV << "SubscriberBase::connection established!" << endl;
+    serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
+
     //EV << "SubscriberBase::subscribing" << endl;
     //sendSubscription();
 }
@@ -208,7 +212,7 @@ void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *pa
                     if(!nextEvent->isScheduled())
                     {
                        std::cout<<"Scheduling nextEvent " << httpMessageQueue_.size() << endl;
-                       scheduleAt(simTime(), nextEvent);
+                       scheduleAt(simTime()+0.001, nextEvent);
                     }
                 }
                 else
