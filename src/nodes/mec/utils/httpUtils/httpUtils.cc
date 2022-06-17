@@ -268,14 +268,27 @@ namespace Http {
     bool parseReceivedMsg(std::string& packet, std::string* storedData, HttpBaseMessage** currentHttpMessage)
     {
         EV_INFO << "httpUtils::parseReceivedMsg- start..." << endl;
+        EV_INFO << "======================================================================================" << endl;
+        EV_INFO << "HTTP Packet to analyze" << endl;
+        EV_INFO << packet << endl;
+        EV_INFO << "======================================================================================" << endl;
+        std::cout << "qui" << endl;
         std::string delimiter = "\r\n\r\n";
         size_t pos = 0;
         std::string header;
 //        int remainingData;
         if(*currentHttpMessage != nullptr && (*currentHttpMessage)->isReceivingMsg())
         {
+            EV_INFO << "Entered in the first IF statement" << endl;
            EV << "MecAppBase::parseReceivedMsg - Continue receiving data for the current HttpMessage" << endl;
            Http::HttpMsgState res = Http::parseTcpData(&packet, *currentHttpMessage);
+           EV_INFO << "======================================================================================" << endl;
+           EV_INFO << "Update state of the packet - parse tcp data first IF statement" << endl;
+           EV_INFO << packet << endl;
+           EV_INFO << "CurrentHttpMessage" << endl;
+           EV_INFO << (*currentHttpMessage)->getBody() << endl;
+           EV_INFO << "res: " << res << endl;
+           EV_INFO << "======================================================================================" << endl;
            switch (res)
            {
                case (Http::COMPLETE_NO_DATA):
@@ -290,6 +303,8 @@ namespace Http {
                case (Http::INCOMPLETE_NO_DATA):
                        return false;
            }
+        }else{
+            EV_INFO << "Skip first IF statement" << endl;
         }
 
         /*
@@ -302,21 +317,36 @@ namespace Http {
         std::string temp;
         if(storedData->length() > 0)
         {
+           EV_INFO << "Stored data is not empty" << endl;
            EV << "MecAppBase::parseReceivedMsg - buffered data" << endl;
            temp = packet;
            packet = *storedData + temp;
 
+        }else{
+            EV_INFO << "Stored data is empty" << endl;
         }
 
         while ((pos = packet.find(delimiter)) != std::string::npos) {
+           EV_INFO << "Entering the cycle" << endl;
            EV << "MecAppBase::parseReceivedMsgn - new HTTP message"<< endl;
            header = packet.substr(0, pos);
            packet.erase(0, pos+delimiter.length()); //remove header
 //           HttpBaseMessage* newHttpMessage = Http::parseHeader(header);
            *currentHttpMessage = Http::parseHeader(header);
-
+           EV_INFO << "======================================================================================" << endl;
+           EV_INFO << "Update state of the packet - header removed" << endl;
+           EV_INFO << packet << endl;
+           EV_INFO << "CurrentHttpMessage" << endl;
+           EV_INFO << (*currentHttpMessage)->getBody() << endl;
+           EV_INFO << "======================================================================================" << endl;
            Http::HttpMsgState res = Http::parseTcpData(&packet, *currentHttpMessage);
-
+           EV_INFO << "======================================================================================" << endl;
+           EV_INFO << "Update state of the packet - parse tcp data" << endl;
+           EV_INFO << packet << endl;
+           EV_INFO << "CurrentHttpMessage" << endl;
+           EV_INFO << (*currentHttpMessage)->getBody() << endl;
+           EV_INFO << "res: " << res << endl;
+           EV_INFO << "======================================================================================" << endl;
            switch (res)
            {
                case (Http::COMPLETE_NO_DATA):
@@ -324,7 +354,8 @@ namespace Http {
                    return true;
                    break;
                case (Http::COMPLETE_DATA):
-                       throw cRuntimeError("httpUtils parseReceivedMsg - This function does not support multiple HTTP messages in one segment");
+                   break;
+//                       throw cRuntimeError("httpUtils parseReceivedMsg - This function does not support multiple HTTP messages in one segment");
                case (Http::INCOMPLETE_DATA):
                        throw cRuntimeError("httpUtils parseReceivedMsg - current Http Message is incomplete, but there is still data to read");
                case (Http::INCOMPLETE_NO_DATA):
@@ -348,28 +379,41 @@ namespace Http {
 
     void parseReceivedMsg(int socketId, std::string& packet, omnetpp::cQueue& messageQueue, std::string* storedData, HttpBaseMessage** currentHttpMessage)
     {
-        EV_INFO << "httpUtils::parseReceivedMsg" << endl;
+        std::cout <<"entrato"<<endl;
+        std::cout << "httpUtils::parseReceivedMsg" << endl;
+        std::cout << "======================================================================================" << endl;
+        std::cout << "HTTP Packet to analyze" << endl;
+        std::cout << packet << endl;
+        std::cout << "======================================================================================" << endl;
         std::string delimiter = "\r\n\r\n";
         size_t pos = 0;
         std::string header;
-//        int remainingData;
+        int remainingData;
 
         if(*currentHttpMessage != nullptr && (*currentHttpMessage)->isReceivingMsg())
         {
-            EV << "MecAppBase::parseReceivedMsg - Continue receiving data for the current HttpMessage" << endl;
+            std::cout << "Entered in the first IF statement" << endl;
+            std::cout << "MecAppBase::parseReceivedMsg - Continue receiving data for the current HttpMessage" << endl;
             Http::HttpMsgState res = Http::parseTcpData(&packet, *currentHttpMessage);
+            std::cout << "======================================================================================" << endl;
+            std::cout << "Update state of the packet - parse tcp data first IF statement" << endl;
+            std::cout << packet << endl;
+            std::cout << "CurrentHttpMessage" << endl;
+            std::cout << (*currentHttpMessage)->getBody() << endl;
+            std::cout << "res: " << res << endl;
+            std::cout << "======================================================================================" << endl;
 //            double time;
             switch (res)
             {
             case (Http::COMPLETE_NO_DATA):
-                EV << "MecAppBase::parseReceivedMsg - passing HttpMessage to application: " << res << endl;
+                std::cout << "MecAppBase::parseReceivedMsg - passing HttpMessage to application: " << res << endl;
                 (*currentHttpMessage)->setSockId(socketId);
                 messageQueue.insert(*currentHttpMessage);
                 *currentHttpMessage = nullptr;
                 return;
                 break;
             case (Http::COMPLETE_DATA):
-                EV << "MecAppBase::parseReceivedMsg - passing HttpMessage to application: " << res << endl;
+                std::cout << "MecAppBase::parseReceivedMsg - passing HttpMessage to application: " << res << endl;
                 (*currentHttpMessage)->setSockId(socketId);
                 messageQueue.insert(*currentHttpMessage);
                 *currentHttpMessage = nullptr;
@@ -380,6 +424,8 @@ namespace Http {
                     return;
 
             }
+        }else{
+            std::cout << "Skip first IF statement" << endl;
         }
 
         /*
@@ -388,46 +434,68 @@ namespace Http {
          *  - I was receiving an http message but I still have data (i.e a new HttpMessage) to manage.
          *    Start reading the header
          */
-
         std::string temp;
         if(storedData->length() > 0)
         {
-            EV << "MecAppBase::parseReceivedMsg - buffered data" << endl;
+            std::cout << "Stored data is not empty - content: " << *storedData << endl;
+//            std::cout << "Stored data is not empty - content: " << *storedData << endl;
+            std::cout << "MecAppBase::parseReceivedMsg - buffered data" << endl;
             temp = packet;
             packet = *storedData + temp;
+            *storedData = "";
+            std::cout << "Stored data is not empty - content: " << packet << endl;
 
+        }else{
+            std::cout << "Stored data is empty" << endl;
         }
 
         while ((pos = packet.find(delimiter)) != std::string::npos) {
+            *currentHttpMessage = nullptr;
             header = packet.substr(0, pos);
             packet.erase(0, pos+delimiter.length()); //remove header
 //            HttpBaseMessage* newHttpMessage = Http::parseHeader(header);
             *currentHttpMessage = Http::parseHeader(header);
 
+            std::cout << "======================================================================================" << endl;
+            std::cout << "Update state of the packet - header removed" << endl;
+            std::cout << packet << endl;
+            std::cout << "CurrentHttpMessage" << endl;
+            std::cout << (*currentHttpMessage)->getBody() << endl;
+            std::cout << "======================================================================================" << endl;
             Http::HttpMsgState res = Http::parseTcpData(&packet, *currentHttpMessage);
+            std::cout << "======================================================================================" << endl;
+            std::cout << "Update state of the packet - parse tcp data" << endl;
+            std::cout << packet << endl;
+            std::cout << "CurrentHttpMessage" << endl;
+            std::cout << (*currentHttpMessage)->getBody() << endl;
+            std::cout << "res: " << res << endl;
+            std::cout << "======================================================================================" << endl;
             // double time;
+            std::cout <<"entrato 2"<<endl;
             switch (res)
             {
             case (Http::COMPLETE_NO_DATA):
-                EV << "MecAppBase::parseReceivedMsg - passing HttpMessage to application: " << res << endl;
+                std::cout << "MecAppBase::parseReceivedMsg - passing HttpMessage to application: " << res << endl;
                 (*currentHttpMessage)->setSockId(socketId);
                 messageQueue.insert( *currentHttpMessage);
+                std::cout << "message is complete, adding to queue " << endl;
                 *currentHttpMessage = nullptr;
                 return;
                 break;
             case (Http::COMPLETE_DATA):
-                EV << "MecAppBase::parseReceivedMsg - passing HttpMessage to application: " << res << endl;
+                std::cout << "MecAppBase::parseReceivedMsg - passing HttpMessage to application: " << res << endl;
                 (*currentHttpMessage)->setSockId(socketId);
                 messageQueue.insert( *currentHttpMessage);
+                std::cout << "message is complete but there is more data, adding to queue " << endl;
                 *currentHttpMessage = nullptr;
                 break;
             case (Http::INCOMPLETE_DATA):
                     throw cRuntimeError("httpUtils parseReceivedMsg - current Http Message is incomplete, but there is still data to read");
             case (Http::INCOMPLETE_NO_DATA):
-                    return;
+                std::cout << "message is incomplete, not added to the queue" << endl;
+                return;
             }
         }
-
 
         /*
         * If I did not find the  delimiter ("\r\n\r\n")
@@ -436,6 +504,8 @@ namespace Http {
         */
         if(packet.length() != 0)
         {
+            std::cout << "buffer riempito - " << packet << endl;
+//            std::cout << "buffer riempito - " << packet << endl;
             *storedData = packet;
            return;
         }
@@ -548,6 +618,11 @@ namespace Http {
     void sendHttpRequest(inet::TcpSocket *socket, const char* method, const char* host, const char* uri, const char* parameters, const char* body)
     {
         EV << "httpUtils - sendHttpRequest: method: " << method << " to: " << socket->getRemoteAddress() << ":" << socket->getRemotePort() << endl;
+        EV << "httpUtils - sendHttpRequest: method " << method << endl;
+        EV << "httpUtils - sendHttpRequest: host " << host << endl;
+        if(body != nullptr){
+            EV << "httpUtils - sendHttpRequest: body " << body << endl;
+        }
         inet::Packet* packet = new inet::Packet("HttpRequestPacket");
         auto reqPkt = inet::makeShared<HttpRequestMessage>();
         //        resPkt->addTagIfAbsent<inet::PacketProtocolTag>()->setProtocol(&Protocol::http);
@@ -574,6 +649,11 @@ namespace Http {
     void sendHttpRequest(inet::TcpSocket *socket, const char* method, const char* host, std::pair<std::string, std::string>& header, const char* uri, const char* parameters, const char* body)
     {
         EV << "httpUtils - sendHttpRequest: method: " << method << " to: " << socket->getRemoteAddress() << ":" << socket->getRemotePort() << endl;
+        EV << "httpUtils - sendHttpRequest: method " << method << endl;
+        EV << "httpUtils - sendHttpRequest: host " << host << endl;
+        if(body != nullptr){
+            EV << "httpUtils - sendHttpRequest: body " << body << endl;
+        }
         inet::Packet* packet = new inet::Packet("HttpRequestPacket");
         auto reqPkt = inet::makeShared<HttpRequestMessage>();
         //        resPkt->addTagIfAbsent<inet::PacketProtocolTag>()->setProtocol(&Protocol::http);
@@ -601,6 +681,11 @@ namespace Http {
     void sendHttpRequest(inet::TcpSocket *socket, const char* method, const char* host, std::map<std::string, std::string>& headers, const char* uri, const char* parameters, const char* body)
     {
         EV << "httpUtils - sendHttpRequest: method: " << method << " to: " << socket->getRemoteAddress() << ":" << socket->getRemotePort() << endl;
+        EV << "httpUtils - sendHttpRequest: method " << method << endl;
+        EV << "httpUtils - sendHttpRequest: host " << host << endl;
+        if(body != nullptr){
+            EV << "httpUtils - sendHttpRequest: body " << body << endl;
+        }
         inet::Packet* packet = new inet::Packet("HttpRequestPacket");
         auto reqPkt = inet::makeShared<HttpRequestMessage>();
         //        resPkt->addTagIfAbsent<inet::PacketProtocolTag>()->setProtocol(&Protocol::http);

@@ -587,7 +587,7 @@ void MecPlatformManagerDyn::handleSubscription(
        std::string appInstanceId, std::string mobilityStatus) {
 
 
-    subscriptionBody_ = nlohmann::ordered_json();
+    subscriptionBody_ = nlohmann::json::object();
     subscriptionBody_["_links"]["self"]["href"] = "";
     subscriptionBody_["callbackReference"] = localAddress.str() + ":" + std::to_string(localToBrokerPort)  + webHook;
     subscriptionBody_["requestTestNotification"] = false;
