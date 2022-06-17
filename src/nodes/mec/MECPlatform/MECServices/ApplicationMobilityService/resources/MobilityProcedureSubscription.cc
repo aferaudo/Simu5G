@@ -140,3 +140,12 @@ nlohmann::ordered_json MobilityProcedureSubscription::toJson() const
 
     return val;
 }
+
+void MobilityProcedureSubscription::to_string() {
+    EV << "MobilityProcedureSubscription: " <<endl;
+    EV << "\tsubid: " << subscriptionId_ << endl;
+    EV << "\tcallbackReferece: " << callbackReference_ << endl;
+    EV << "\tfilterCriteria:" <<endl;
+    EV << "\t\tappInstanceId:" << filterCriteria_->getAppInstanceId() <<endl;
+    EV << "\t\tmobilityStatus:" << static_cast<FilterCriteria*>(filterCriteria_)->getMobilityStatusString() <<endl;
+}

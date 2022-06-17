@@ -55,6 +55,7 @@ class SubscriptionBase
 //        virtual void setNotificationTrigger(subscriptionTimer *nt) { notificationTrigger = nt;}
 //        virtual subscriptionTimer*  getNotificationTrigger() { return notificationTrigger;}
         virtual FilterCriteriaBase* getFilterCriteria() const{return filterCriteria_;}
+        virtual void to_string(){};
 
 
     protected:

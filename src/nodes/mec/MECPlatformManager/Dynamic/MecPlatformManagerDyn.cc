@@ -421,7 +421,7 @@ void MecPlatformManagerDyn::manageNotification()
                 EV << "MecPlatformManagerDyn::MobilityProcedureNotification - " << jsonBody["mobilityStatus"] << endl;
                 if(jsonBody["mobilityStatus"] == "INTERHOST_MOVEOUT_TRIGGERED")
                 {
-                    EV << "MecPlatformManagerDyn::notification with mobilityStatus:  INTERHOST_MOVEOUT_TRIGGERD" << endl;
+                    EV << "MecPlatformManagerDyn::notification with mobilityStatus:  INTERHOST_MOVEOUT_TRIGGERED" << endl;
                     // MobilityProcedureNotification
                     MobilityProcedureNotification *notification = new MobilityProcedureNotification();
                     EV << "MecPlatformManagerDyn::notification received: " << jsonBody.dump(2) << endl;
@@ -587,7 +587,7 @@ void MecPlatformManagerDyn::handleSubscription(
        std::string appInstanceId, std::string mobilityStatus) {
 
 
-    subscriptionBody_ = nlohmann::json::object();
+    subscriptionBody_ = nlohmann::ordered_json();
     subscriptionBody_["_links"]["self"]["href"] = "";
     subscriptionBody_["callbackReference"] = localAddress.str() + ":" + std::to_string(localToBrokerPort)  + webHook;
     subscriptionBody_["requestTestNotification"] = false;

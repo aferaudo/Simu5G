@@ -374,6 +374,8 @@ void ApplicationMobilityService::handleSubscriptionRequest(SubscriptionBase *sub
         // TODO Add new parameter in MobilityProcedureSubscription:
         // requestTestNotification - here you can start the test!
 
+        // Debugging
+        printAllSubscription();
         EV << serviceName_ << " - correct subscription created!" << endl;
     }
     else
@@ -462,5 +464,13 @@ bool ApplicationMobilityService::manageSubscription()
     else
     {
         return false;
+    }
+}
+
+void ApplicationMobilityService::printAllSubscription() {
+
+    for(auto subscriber : subscriptions_)
+    {
+        subscriber.second->to_string();
     }
 }

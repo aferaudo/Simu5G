@@ -268,27 +268,14 @@ namespace Http {
     bool parseReceivedMsg(std::string& packet, std::string* storedData, HttpBaseMessage** currentHttpMessage)
     {
         EV_INFO << "httpUtils::parseReceivedMsg- start..." << endl;
-        EV_INFO << "======================================================================================" << endl;
-        EV_INFO << "HTTP Packet to analyze" << endl;
-        EV_INFO << packet << endl;
-        EV_INFO << "======================================================================================" << endl;
-        std::cout << "qui" << endl;
         std::string delimiter = "\r\n\r\n";
         size_t pos = 0;
         std::string header;
 //        int remainingData;
         if(*currentHttpMessage != nullptr && (*currentHttpMessage)->isReceivingMsg())
         {
-            EV_INFO << "Entered in the first IF statement" << endl;
            EV << "MecAppBase::parseReceivedMsg - Continue receiving data for the current HttpMessage" << endl;
            Http::HttpMsgState res = Http::parseTcpData(&packet, *currentHttpMessage);
-           EV_INFO << "======================================================================================" << endl;
-           EV_INFO << "Update state of the packet - parse tcp data first IF statement" << endl;
-           EV_INFO << packet << endl;
-           EV_INFO << "CurrentHttpMessage" << endl;
-           EV_INFO << (*currentHttpMessage)->getBody() << endl;
-           EV_INFO << "res: " << res << endl;
-           EV_INFO << "======================================================================================" << endl;
            switch (res)
            {
                case (Http::COMPLETE_NO_DATA):
@@ -303,8 +290,6 @@ namespace Http {
                case (Http::INCOMPLETE_NO_DATA):
                        return false;
            }
-        }else{
-            EV_INFO << "Skip first IF statement" << endl;
         }
 
         /*
@@ -317,36 +302,21 @@ namespace Http {
         std::string temp;
         if(storedData->length() > 0)
         {
-           EV_INFO << "Stored data is not empty" << endl;
            EV << "MecAppBase::parseReceivedMsg - buffered data" << endl;
            temp = packet;
            packet = *storedData + temp;
 
-        }else{
-            EV_INFO << "Stored data is empty" << endl;
         }
 
         while ((pos = packet.find(delimiter)) != std::string::npos) {
-           EV_INFO << "Entering the cycle" << endl;
            EV << "MecAppBase::parseReceivedMsgn - new HTTP message"<< endl;
            header = packet.substr(0, pos);
            packet.erase(0, pos+delimiter.length()); //remove header
 //           HttpBaseMessage* newHttpMessage = Http::parseHeader(header);
            *currentHttpMessage = Http::parseHeader(header);
-           EV_INFO << "======================================================================================" << endl;
-           EV_INFO << "Update state of the packet - header removed" << endl;
-           EV_INFO << packet << endl;
-           EV_INFO << "CurrentHttpMessage" << endl;
-           EV_INFO << (*currentHttpMessage)->getBody() << endl;
-           EV_INFO << "======================================================================================" << endl;
+
            Http::HttpMsgState res = Http::parseTcpData(&packet, *currentHttpMessage);
-           EV_INFO << "======================================================================================" << endl;
-           EV_INFO << "Update state of the packet - parse tcp data" << endl;
-           EV_INFO << packet << endl;
-           EV_INFO << "CurrentHttpMessage" << endl;
-           EV_INFO << (*currentHttpMessage)->getBody() << endl;
-           EV_INFO << "res: " << res << endl;
-           EV_INFO << "======================================================================================" << endl;
+
            switch (res)
            {
                case (Http::COMPLETE_NO_DATA):
@@ -354,8 +324,7 @@ namespace Http {
                    return true;
                    break;
                case (Http::COMPLETE_DATA):
-                   break;
-//                       throw cRuntimeError("httpUtils parseReceivedMsg - This function does not support multiple HTTP messages in one segment");
+                       throw cRuntimeError("httpUtils parseReceivedMsg - This function does not support multiple HTTP messages in one segment");
                case (Http::INCOMPLETE_DATA):
                        throw cRuntimeError("httpUtils parseReceivedMsg - current Http Message is incomplete, but there is still data to read");
                case (Http::INCOMPLETE_NO_DATA):

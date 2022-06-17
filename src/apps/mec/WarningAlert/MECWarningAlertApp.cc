@@ -840,6 +840,7 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         Http::sendDeleteRequest(&amsSocket_, host.c_str(), uri);
 
         cMessage *b = new cMessage("deleteModule");
+        closeAllSockets();
         scheduleAt(simTime()+0.001, b);
 
     }

@@ -58,8 +58,10 @@ class SubscriberBase: public inet::ApplicationBase, public inet::TcpSocket::ICal
 
     // HttpMessageManagement
     std::queue<HttpBaseMessage*> httpMessageQueue_;
+    HttpBaseMessage* currentHttpMessageBuffer_;
     HttpBaseMessage* currentHttpMessageServed_;
     std::string buffer;
+    omnetpp::cQueue completedMessageQueue;
 
     std::string webHook;
     std::string serverHost;

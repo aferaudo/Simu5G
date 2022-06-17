@@ -168,4 +168,8 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
 
 }
 
-
+void MecAppBaseDyn::closeAllSockets() {
+    serviceSocket_.close();
+    mp1Socket_.close();
+    amsSocket_.close();
+}
