@@ -271,11 +271,10 @@ void SubscriberBase::unsubscribe()
     appState = UNSUB;
     EV << "SubscriberBase::called method unsubscribe - send delete request!" << endl;
 
-    std::string uri = subscribeURI + std::to_string(getId());
-    EV << "SubscriberBase::delete URI" << uri << endl;
+    EV << "SubscriberBase::delete URI" << unsubscribeURI << endl;
     //std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
 
-    Http::sendDeleteRequest(&tcpSocket, serverHost.c_str(), uri.c_str());
+    Http::sendDeleteRequest(&tcpSocket, serverHost.c_str(), unsubscribeURI.c_str());
 
 }
 

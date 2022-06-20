@@ -834,10 +834,10 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
     else if (strcmp(msg->getName(), "deleteSubscriptionTriggered") == 0){
         EV << "Deleting subscription triggered"<< endl;
 
-        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
-        std::string uristring = "/example/amsi/v1/subscriptions/" + amsSubscriptionId;
-        const char *uri = uristring.c_str();
-        Http::sendDeleteRequest(&amsSocket_, host.c_str(), uri);
+//        std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
+//        std::string uristring = "/example/amsi/v1/subscriptions/" + amsSubscriptionId;
+//        const char *uri = uristring.c_str();
+        //Http::sendDeleteRequest(&amsSocket_, host.c_str(), uri);
 
         cMessage *b = new cMessage("deleteModule");
         closeAllSockets();

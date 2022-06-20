@@ -51,6 +51,7 @@ void MecPlatformManagerDyn::initialize(int stage)
         localToBrokerPort = localPort;
 
         subscribeURI = std::string(par("subscribeURI").stringValue());
+        unsubscribeURI = subscribeURI + std::to_string(getId());
         webHook = std::string(par("webHook").stringValue());
 
         //triggeruri
@@ -337,6 +338,21 @@ void MecPlatformManagerDyn::handleTerminationResponse(inet::Packet * packet)
     if(data->isMigrating())
     {
         EV << "MecPlatformManagerDyn::handleTerminationResponse - app of " << data->getDeviceAppId() << " migrated (nothing to do)" << endl;
+
+        auto it = links_.find(std::string(data->getAppInstanceId()));
+        unsubscribeURI = it->second->getHref();
+        EV << "MecPlatformManagerDyn::handleTerminationResponse unsub uri:  " << unsubscribeURI << endl;
+
+        // unsubscribing for old apps
+        unsubscribe();
+        links_.erase(it);
+
+        // TODO add multiple unsubscription - COMPLETED
+
+        // Subscribing for new Apps
+        appInstanceIds_.push(data->getAppInstanceId());
+        handleSubscription(std::string(data->getAppInstanceId()));
+        appState = SUB;
         return;
     }
     deleteAppResponse = data->dup();
@@ -397,6 +413,9 @@ void MecPlatformManagerDyn::manageNotification()
         {
             MobilityProcedureSubscription subscription;
             subscription.fromJson(jsonBody);
+            LinkType *link = new LinkType();
+            link->setHref(subscription.getLinks());
+            links_[subscription.getFilterCriteria()->getAppInstanceId()] = link;
             EV << "MecPlatformManagerDyn::registered for " << subscription.getFilterCriteria()->getAppInstanceId() << endl;
             // test that subscription is really ok
             //Http::sendGetRequest(&tcpSocket, serverHost.c_str(), subscription.getLinks().c_str());
@@ -610,3 +629,4 @@ void MecPlatformManagerDyn::handleSubscription(
         scheduleAt(simTime()+time, moveoutCompleted);
     }
 }
+

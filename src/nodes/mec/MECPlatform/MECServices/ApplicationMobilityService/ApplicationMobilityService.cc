@@ -348,6 +348,22 @@ void ApplicationMobilityService::handleDELETERequest(const HttpRequestMessage *c
             Http::send404Response(socket);
         }
     }
+    else if(uri.find(baseUriSubscriptions_) == 0)
+    {
+        EV << "AMS::Delete subscription " <<  uri <<endl;
+        uri.erase(0,uri.find(baseUriSubscriptions_+"sub") + baseUriSubscriptions_.length() + 3);
+        EV << "AMS::Deleting " <<  uri << endl;
+        auto it = subscriptions_.find(std::atoi(uri.c_str()));
+        if(it == subscriptions_.end())
+        {
+            EV << "AMS:: delete subscription : subscriber " << uri << " not found" << endl;
+            Http::send404Response(socket);
+            return;
+        }
+
+        subscriptions_.erase(it);
+        printAllSubscription();
+    }
     else
     {
         EV << "AMS::DELETE request - bad uri " << endl;

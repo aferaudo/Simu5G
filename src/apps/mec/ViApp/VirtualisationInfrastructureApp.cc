@@ -152,6 +152,7 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
             responsepck->setRequestId(data->getSno());
             responsepck->setUeAppID(data->getUeAppID());
             responsepck->setIsMigrating(data->isMigrating()); //migration
+            responsepck->setAppInstanceId(data.get()->getAppInstanceId());
             responsepck->setChunkLength(inet::B(100));
             packet->insertAtBack(responsepck);
             socket.sendTo(packet, vimAddress, vimPort);

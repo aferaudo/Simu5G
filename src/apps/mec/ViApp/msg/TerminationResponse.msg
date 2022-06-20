@@ -29,4 +29,5 @@ class TerminationResponse extends inet::FieldsChunk {
     
     // for migration
     bool isMigrating = false;
+    string appInstanceId;
 }

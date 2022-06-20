@@ -58,6 +58,9 @@ class MecPlatformManagerDyn : public SubscriberBase
     VirtualisationInfrastructureManagerDyn* vim;
     ServiceRegistry* serviceRegistry;
 
+    std::map<std::string, LinkType*> links_;
+
+
     bool amsEnabled;
 
     inet::UdpSocket socket;

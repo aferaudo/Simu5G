@@ -91,5 +91,6 @@ class DeleteAppMessage extends inet::FieldsChunk {
     
     // migrating
     bool isMigrating = false;
+    string appInstanceId;
 }
 

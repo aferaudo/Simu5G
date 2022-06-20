@@ -35,6 +35,7 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         localToBrokerPort = par("localBrokerPort");
         radius = par("radius");
         subscribeURI = std::string(par("subscribeURI").stringValue());
+        unsubscribeURI = subscribeURI + std::to_string(getId());
         webHook = std::string(par("webHook").stringValue());
 
         // Meo settings
@@ -232,6 +233,7 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             terminationResponse->setRequestId(data->getRequestId());
             terminationResponse->setStatus(true);
             terminationResponse->setIsMigrating(data->isMigrating()); // migration
+            terminationResponse->setAppInstanceId(data->getAppInstanceId());
             terminationResponse->setChunkLength(inet::B(1000));
             std::cout<< "before sending: " << handledApp.size() << " " << simTime() << endl;
             printHandledApp();
@@ -621,11 +623,11 @@ bool VirtualisationInfrastructureManagerDyn::terminateMEApp(const TerminationApp
 
     terminationpck->setUeAppID(ueAppID);
     terminationpck->setIsMigrating(migrated); // migration
-    terminationpck->setChunkLength(inet::B(8)); // 4bytes + 4bytes
+    terminationpck->setAppInstanceId(msg->getAppInstanceId());
+    terminationpck->setChunkLength(inet::B(8 + std::string(msg->getAppInstanceId()).size())); // 4bytes + 4bytes
     packet->insertAtBack(terminationpck);
 
     EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp - sending to " << address << ":" << port <<endl;
-    std::cout << "Porco il clero: " << handledApp.size() << endl;
     socket.sendTo(packet, address, port);
 
     return true;

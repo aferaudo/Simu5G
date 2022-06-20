@@ -88,6 +88,7 @@ class TerminationAppInstResponse extends GeneralMessage
     // This allows to select if the app termination reply should 
     // be forwarded to the Orchestrator
     bool isMigrating = false;
+    string appInstanceId;
 }
     
 

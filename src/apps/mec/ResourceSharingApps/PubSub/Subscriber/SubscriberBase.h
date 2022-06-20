@@ -51,6 +51,7 @@ class SubscriberBase: public inet::ApplicationBase, public inet::TcpSocket::ICal
 
   protected:
     std::string subscribeURI;
+    std::string unsubscribeURI;
 
     SubscriberState appState;
 
