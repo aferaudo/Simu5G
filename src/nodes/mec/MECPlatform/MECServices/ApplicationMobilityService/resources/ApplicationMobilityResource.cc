@@ -233,3 +233,18 @@ RegistrationInfo* ApplicationMobilityResource::getRegistrationInfoFromAppId(
 
     return nullptr;
 }
+
+RegistrationInfo* ApplicationMobilityResource::getRegistrationInfoFromContext(
+        std::string appInstanceId, ContextTransferState context) const {
+
+    for(auto &el : serviceConsumers_)
+    {
+        // FIXME change for 1 to 1 correspondence
+       if(el.second->getDeviceInformation().size() > 0
+               && el.second->getServiceConsumerId().appInstanceId.compare(appInstanceId) == 0
+               && el.second->getDeviceInformation()[0].getContextTransferState() == context)
+           return el.second;
+    }
+
+    return nullptr;
+}

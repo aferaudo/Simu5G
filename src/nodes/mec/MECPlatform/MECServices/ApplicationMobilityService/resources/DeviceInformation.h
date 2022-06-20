@@ -15,7 +15,7 @@
 
 #ifndef NODES_MEC_MECPLATFORM_MECSERVICES_APPLICATIONMOBILITYSERVICE_RESOURCES_DEVICEINFORMATION_H_
 #define NODES_MEC_MECPLATFORM_MECSERVICES_APPLICATIONMOBILITYSERVICE_RESOURCES_DEVICEINFORMATION_H_
-#include<omnetpp.h>
+#include <omnetpp.h>
 #include "nodes/mec/MECPlatform/MECServices/Resources/AttributeBase.h"
 #include "nodes/mec/MECPlatform/MECServices/RNIService/resources/AssociateId.h"
 
