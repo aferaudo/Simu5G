@@ -18,6 +18,8 @@
 #include "inet/transportlayer/contract/tcp/TcpSocket.h"
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpMessages_m.h"
 
+#include <omnetpp.h>
+
 /*
  * For each new connection, the MecServiceBase creates a new SocketManager
  * object to manage the state TCP connection by implementing the
@@ -34,6 +36,8 @@ class SocketManager : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
     inet::TcpSocket *sock;    // ptr into socketMap managed by TCPSrvHostApp
     HttpBaseMessage* currentHttpMessage;
     std::string bufferedData;
+    std::map<int, std::string> buffers;
+    omnetpp::cQueue completedMessageQueue;
 
     // internal: inet::TcpSocket::CallbackInterface methods
     virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent) override { dataArrived(packet, urgent); }

@@ -55,6 +55,7 @@ class UEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallback
     //communication to device app and mec app
     inet::UdpSocket socket;
     inet::TcpSocket amsSocket;
+    omnetpp::cQueue completedMessageQueue; // for broken notification
 
     int size_;
     simtime_t period_;
@@ -90,6 +91,7 @@ class UEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallback
 
     std::string bufferedData;
     HttpBaseMessage* amsHttpMessage;
+    HttpBaseMessage* amsHttpCompleteMessage;
 
     // uses to write in a log a file
     bool log;

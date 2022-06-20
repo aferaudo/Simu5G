@@ -27,7 +27,35 @@ void SocketManager::dataArrived(inet::Packet *msg, bool urgent){
     EV << "SocketManager::dataArrived" << endl;
     msg->removeControlInfo();
 
-    std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
+    inet::b offset = inet::b(0);
+    int idx = 0;
+    std::vector<uint8_t> bytes =  msg->dup()->peekDataAsBytes()->getBytes();
+    auto chunkbytes =  msg->dup()->peekDataAsBytes();
+    EV << "SocketManager::dataArrived modified - maxdata : " << msg->getDataLength() << endl;
+    int i = 0;
+//    std::string packet;
+    while(offset < msg->getDataLength()){
+        auto chunk = msg->peekAt(offset)->dupShared();
+
+        if(chunk->getChunkLength() > inet::b(0)){
+            auto length = chunk->getChunkLength();
+
+            // Logic
+            std::vector<uint8_t> interesting_bytes = chunkbytes->peek<inet::BytesChunk>(offset, length)->getBytes();
+            std::string interesting_packet(interesting_bytes.begin(), interesting_bytes.end());
+//            if(i==0){
+//                packet = interesting_packet;
+//            }
+            i++;
+            EV << "SocketManager::dataArrived modified - payload : " << interesting_packet << endl;
+
+            // End Logic
+
+            offset += length;
+            EV << "SocketManager::dataArrived modified - new offset : " << offset << endl;
+        }
+    }
+
     EV << "SocketManager::dataArrived - payload length: " << bytes.size() << endl;
     std::string packet(bytes.begin(), bytes.end());
     EV << "SocketManager::dataArrived - payload : " << packet << endl;
@@ -74,33 +102,59 @@ void SocketManager::dataArrived(inet::Packet *msg, bool urgent){
     }
     // ########################
 
-    bool res = Http::parseReceivedMsg(packet, &bufferedData, &currentHttpMessage);
+    bool res = true;
+    EV_INFO << "there are " << completedMessageQueue.getLength() << " messages" << endl;
+    std::cout << "Buffer prima " << bufferedData << endl;
+    Http::parseReceivedMsg(sock->getSocketId(), packet, completedMessageQueue, &bufferedData, &currentHttpMessage);
+    std::cout << "Buffer dopo" << bufferedData << endl;
+    if(currentHttpMessage == nullptr){
+        std::cout << "nullptr message" << endl;
+    }else{
+        std::cout << (*currentHttpMessage).getBody() << endl;
+    }
+    EV_INFO << "found " << completedMessageQueue.getLength() << " messages" << endl;
+    std::cout << "found " << completedMessageQueue.getLength() << " messages" << endl;
     if(res)
     {
-        currentHttpMessage->setSockId(sock->getSocketId());
-        if(currentHttpMessage->getType() == REQUEST)
-        {
-            service->emitRequestQueueLength();
-            currentHttpMessage->setArrivalTime(simTime());
-            service->newRequest(check_and_cast<HttpRequestMessage*>(currentHttpMessage));
-        }
-        else
-        {
-            delete currentHttpMessage;
+
+        while(completedMessageQueue.getLength() > 0){
+            HttpBaseMessage* message = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
+
+            std::cout << "analyzing " << message->getBody() << endl;
+            message->setSockId(sock->getSocketId());
+            std::cout << "analyzing 2" << endl;
+            if(message->getType() == REQUEST)
+            {
+                std::cout << "analyzing 3" << endl;
+                service->emitRequestQueueLength();
+                message->setArrivalTime(simTime());
+                service->newRequest(check_and_cast<HttpRequestMessage*>(message));
+                std::cout << "analyzing 4" << endl;
+            }
+            else
+            {
+                delete message;
+            }
+//            if(currentHttpMessage != nullptr)
+//            {
+//              currentHttpMessage = nullptr;
+//            }
         }
 
-        if(currentHttpMessage != nullptr)
-        {
-          currentHttpMessage = nullptr;
-        }
-
+        std::cout << "analyzing 5 - " << completedMessageQueue.getLength() << endl;
+//        completedMessageQueue.clear();
+        std::cout << "analyzing 55" << endl;
     }
+    std::cout << "analyzing 56" << endl;
     delete msg;
+    std::cout << "analyzing 6" << endl;
     return;
 }
 
 void SocketManager::established(){
     EV_INFO << "New connection established " << endl;
+
+    buffers[sock->getSocketId()] = std::string();
 }
 
 void SocketManager::peerClosed()

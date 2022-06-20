@@ -50,7 +50,7 @@ void ApplicationMobilityService::handleMessage(cMessage *msg)
 {
     if(msg->isSelfMessage() && std::strcmp(msg->getFullName(),"localMigration") == 0)
     {
-        EV << "AMS::LOCAL MIGRATION RECEIVED----" << endl;
+        EV << "AMS::LOCAL MIGRATION RECEIVED: to be processed " << registrationResources_->getMigratedApps().size() << endl;
         if(registrationResources_->getMigratedApps().size() > 0)
         {
             EV << "AMS::an app has been correctly migrated -- generate local event" << endl;
@@ -58,8 +58,9 @@ void ApplicationMobilityService::handleMessage(cMessage *msg)
             {
                 // Generating notification
                 MobilityProcedureNotification *notification = new MobilityProcedureNotification();
-
-                RegistrationInfo *r = registrationResources_->getRegistrationInfoFromAppId(el.second->getAppInstanceId());
+                std::cout << "DEvo bestemmiare? " << endl;
+                RegistrationInfo *r = registrationResources_->getRegistrationInfoFromContext(el.second->getAppInstanceId());
+                std::cout << "non bestemmio per poco" << endl;
                 if(r != nullptr)
                 {
                     notification->setMobilityStatus(INTERHOST_MOVEOUT_COMPLETED);
@@ -275,7 +276,9 @@ void ApplicationMobilityService::handlePUTRequest(const HttpRequestMessage *curr
             cMessage *message = new cMessage("localMigration");
             if(!message->isScheduled())
             {
+
                 double time = exponential(0.0005);
+                EV << "AMS::localMigration in " << time << endl;
                 scheduleAt(simTime() + time, message);
             }
         }
@@ -374,6 +377,8 @@ void ApplicationMobilityService::handleSubscriptionRequest(SubscriptionBase *sub
         // TODO Add new parameter in MobilityProcedureSubscription:
         // requestTestNotification - here you can start the test!
 
+        // Debugging
+        printAllSubscription();
         EV << serviceName_ << " - correct subscription created!" << endl;
     }
     else
@@ -462,5 +467,13 @@ bool ApplicationMobilityService::manageSubscription()
     else
     {
         return false;
+    }
+}
+
+void ApplicationMobilityService::printAllSubscription() {
+
+    for(auto subscriber : subscriptions_)
+    {
+        subscriber.second->to_string();
     }
 }

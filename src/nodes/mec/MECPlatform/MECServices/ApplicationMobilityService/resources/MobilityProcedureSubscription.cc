@@ -43,7 +43,7 @@ void MobilityProcedureSubscription::sendNotification(EventNotification *event)
 
     MobilityProcedureNotification *notification = mobilityEvent->getMobilityProcedureNotification();
     notification->setLinks(links_);
-
+    std::cout << "AMS::sending notification to " <<  socket_->getRemoteAddress() << " " << socket_->getRemotePort() << notification->toJson().dump(2) << endl;
     EV << socket_->getRemoteAddress() << " " << socket_->getRemotePort() << " " << clientHost_ << " MobilityProcedureSubscription debug message " << endl;
     Http::sendPostRequest(socket_, notification->toJson().dump().c_str(), clientHost_.c_str(), clientUri_.c_str());
 
@@ -139,4 +139,13 @@ nlohmann::ordered_json MobilityProcedureSubscription::toJson() const
     val["subscriptionType"] = subscriptionType_;
 
     return val;
+}
+
+void MobilityProcedureSubscription::to_string() {
+    EV << "MobilityProcedureSubscription: " <<endl;
+    EV << "\tsubid: " << subscriptionId_ << endl;
+    EV << "\tcallbackReferece: " << callbackReference_ << endl;
+    EV << "\tfilterCriteria:" <<endl;
+    EV << "\t\tappInstanceId:" << filterCriteria_->getAppInstanceId() <<endl;
+    EV << "\t\tmobilityStatus:" << static_cast<FilterCriteria*>(filterCriteria_)->getMobilityStatusString() <<endl;
 }

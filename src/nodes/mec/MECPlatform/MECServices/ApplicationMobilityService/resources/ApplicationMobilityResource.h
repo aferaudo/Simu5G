@@ -70,6 +70,8 @@ class ApplicationMobilityResource : public AttributeBase{
     // This method returns a registration info pointer from appInstanceId
     RegistrationInfo *getRegistrationInfoFromAppId(std::string appInstanceId) const;
 
+    RegistrationInfo *getRegistrationInfoFromContext(std::string appInstanceId, ContextTransferState context=USER_CONTEXT_TRANSFER_COMPLETED) const;
+
 };
 
 #endif /* _APPLICATIONMOBILITYRESOURCE_H_ */

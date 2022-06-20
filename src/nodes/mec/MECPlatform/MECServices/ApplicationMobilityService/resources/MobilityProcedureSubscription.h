@@ -48,7 +48,7 @@ class MobilityProcedureSubscription : public SubscriptionBase{
 
     virtual std::string getLinks() const {return links_;}
     //FilterCriteria getFilterCriteria() const override{return filterCriteria;}
-
+    virtual void to_string() override;
 
 };
 

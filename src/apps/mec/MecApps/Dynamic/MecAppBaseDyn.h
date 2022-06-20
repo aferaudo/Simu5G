@@ -36,6 +36,8 @@ class  MecAppBaseDyn : public MecAppBase
         /* inet::TcpSocket::CallbackInterface callback methods */
         virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool urgent) override;
 
+        virtual void closeAllSockets();
+
 
 };
 

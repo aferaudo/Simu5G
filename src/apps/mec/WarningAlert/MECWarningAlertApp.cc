@@ -70,6 +70,7 @@ void MECWarningAlertApp::initialize(int stage)
     localAddress = L3AddressResolver().resolve(getParentModule()->getFullPath().c_str());
     isMigrating = par("isMigrating").boolValue();
     isMigrated=false;
+    status = "Entering";
 
     if(isMigrating){
         EV << "MECWarningAlertApp::migrating state: LISTEN for context information on " << localAddress << ":" << localUePort << endl;
@@ -184,7 +185,7 @@ void MECWarningAlertApp::handleUeMessage(omnetpp::cMessage *msg)
     }
 }
 
-void MECWarningAlertApp::modifySubscription()
+void MECWarningAlertApp::modifySubscription(std::string criteria)
 {
     if(isMigrated)
         return;
@@ -196,7 +197,7 @@ void MECWarningAlertApp::modifySubscription()
                        "\"checkImmediate\": \"false\","
                         "\"address\": \"" + ueAppAddress.str()+ "\","
                         "\"clientCorrelator\": \"null\","
-                        "\"enteringLeavingCriteria\": \"Leaving\","
+                        "\"enteringLeavingCriteria\":\"" + criteria + "\","
                         "\"frequency\": 5,"
                         "\"radius\": " + std::to_string(radius) + ","
                         "\"trackingAccuracy\": 10,"
@@ -209,7 +210,7 @@ void MECWarningAlertApp::modifySubscription()
     Http::sendPutRequest(&serviceSocket_, body.c_str(), host.c_str(), uri.c_str());
 }
 
-void MECWarningAlertApp::sendSubscription()
+void MECWarningAlertApp::sendSubscription(std::string criteria)
 {
     if(isMigrated)
         return;
@@ -221,7 +222,7 @@ void MECWarningAlertApp::sendSubscription()
                            "\"checkImmediate\": \"false\","
                             "\"address\": \"" + ueAppAddress.str()+ "\","
                             "\"clientCorrelator\": \"null\","
-                            "\"enteringLeavingCriteria\": \"Entering\","
+                            "\"enteringLeavingCriteria\": \"" + criteria + "\" ,"
                             "\"frequency\": 5,"
                             "\"radius\": " + std::to_string(radius) + ","
                             "\"trackingAccuracy\": 10,"
@@ -249,6 +250,7 @@ void MECWarningAlertApp::sendSubscription()
 void MECWarningAlertApp::sendDeleteSubscription()
 {
     std::string uri = "/example/location/v2/subscriptions/area/circle/" + subId;
+    subId = "";
     std::string host = serviceSocket_.getRemoteAddress().str()+":"+std::to_string(serviceSocket_.getRemotePort());
     Http::sendDeleteRequest(&serviceSocket_, host.c_str(), uri.c_str());
 }
@@ -308,7 +310,7 @@ void MECWarningAlertApp::established(int connId)
         inet::Packet* packet = new inet::Packet("WarningAlertPacketInfo");
         packet->insertAtBack(ack);
         ueSocket.sendTo(packet, ueAppAddress, ueAppPort);
-        sendSubscription();
+        sendSubscription(status);
         return;
     }
     else if (connId == stateSocket_->getSocketId()){
@@ -325,6 +327,7 @@ void MECWarningAlertApp::established(int connId)
             syncMessage->setRadius(radius);
             syncMessage->setUeAddress(ueAppAddress);
             syncMessage->setUePort(ueAppPort);
+            syncMessage->setState(status.c_str());
             syncMessage->setContextId(std::stoi(module_name.substr(module_name.find('[') + 1, module_name.find(']') - module_name.find('[') - 1)));
             syncMessage->setChunkLength(inet::B(28));
 
@@ -533,6 +536,8 @@ void MECWarningAlertApp::handleServiceMessage()
                     EV << "MEClusterizeService::handleTcpMsg - Ue is Entered in the danger zone "<< endl;
                     alert->setDanger(true);
 
+                    status = "Leaving";
+
                     if(par("logger").boolValue())
                     {
                         ofstream myfile;
@@ -545,13 +550,15 @@ void MECWarningAlertApp::handleServiceMessage()
                     }
 
                     // send subscription for leaving..
-                    modifySubscription();
+                    modifySubscription(status);
 
                 }
                 else if (criteria == "Leaving")
                 {
                     EV << "MEClusterizeService::handleTcpMsg - Ue left from the danger zone "<< endl;
                     alert->setDanger(false);
+
+
                     if(par("logger").boolValue())
                     {
                         ofstream myfile;
@@ -641,12 +648,14 @@ void MECWarningAlertApp::handleStateMessage(){
     EV << "MECWarningAlertApp::ue addr: " << data->getUeAddress() << endl;
     EV << "MECWarningAlertApp::ue port: " << data->getUePort() << endl;
     EV << "MECWarningAlertApp::contextId: " << data->getContextId() << endl;
+    EV << "MECWarningAlertApp::state: " << data->getState() << endl;
 
     centerPositionX = data->getPositionX();
     centerPositionY = data->getPositionY();
     radius = data->getRadius();
     ueAppAddress = data->getUeAddress();
     ueAppPort = data->getUePort();
+    status = std::string(data->getState());
 
     EV << "MECWarningAlertApp::handleStateMessage - new state injected!" << endl;
 
@@ -831,6 +840,7 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         Http::sendDeleteRequest(&amsSocket_, host.c_str(), uri);
 
         cMessage *b = new cMessage("deleteModule");
+        closeAllSockets();
         scheduleAt(simTime()+0.001, b);
 
     }

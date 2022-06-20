@@ -20,7 +20,8 @@
 
 SubscriberBase::SubscriberBase()
 {
-    currentHttpMessage = nullptr;
+    currentHttpMessageBuffer_ = nullptr;
+    currentHttpMessageServed_ = nullptr;
 }
 
 void SubscriberBase::initialize(int stage)
@@ -50,7 +51,6 @@ void SubscriberBase::handleStartOperation(inet::LifecycleOperation *operation)
     tcpSocket.setOutputGate(gate("socketOut"));
     tcpSocket.bind(localToBrokerPort);
     tcpSocket.setCallback(this);
-    serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
     appState = UNSUB;
 
     // drawing a cricle
@@ -64,10 +64,34 @@ void SubscriberBase::handleStartOperation(inet::LifecycleOperation *operation)
 
 void SubscriberBase::handleMessageWhenUp(omnetpp::cMessage *msg)
 {
+    std::cout << "Subscriber base: received message: " << msg->getName() << " " << msg->isSelfMessage() << endl;
     if(msg->isSelfMessage() && strcmp(msg->getName(), "connectToBroker") == 0)
     {
         EV << "SubscriberBase:: connecting to the broker" << endl;
         connectToBroker();
+
+        delete msg;
+    }
+    else if(msg->isSelfMessage() && strcmp(msg->getName(), "nextEvent") == 0)
+    {
+
+        if(httpMessageQueue_.size() != 0)
+        {
+
+            currentHttpMessageServed_ = httpMessageQueue_.front();
+            httpMessageQueue_.pop();
+            manageNotification();
+            EV << "SubscriberBase::http message to be processed: " << httpMessageQueue_.size() << endl;
+            cMessage *nextEvent = new cMessage("nextEvent");
+            if(!nextEvent->isScheduled() && httpMessageQueue_.size() > 0)
+               scheduleAt(simTime(), nextEvent);
+        }
+
+        if(currentHttpMessageServed_ != nullptr)
+        {
+            currentHttpMessageServed_ = nullptr;
+        }
+
 
         delete msg;
     }
@@ -109,6 +133,8 @@ void SubscriberBase::connectToBroker()
 void SubscriberBase::socketEstablished(inet::TcpSocket *socket)
 {
     EV << "SubscriberBase::connection established!" << endl;
+    serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
+
     //EV << "SubscriberBase::subscribing" << endl;
     //sendSubscription();
 }
@@ -167,18 +193,33 @@ void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *pa
     delete packet;
 
     std::string msg(bytes.begin(), bytes.end());
+    Http::parseReceivedMsg(tcpSocket.getSocketId(), msg, completedMessageQueue, &buffer, &currentHttpMessageBuffer_);
 
-    bool res = Http::parseReceivedMsg(msg, &buffer, &currentHttpMessage);
 
-    if(res)
+    while(completedMessageQueue.getLength() > 0)
     {
+        HttpBaseMessage* currentHttpMessage = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
         switch(appState)
         {
             case SUB:
             {
+
+                currentHttpMessage->setSockId(tcpSocket.getSocketId());
                 if(currentHttpMessage->getType() == RESPONSE || currentHttpMessage->getType() == REQUEST)
                 {
-                    manageNotification();
+                    EV << "SubscriberBase::Put notification in queue " << endl;
+                    // In case of multiple notification a queue may be needed (AMS scenario)
+                    httpMessageQueue_.push(currentHttpMessage);
+
+                    cMessage *nextEvent = new cMessage("nextEvent");
+                    if(!nextEvent->isScheduled())
+                    {
+                       std::cout<<"Scheduling nextEvent " << httpMessageQueue_.size() << endl;
+
+                       // so far no computation time has been added
+                       scheduleAt(simTime(), nextEvent);
+                    }
+
                 }
                 else
                 {
@@ -188,6 +229,7 @@ void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *pa
             }
             case UNSUB:
             {
+
                 if(currentHttpMessage->getType() == RESPONSE)
                 {
                     HttpResponseMessage *response = dynamic_cast<HttpResponseMessage*> (currentHttpMessage);
@@ -199,14 +241,16 @@ void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *pa
                 }
                 EV << "SubscriberBase::Closing socket with the broker after unsubscription.. bye" << endl;
                 tcpSocket.close();
+
             }
         }
     }
 
-    if(currentHttpMessage != nullptr)
-    {
-        currentHttpMessage = nullptr;
-    }
+
+//    if(currentHttpMessage != nullptr)
+//    {
+//        currentHttpMessage = nullptr;
+//    }
 
 }
 

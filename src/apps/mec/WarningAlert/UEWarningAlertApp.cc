@@ -34,6 +34,7 @@ UEWarningAlertApp::UEWarningAlertApp(){
     selfStart_ = NULL;
     selfStop_ = NULL;
     amsHttpMessage = nullptr;
+    amsHttpCompleteMessage = nullptr;
 }
 
 UEWarningAlertApp::~UEWarningAlertApp(){
@@ -457,14 +458,13 @@ void UEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet 
 
     if(amsSocket.belongsToSocket(msg))
     {
-        bool res =  Http::parseReceivedMsg(packet, &bufferedData, &amsHttpMessage);
-        if(res)
+        Http::parseReceivedMsg(amsSocket.getSocketId(), packet, completedMessageQueue, &bufferedData, &amsHttpMessage);
+        while(completedMessageQueue.getLength() > 0)
         {
-            amsHttpMessage->setSockId(amsSocket.getSocketId());
-
-            if(amsHttpMessage->getType() == REQUEST){
-                EV << "UEWarningAlertApp::socketDataArrived - Received notification - payload: " << " " << amsHttpMessage->getBody() << endl;
-                HttpRequestMessage* amsNot = check_and_cast<HttpRequestMessage*>(amsHttpMessage);
+            amsHttpCompleteMessage = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
+            if(amsHttpCompleteMessage->getType() == REQUEST){
+                EV << "UEWarningAlertApp::socketDataArrived - Received notification - payload: " << " " << amsHttpCompleteMessage->getBody() << endl;
+                HttpRequestMessage* amsNot = check_and_cast<HttpRequestMessage*>(amsHttpCompleteMessage);
                 nlohmann::json jsonBody = nlohmann::json::parse(amsNot->getBody());
                 if(!jsonBody.empty())
                 {
@@ -474,10 +474,10 @@ void UEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet 
                     mecAppPort_ = interfaces.at(0)["port"];
                     EV << "UEWarningAlertApp::received new mecapp address: " <<  mecAppAddress_.str() << ":" << mecAppPort_ << endl;
                 }
-            }else if(amsHttpMessage->getType() == RESPONSE){
-                EV << "UEWarningAlertApp::socketDataArrived - Received response - payload: " << " " << amsHttpMessage->getBody() << endl;
+            }else if(amsHttpCompleteMessage->getType() == RESPONSE){
+                EV << "UEWarningAlertApp::socketDataArrived - Received response - payload: " << " " << amsHttpCompleteMessage->getBody() << endl;
 
-                HttpResponseMessage* amsResponse = check_and_cast<HttpResponseMessage*>(amsHttpMessage);
+                HttpResponseMessage* amsResponse = check_and_cast<HttpResponseMessage*>(amsHttpCompleteMessage);
                 nlohmann::json jsonBody = nlohmann::json::parse(amsResponse->getBody());
                 if(!jsonBody.empty()){
                     if(jsonBody.contains("callbackReference")){
@@ -490,10 +490,10 @@ void UEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet 
 
             }
         }
-        if(amsHttpMessage != nullptr)
-        {
-            amsHttpMessage = nullptr;
-        }
+//        if(amsHttpMessage != nullptr)
+//        {
+//            amsHttpMessage = nullptr;
+//        }
     }
     else{
         throw cRuntimeError("UEWarningAlertApp::socketDataArrived - Socket %d not recognized", socket->getSocketId());

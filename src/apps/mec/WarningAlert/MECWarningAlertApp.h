@@ -70,6 +70,7 @@ class MECWarningAlertApp : public MecAppBaseDyn
     bool isMigrated;
     inet::L3Address migrationAddress;
     int migrationPort;
+    std::string status; // keeps trace of ue position
 
     int size_;
     std::string subId;
@@ -94,8 +95,8 @@ class MECWarningAlertApp : public MecAppBaseDyn
 
         virtual void handleUeMessage(omnetpp::cMessage *msg) override;
 
-        virtual void modifySubscription();
-        virtual void sendSubscription();
+        virtual void modifySubscription(std::string criteria);
+        virtual void sendSubscription(std::string criteria);
         virtual void sendDeleteSubscription();
 
         virtual void handleSelfMessage(cMessage *msg) override;

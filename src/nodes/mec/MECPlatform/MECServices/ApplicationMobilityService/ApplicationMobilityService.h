@@ -75,6 +75,8 @@ class ApplicationMobilityService : public MecServiceBase
      * This method is called for every element in the subscriptions_ queue.
      */
     virtual bool manageSubscription() override;
+  private:
+    virtual void printAllSubscription();
 };
 
 #endif

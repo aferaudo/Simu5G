@@ -47,6 +47,8 @@
 
 using namespace omnetpp;
 
+enum HostState {PARKED, LEAVING};
+
 struct HostDescriptor // CarDescriptor
 {
     ResourceDescriptor totalAmount;
@@ -55,6 +57,7 @@ struct HostDescriptor // CarDescriptor
     int numRunningApp;
     inet::L3Address address;
     int viPort;
+    HostState state = PARKED;
 };
 
 struct MecAppEntryDyn
@@ -99,7 +102,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     int port;
 
     std::map<int, HostDescriptor> handledHosts; // Resource Handling
-    std::map<std::string, MecAppEntryDyn> handledApp; // App Handling(key DeviceAppId)
+    std::map<std::string, MecAppEntryDyn *> handledApp; // App Handling(key DeviceAppId)
     std::map<std::string, MecAppEntryDyn> waitingInstantiationRequests; // vim waits for response from cars on which have requested instantiation
     std::map<std::string, MecAppEntryDyn> migratingApps; // map that maintains the old mecapp that are currently migrating in another location
 
@@ -131,7 +134,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 
 
     public:
-        VirtualisationInfrastructureManagerDyn() {};
+        VirtualisationInfrastructureManagerDyn();
 
         /*
          * Istantiate ME Application on an handled car

@@ -34,6 +34,8 @@
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpResponseMessage/HttpResponseMessage.h"
 #include "nodes/mec/utils/httpUtils/json.hpp"
 
+#include <queue>
+
 #include <omnetpp.h>
 
 using namespace omnetpp;
@@ -55,8 +57,11 @@ class SubscriberBase: public inet::ApplicationBase, public inet::TcpSocket::ICal
     cModule* host;
 
     // HttpMessageManagement
-    HttpBaseMessage* currentHttpMessage;
+    std::queue<HttpBaseMessage*> httpMessageQueue_;
+    HttpBaseMessage* currentHttpMessageBuffer_;
+    HttpBaseMessage* currentHttpMessageServed_;
     std::string buffer;
+    omnetpp::cQueue completedMessageQueue;
 
     std::string webHook;
     std::string serverHost;
