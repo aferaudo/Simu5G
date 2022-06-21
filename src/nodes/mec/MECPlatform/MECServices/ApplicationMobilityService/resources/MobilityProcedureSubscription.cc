@@ -147,5 +147,9 @@ void MobilityProcedureSubscription::to_string() {
     EV << "\tcallbackReferece: " << callbackReference_ << endl;
     EV << "\tfilterCriteria:" <<endl;
     EV << "\t\tappInstanceId:" << filterCriteria_->getAppInstanceId() <<endl;
-    EV << "\t\tmobilityStatus:" << static_cast<FilterCriteria*>(filterCriteria_)->getMobilityStatusString() <<endl;
+    for(auto mobilityStatus : static_cast<FilterCriteria*>(filterCriteria_)->getMobilityStatus())
+    {
+        EV << "\t\tmobilityStatus:" << static_cast<FilterCriteria*>(filterCriteria_)->getMobilityStatusString(mobilityStatus) <<endl;
+    }
+
 }

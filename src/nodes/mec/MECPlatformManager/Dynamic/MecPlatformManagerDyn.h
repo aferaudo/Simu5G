@@ -116,7 +116,7 @@ class MecPlatformManagerDyn : public SubscriberBase
         void handleTerminationResponse(inet::Packet * packet);
         void handleServiceMobilityResponse(inet::Packet * packet);
         void handleParkMigrationTrigger(inet::Packet*);
-        void handleSubscription(std::string appInstanceId, std::string mobilityStatus = "INTERHOST_MOVEOUT_TRIGGERED");
+        void handleSubscription(std::string appInstanceId);
         bool checkServiceAvailability(const char* serviceName);
 
 };

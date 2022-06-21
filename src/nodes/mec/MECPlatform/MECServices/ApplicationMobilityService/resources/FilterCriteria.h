@@ -35,9 +35,9 @@ class FilterCriteria : public FilterCriteriaBase{
   private:
 
     std::vector<AssociateId> associateId_;
-    MobilityStatus mobilityStatus_;
+    std::vector<MobilityStatus> mobilityStatus_;
 
-    void setMobilityStatusFromString(std::string mobilityStatus);
+//    void setMobilityStatusFromString(std::string mobilityStatus);
 
   public:
     FilterCriteria();
@@ -49,11 +49,12 @@ class FilterCriteria : public FilterCriteriaBase{
     virtual bool fromJson(const nlohmann::ordered_json& json);
 
     void setAssociateId(std::vector<AssociateId> associateId) {associateId_ = associateId;};
-    void setMobilityStatus(MobilityStatus mobilityStatus){mobilityStatus_ = mobilityStatus;};
+    void setMobilityStatus(std::vector<MobilityStatus> mobilityStatus){mobilityStatus_ = mobilityStatus;};
 
     std::vector<AssociateId> getAssociateId() const {return associateId_;}
-    MobilityStatus getMobilityStatus() const {return mobilityStatus_;}
-    std::string getMobilityStatusString() const{return MobilityStatusString[mobilityStatus_];}
+    std::vector<MobilityStatus> getMobilityStatus() const {return mobilityStatus_;}
+    std::string getMobilityStatusString(MobilityStatus mobilityStatus) const{return MobilityStatusString[mobilityStatus];}
+    MobilityStatus getMobilityStatusFromString(std::string mobilityStatus);
 };
 
 #endif /* NODES_MEC_MECPLATFORM_MECSERVICES_APPLICATIONMOBILITYSERVICE_RESOURCES_FILTERCRITERIA_H_ */

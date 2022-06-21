@@ -115,8 +115,8 @@ void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
             EV << "MecPlatformManagerDyn::subscribing for " << appInstanceIds_.front() << " with mobility status = INTERHOST_MOVEOUT_COMPLETED" <<endl;
 
 
-            handleSubscription(appInstanceIds_.front(), "INTERHOST_MOVEOUT_COMPLETED");
-            appInstanceIds_.pop();
+//            handleSubscription(appInstanceIds_.front(), "INTERHOST_MOVEOUT_COMPLETED");
+//            appInstanceIds_.pop();
 
             EV << "MecPlatformManagerDyn::appinstanceIds size after pop " << appInstanceIds_.size() << endl;
 
@@ -350,7 +350,7 @@ void MecPlatformManagerDyn::handleTerminationResponse(inet::Packet * packet)
         // TODO add multiple unsubscription - COMPLETED
 
         // Subscribing for new Apps
-        appInstanceIds_.push(data->getAppInstanceId());
+        //appInstanceIds_.push(data->getAppInstanceId());
         handleSubscription(std::string(data->getAppInstanceId()));
         appState = SUB;
         return;
@@ -377,7 +377,7 @@ void MecPlatformManagerDyn::handleInstantiationResponse(
     EV << "MecPlatformManagerDyn:: App instance id: " << responsemsg->getInstanceId()<< endl;
     if(amsEnabled && responsemsg->getStatus())
     {
-        appInstanceIds_.push(responsemsg->getInstanceId());
+        //appInstanceIds_.push(responsemsg->getInstanceId());
         handleSubscription(responsemsg->getInstanceId());
     }
 
@@ -603,7 +603,7 @@ void MecPlatformManagerDyn::handleParkMigrationTrigger(inet::Packet* packet)
 }
 
 void MecPlatformManagerDyn::handleSubscription(
-       std::string appInstanceId, std::string mobilityStatus) {
+       std::string appInstanceId) {
 
 
     subscriptionBody_ = nlohmann::ordered_json();
@@ -614,19 +614,21 @@ void MecPlatformManagerDyn::handleSubscription(
     subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
     subscriptionBody_["filterCriteria"]["appInstanceId"] = appInstanceId;
     subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
-    subscriptionBody_["filterCriteria"]["mobilityStatus"] = mobilityStatus;
+    subscriptionBody_["filterCriteria"]["mobilityStatus"] = nlohmann::json::array();
+    subscriptionBody_["filterCriteria"]["mobilityStatus"].push_back("INTERHOST_MOVEOUT_TRIGGERED");
+    subscriptionBody_["filterCriteria"]["mobilityStatus"].push_back("INTERHOST_MOVEOUT_COMPLETED");
     subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
     EV << subscriptionBody_;
     sendSubscription();
 
 
     // FIXME -- this should be avoided by using as mobility status an array
-    cMessage *moveoutCompleted = new cMessage("nextSubscription");
-    if(!moveoutCompleted->isScheduled() && appInstanceIds_.size() > 0)
-    {
-        double time = exponential(0.005);
-        EV << "MecPlatformManagerDyn::sending subscription in "<< time << " seconds" << endl;
-        scheduleAt(simTime()+time, moveoutCompleted);
-    }
+//    cMessage *moveoutCompleted = new cMessage("nextSubscription");
+//    if(!moveoutCompleted->isScheduled() && appInstanceIds_.size() > 0)
+//    {
+//        double time = exponential(0.005);
+//        EV << "MecPlatformManagerDyn::sending subscription in "<< time << " seconds" << endl;
+//        scheduleAt(simTime()+time, moveoutCompleted);
+//    }
 }
 

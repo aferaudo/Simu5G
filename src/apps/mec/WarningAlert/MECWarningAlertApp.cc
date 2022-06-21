@@ -474,15 +474,12 @@ void MECWarningAlertApp::handleAmsMessage()
                 }
                 else if(jsonBody.contains("callbackReference")){
 
-                    std::string type = jsonBody["filterCriteria"]["mobilityStatus"];
+                    std::stringstream stream;
+                    stream << "sub" << jsonBody["subscriptionId"];
+                    amsSubscriptionId = stream.str();
+                    EV << "MECWarningAlertApp::handleAmsMessage - subscription ID triggered: " << amsSubscriptionId << endl;
 
-                    if(type.compare("INTERHOST_MOVEOUT_TRIGGERED") == 0){
-                        std::stringstream stream;
-                        stream << "sub" << jsonBody["subscriptionId"];
-                        amsSubscriptionId = stream.str();
-                        EV << "MECWarningAlertApp::handleAmsMessage - subscription ID triggered: " << amsSubscriptionId << endl;
 
-                    }
 
                     if(!amsSubscriptionId.empty())
                     {
@@ -750,7 +747,8 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
         subscriptionBody_["filterCriteria"]["appInstanceId"] = getName();
         subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
-        subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_TRIGGERED";
+        subscriptionBody_["filterCriteria"]["mobilityStatus"] = nlohmann::json::array();
+        subscriptionBody_["filterCriteria"]["mobilityStatus"].push_back("INTERHOST_MOVEOUT_TRIGGERED");
         subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
         EV << subscriptionBody_;
 
@@ -776,7 +774,8 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         val_["type"] = "UE_IPv4_ADDRESS";
         val_["value"] = ueAppAddress.str();
         subscriptionBody_["filterCriteria"]["associateId"].push_back(val_);
-        subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_TRIGGERED";
+        subscriptionBody_["filterCriteria"]["mobilityStatus"] = nlohmann::json::array();
+        subscriptionBody_["filterCriteria"]["mobilityStatus"].push_back("INTERHOST_MOVEOUT_TRIGGERED");
         subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
         EV << subscriptionBody_;
 

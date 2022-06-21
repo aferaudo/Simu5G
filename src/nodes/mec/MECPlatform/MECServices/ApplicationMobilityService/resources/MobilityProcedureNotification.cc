@@ -116,7 +116,9 @@ EventNotification* MobilityProcedureNotification::handleNotification(FilterCrite
     FilterCriteria* filterCriteria = static_cast<FilterCriteria*>(filters);
     bool found = true;
 
-    if(filterCriteria->getMobilityStatus() == mobilityStatus)
+    std::vector<MobilityStatus> status = filterCriteria->getMobilityStatus();
+    bool condition = std::find(status.begin(), status.end(), mobilityStatus) != status.end();
+    if(condition)
     {
         //taking trace of an app that starts its migration-phase
         if(resources_ != nullptr && mobilityStatus == INTERHOST_MOVEOUT_TRIGGERED

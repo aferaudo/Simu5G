@@ -47,7 +47,15 @@ bool FilterCriteria::fromJson(const nlohmann::ordered_json& json)
         a.setValue(associateId["value"]);
         associateId_.push_back(a);
     }
-    setMobilityStatusFromString(json["mobilityStatus"]);
+
+    if(!json.contains("mobilityStatus"))
+    {
+       mobilityStatus_.push_back(getMobilityStatusFromString("INTERHOST_MOVEOUT_TRIGGERED")); // default value
+    }
+    for(auto &val : json["mobilityStatus"].items()){
+       nlohmann::ordered_json mobilityStatusString = val.value();
+       mobilityStatus_.push_back(getMobilityStatusFromString(mobilityStatusString));
+    }
 
     return true;
 }
@@ -61,20 +69,26 @@ nlohmann::ordered_json FilterCriteria::toJson() const
     {
         val["associateId"].push_back(it->toJson());
     }
-    val["mobilityStatus"] = getMobilityStatusString();
+    val["mobilityStatus"] = nlohmann::json::array();
+
+    for(auto &el : mobilityStatus_)
+    {
+        val["mobilityStatus"].push_back(getMobilityStatusString(el));
+    }
+
+    //getMobilityStatusString();
 
     return val;
 }
 
-void FilterCriteria::setMobilityStatusFromString(std::string mobilityStatus)
+MobilityStatus FilterCriteria::getMobilityStatusFromString(std::string mobilityStatus)
 {
-    // FIXME static method
     for(int i = 0; i < 3; i++)
     {
         if(MobilityStatusString[i] == mobilityStatus){
-            setMobilityStatus(static_cast<MobilityStatus> (i));
-            return;
+            //setMobilityStatus(static_cast<MobilityStatus> (i));
+            return static_cast<MobilityStatus> (i);
         }
     }
-    setMobilityStatus(static_cast<MobilityStatus> (0));
+    return static_cast<MobilityStatus> (0);
 }
