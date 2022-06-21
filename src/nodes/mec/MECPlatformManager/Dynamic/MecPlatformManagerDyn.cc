@@ -105,23 +105,6 @@ void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
             connectToBroker();
         }
         delete msg;
-    }
-    else if( msg->isSelfMessage() && strcmp(msg->getName(), "nextSubscription") == 0)
-    {
-        EV << "MecPlatformManagerDyn::received nextSubscription self message" << endl;
-        if(appInstanceIds_.size() != 0)
-        {
-            //std::string appInstanceId = appInstanceIds_.front();
-            EV << "MecPlatformManagerDyn::subscribing for " << appInstanceIds_.front() << " with mobility status = INTERHOST_MOVEOUT_COMPLETED" <<endl;
-
-
-//            handleSubscription(appInstanceIds_.front(), "INTERHOST_MOVEOUT_COMPLETED");
-//            appInstanceIds_.pop();
-
-            EV << "MecPlatformManagerDyn::appinstanceIds size after pop " << appInstanceIds_.size() << endl;
-
-        }
-        delete msg;
     }else if (!msg->isSelfMessage() && socket.belongsToSocket(msg))
     {
         EV << "MecPlatformManagerDyn::handleMessage - TYPE: "<< msg->getName() << endl;
@@ -350,7 +333,6 @@ void MecPlatformManagerDyn::handleTerminationResponse(inet::Packet * packet)
         // TODO add multiple unsubscription - COMPLETED
 
         // Subscribing for new Apps
-        //appInstanceIds_.push(data->getAppInstanceId());
         handleSubscription(std::string(data->getAppInstanceId()));
         appState = SUB;
         return;
@@ -377,7 +359,6 @@ void MecPlatformManagerDyn::handleInstantiationResponse(
     EV << "MecPlatformManagerDyn:: App instance id: " << responsemsg->getInstanceId()<< endl;
     if(amsEnabled && responsemsg->getStatus())
     {
-        //appInstanceIds_.push(responsemsg->getInstanceId());
         handleSubscription(responsemsg->getInstanceId());
     }
 
@@ -621,14 +602,5 @@ void MecPlatformManagerDyn::handleSubscription(
     EV << subscriptionBody_;
     sendSubscription();
 
-
-    // FIXME -- this should be avoided by using as mobility status an array
-//    cMessage *moveoutCompleted = new cMessage("nextSubscription");
-//    if(!moveoutCompleted->isScheduled() && appInstanceIds_.size() > 0)
-//    {
-//        double time = exponential(0.005);
-//        EV << "MecPlatformManagerDyn::sending subscription in "<< time << " seconds" << endl;
-//        scheduleAt(simTime()+time, moveoutCompleted);
-//    }
 }
 

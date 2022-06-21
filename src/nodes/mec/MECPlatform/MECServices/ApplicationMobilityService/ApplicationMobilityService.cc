@@ -277,7 +277,7 @@ void ApplicationMobilityService::handlePUTRequest(const HttpRequestMessage *curr
             if(!message->isScheduled())
             {
 
-                double time = exponential(0.0005);
+                double time = 0; //exponential(0.0005);
                 EV << "AMS::localMigration in " << time << endl;
                 scheduleAt(simTime() + time, message);
             }
