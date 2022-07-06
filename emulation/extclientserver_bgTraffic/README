@@ -1,29 +1,25 @@
-In this example the network consists of one (real) UEs connected to one gNB.
+In this example the network consists of one (real) UE connected to a (real) server.
+The emulated 5G network includes a variable number of background cells. The latter produces interference
+that affects the latency of packets exchanged between the (real) endpoints of the communication.
 
-The UE runs a(n external) application that sends periodic 1000-byte packets 
-to a(n external) receiver application.
+ 
+Communication between the simulator and the host OS is realized using namespaces linked
+together via virtual ethernet (veth) interfaces. 
+In particular, we configure the following scenario:
 
++++++++++++++++++++++++++     +++++++++++++++++++++++++     +++++++++++++++++++++++++
++     Namespace ns1     +     +         Simu5G        +     +     Namespace ns2     +
++                       +     +                       +     +                       +
++  Client App     [veth1]<--->[sim-veth1]   [sim-veth2]<--->[veth2]     Server App  +
++            192.168.2.2+     +                       +     +192.168.3.2            +
++                       +     +                       +     +                       +
++++++++++++++++++++++++++     +++++++++++++++++++++++++     +++++++++++++++++++++++++
+
+The client (at the UE side) pings the server (@192.168.3.2) to measure the RTT of the communication. 
+Such RTT increases with the interference, hence with the number of background cells in the 
+emulated network.
 IP addresses and routing tables are set up by using mrt files (see "routing_files" folder).
- 
-*** NOTE ***
-In order to run an emulation where both the endpoints of a connection are real applications,
-the client application (e.g. on the UE) needs to use the IP address of the NAT router within the
-simulation as destination address. Such NAT router element will perform Network Address 
-Translation (NAT), according to the rules specified with the corresponding parameter in the 
-INI file. 
-For example, if the client IP address is 192.168.3.2, while the server
-IP address is 192.168.2.2, the NAT rules on the simulated NAT router are set as:
-   
-    *.router.ipv4.natTable.config = xml("<config> \
-                                            <entry type='prerouting' \
-                                            packetDataFilter='*Ipv4Header and destAddress=~10.0.2.1' \
-                                            srcAddress='192.168.2.1' destAddress='192.168.2.2'/> \
-                                            <entry type='prerouting' \
-                                            packetDataFilter='*Ipv4Header and destAddress=~192.168.2.1' \
-                                            srcAddress='10.0.2.1' destAddress='192.168.3.2'/> \
-                                         </config>")
- 
- 
+
  
 === HOW TO BUILD AND RUN ===
 
@@ -48,31 +44,29 @@ IP address is 192.168.2.2, the NAT rules on the simulated NAT router are set as:
     $ . setenv
 	$ make makefiles
 	$ make 
-	 	
+	
+	
+4) Setup the environment by typing:
 
-4) Run the receiver application, e.g. by typing the command:
- 
-    ./emulation_receiver -p udp
-
+    ./setup.sh	 
 	 	
-5) Run the simulation by launching 
-    
-    ./run.sh -r <RUN_NUMBER>
+ 	
+5) Run the simulation by typing:
+
+   ./run.sh -r <RUN_NUMBER>
     
    where RUN_NUMBER=0 --> 3 background cells
          RUN_NUMBER=1 --> 6 background cells
          RUN_NUMBER=2 --> 9 background cells
-
-
-6) Run the receiver application, e.g. by typing the command:
  
-    ./emulation_sender -h 10.0.2.1 -p udp -s 1000 -t 1 -d 60 -o test
-    
-   where -h option specifies the address of the NAT router
-         -p specifies the L4 protocol
-         -s is the size of application messages
-         -t is the sending interval
-         -d is the total duration of the application
-         -o specifies the output subfolder in folder "stats"  
-    
+   
+6) Run the sender application, e.g. by typing the command:
+ 
+    (in a new terminal window) sudo ip netns exec ns1 ping 192.168.3.2
+          
+        
+7) Clean the environment by typing:
+
+    ./teardown.sh
+   
 ============================

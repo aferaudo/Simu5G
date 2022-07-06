@@ -66,7 +66,7 @@ network Highway
             @display("p=561,135;i=device/smallrouter");
         }
         upf: Upf {
-            @display("p=462,136;is=l");
+            @display("p=462,136");
         }
         gNodeB1: gNodeB {
             @display("p=156,136;is=vl");
