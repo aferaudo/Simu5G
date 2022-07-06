@@ -48,10 +48,12 @@ class InstantiationApplicationRequest extends GeneralMessage
     double requiredDisk = 0;
     double requiredRam = 0;
     double requiredCpu = 0;
+    inet::L3Address ueIpAddress;
     string requiredService;
     string providedService;
     string mp1Address;
     int mp1Port;
+    bool isMigrating = false;
 }
 
 class InstantiationApplicationResponse extends GeneralMessage
@@ -71,6 +73,9 @@ class TerminationAppInstRequest extends GeneralMessage
     int contextId; 
     int requestId;
     // TODO add other parameters for emulated apps
+    
+    // Parameters used for migration
+    string appInstanceId;
 }
 
 class TerminationAppInstResponse extends GeneralMessage
@@ -79,6 +84,11 @@ class TerminationAppInstResponse extends GeneralMessage
     int contextId;
     int requestId;
     bool status;
+    
+    // This allows to select if the app termination reply should 
+    // be forwarded to the Orchestrator
+    bool isMigrating = false;
+    string appInstanceId;
 }
     
 

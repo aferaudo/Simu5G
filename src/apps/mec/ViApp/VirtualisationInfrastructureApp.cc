@@ -95,12 +95,11 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
 {
     if (msg->isSelfMessage())
     {
-        EV << "VirtualisationInfrastructureApp::handleMessage - self message received!" << endl;
+        if(std::strcmp(msg->getFullName(), "deleteModule") == 0)
+        {
+            handleModuleRemoval(msg);
+        }
 
-        cModule* module = getParentModule()->getSubmodule("MECWarningAlertApp[0]");
-        std::cout << module << endl;
-//        module->callFinish();
-        module->deleteModule();
 
     }else{
         EV << "VirtualisationInfrastructureApp::handleMessage - other message received!" << endl;
@@ -152,11 +151,17 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
             responsepck->setResponse(res);
             responsepck->setRequestId(data->getSno());
             responsepck->setUeAppID(data->getUeAppID());
+            responsepck->setIsMigrating(data->isMigrating()); //migration
+            responsepck->setAppInstanceId(data.get()->getAppInstanceId());
             responsepck->setChunkLength(inet::B(100));
             packet->insertAtBack(responsepck);
             socket.sendTo(packet, vimAddress, vimPort);
 
             EV << "VirtualisationInfrastructureApp::handleMessage - sending back to " << vimAddress << ":" << vimPort << endl;
+        }
+        else if(strcmp(msg->getName(), "endTerminationProcedure") == 0)
+        {
+           handleEndTerminationProcedure(msg);
         }
     }
 
@@ -166,7 +171,7 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
 bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicationRequest* data)
 {
     EV << "VirtualisationInfrastructureApp::handleInstantiation - " << data << endl;
-
+    std::cout << "viapp with id " << getId() << " " << data->getContextId() << endl;
     appcounter++;
     portCounter++;
 
@@ -196,6 +201,7 @@ bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicati
     module->par("localUePort") = portCounter;
     module->par("mp1Address") = data->getMp1Address();
     module->par("mp1Port") = data->getMp1Port();
+    module->par("isMigrating") = data->isMigrating();
 
     module->finalizeParameters();
 
@@ -206,6 +212,13 @@ bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicati
     newAtOutGate->connectTo(module->gate("socketIn"));
     module->gate("socketOut")->connectTo(newAtInGate);
 
+    // Add gates for vi interaction
+    cGate* newAppInGate = this->getOrCreateFirstUnconnectedGate("appGates$i", 0, false, true);
+    cGate* newAppOutGate = this->getOrCreateFirstUnconnectedGate("appGates$o", 0, false, true);
+
+    newAppOutGate->connectTo(module->gate("viAppGate$i"));
+    module->gate("viAppGate$o")->connectTo(newAppInGate);
+
     module->buildInside();
     module->scheduleStart(simTime());
     std::cout << "VirtualisationInfrastructureApp::handleInstantiation - before initialization "<< endl;
@@ -215,6 +228,9 @@ bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicati
 
     RunningAppEntry* entry = new RunningAppEntry();
     entry->module = module;
+    entry->port = portCounter;
+    entry->inputGate = newAppInGate;
+    entry->outputGate = newAppOutGate;
     entry->ueAppID = data->getUeAppID();
     entry->moduleName = data->getMEModuleName();
     entry->moduleType = data->getMEModuleType();
@@ -241,12 +257,18 @@ bool VirtualisationInfrastructureApp::handleTermination(DeleteAppMessage* data)
         return false;
 
     RunningAppEntry entry = it->second;
-    cModule* module = entry.module;
-    std::cout << module << endl;
-    module->callFinish();
-    module->deleteModule();
+//    cModule* module = entry.module;
+//    std::cout << module << endl;
+//    module->callFinish();
+//    toDelete = module;
+//    cMessage *msg = new cMessage("deleteModule");
+//    scheduleAt(simTime()+0.1, msg);
 
-    std::cout << "finish termination" << endl;
+    cGate* gate = entry.outputGate;
+    cMessage* msg = new cMessage("startTerminationProcedure");
+    send(msg, gate->getName(), gate->getIndex());
+
+
     return true;
 }
 
@@ -279,4 +301,60 @@ double VirtualisationInfrastructureApp::calculateProcessingTime(int ueAppID, int
         EV << "VirtualisationInfrastructureApp::calculateProcessingTime - ZERO " << endl;
         return 0;
     }
+}
+
+void VirtualisationInfrastructureApp::handleEndTerminationProcedure(cMessage* msg)
+{
+    EV << "VirtualisationInfrastructureApp::handleMessage - delete module! " << msg->getArrivalGate()->getIndex() <<endl;
+    int index = msg->getArrivalGate()->getIndex();
+
+    RunningAppEntry* selected = nullptr;
+    for(auto it = runningApp.begin(); it != runningApp.end(); ++it){
+        RunningAppEntry entry = (it->second);
+
+        if(entry.inputGate->getIndex() == index){
+            selected = &entry;
+            break;
+        }
+    }
+
+    if(selected != nullptr){
+
+        appcounter--;
+        runningApp.erase(selected->ueAppID);
+        allocatedCpu -= selected->resources.cpu;
+        allocatedRam -= selected->resources.ram;
+        allocatedDisk -= selected->resources.disk;
+
+        cModule* module = selected->module;
+        module->callFinish();
+
+        toDelete = module;
+        terminatingModules.push(module);
+        cMessage *deleteModuleMessage = new cMessage("deleteModule");
+        if(!deleteModuleMessage->isScheduled())
+        {
+            scheduleAt(simTime()+0.1, deleteModuleMessage);
+        }
+     }
+
+    return;
+}
+
+void VirtualisationInfrastructureApp::handleModuleRemoval(cMessage*)
+{
+    if(terminatingModules.size() != 0)
+    {
+        std::cout << "Removing module " << terminatingModules.size() << endl;
+        cModule *module = terminatingModules.front();
+        EV << "VirtualisationInfrastructureApp::Removing module from car" << endl;
+        module->deleteModule();
+        terminatingModules.pop();
+        EV << "VirtualisationInfrastructureApp::Module removed. Still to be removed: " << terminatingModules.size() << endl;
+        std::cout << "Module removed " << endl;
+        cMessage *deleteModuleMessage = new cMessage("deleteModule");
+        if(!deleteModuleMessage->isScheduled() && terminatingModules.size() > 0)
+            scheduleAt(simTime()+0.1, deleteModuleMessage);
+    }
+
 }

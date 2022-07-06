@@ -19,6 +19,7 @@
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpRequestMessage/HttpRequestMessage.h"
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpResponseMessage/HttpResponseMessage.h"
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpMessages_m.h"
+#include "apps/mec/WarningAlert/packets/MecWarningAppSyncMessage_m.h"
 #include "inet/transportlayer/contract/udp/UdpSocket.h"
 
 #include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h"
@@ -45,18 +46,35 @@ class  MecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICall
 
     inet::TcpSocket serviceSocket_;
     inet::TcpSocket mp1Socket_;
+    inet::TcpSocket amsSocket_;
+    inet::TcpSocket* stateSocket_;
+    inet::TcpSocket serverSocket_;
 
     inet::L3Address mp1Address;
     int mp1Port;
     inet::L3Address serviceAddress;
     int servicePort;
+    inet::L3Address localAddress;
 
     // FIXME not used, yet. These structures are supposed to be used
     omnetpp::cQueue serviceHttpMessages_;
     omnetpp::cQueue mp1HttpMessages_;
+    omnetpp::cQueue amsHttpMessages_;
 
     HttpBaseMessage* serviceHttpMessage;
     HttpBaseMessage* mp1HttpMessage;
+    HttpBaseMessage* amsHttpMessage;
+    inet::Packet* stateMessage;
+    inet::Packet* injectStateMessage;
+
+
+    bool registered;
+    bool subscribed;
+    std::string amsRegistrationId;
+    std::string amsSubscriptionId;
+    std::string amsSubscriptionId_completed;
+    inet::L3Address amsAddress;
+    int amsPort;
 
 
     std::string bufferedData;
@@ -78,7 +96,8 @@ class  MecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICall
 
     omnetpp::cMessage* processedServiceResponse;
     omnetpp::cMessage* processedMp1Response;
-
+    omnetpp::cMessage* processedAmsResponse;
+    omnetpp::cMessage* processedStateResponse;
 
 protected:
     virtual void initialize(int stage) override;
@@ -90,6 +109,8 @@ protected:
     virtual void handleSelfMessage(omnetpp::cMessage *msg) = 0;
     virtual void handleServiceMessage() = 0;
     virtual void handleMp1Message() = 0;
+    virtual void handleAmsMessage(){};
+    virtual void handleStateMessage(){};
     virtual void handleUeMessage(omnetpp::cMessage *msg) = 0;
     virtual void established(int connId) = 0;
 
@@ -97,7 +118,7 @@ protected:
 
     /* inet::TcpSocket::CallbackInterface callback methods */
     virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool urgent) override;
-    virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override { socket->accept(availableInfo->getNewSocketId()); }
+    virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override;
     virtual void socketEstablished(inet::TcpSocket *socket) override;
     virtual void socketPeerClosed(inet::TcpSocket *socket) override;
     virtual void socketClosed(inet::TcpSocket *socket) override;

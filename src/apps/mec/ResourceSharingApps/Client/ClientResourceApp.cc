@@ -241,7 +241,7 @@ void ClientResourceApp::sendRegisterRequest()
     if(tcpSocket.getState() == inet::TcpSocket::CONNECTED)
     {
         nlohmann::json jsonBody = nlohmann::json::object();
-        jsonBody["deviceInfo"]["deviceId"] = getId();
+        jsonBody["deviceInfo"]["deviceId"] = getParentModule()->getId();
         jsonBody["deviceInfo"]["reward"] = choosenReward;
         jsonBody["deviceInfo"]["ipAddress"] = localIPAddress.str();
         jsonBody["deviceInfo"]["resourceInfo"]["maxRam"] = localResources.ram;
@@ -373,7 +373,7 @@ void ClientResourceApp::sendReleaseMessage()
 {
     EV << "ClientResourceApp::Sending Reward request" << endl;
 
-    std::string uri = "/resourceRegisterApp/v1/availableResources/" + std::to_string(getId());
+    std::string uri = "/resourceRegisterApp/v1/availableResources/" + std::to_string(getParentModule()->getId());
     std::string serverHost = tcpSocket.getRemoteAddress().str() + ":" + std::to_string(tcpSocket.getRemotePort());
 
     Http::sendDeleteRequest(&tcpSocket, serverHost.c_str(), uri.c_str());

@@ -278,14 +278,16 @@ void MecServiceBase::socketClosed(inet::TcpSocket *socket)
 bool MecServiceBase::manageRequest()
 {
     EV_INFO <<" MecServiceBase::manageRequest" << endl;
+    std::cout << "manage request 0" << endl;
   //  EV << "MecServiceBase::manageRequest - start manageRequest" << endl;
     inet::TcpSocket *socket = check_and_cast_nullable<inet::TcpSocket *>(socketMap.getSocketById(currentRequestMessageServed_->getSockId()));
+    std::cout << "manage request 1" << endl;
     if(socket)
     {
         /*
          * Manage backgroundRequest
          */
-
+        std::cout << "manage request 2" << endl;
         if(currentRequestMessageServed_->isBackgroundRequest())
         {
             if(currentRequestMessageServed_->isLastBackgroundRequest())
@@ -295,10 +297,13 @@ bool MecServiceBase::manageRequest()
         }
         else
         {
+            std::cout << "manage request 3" << endl;
             handleRequest(socket);
+            std::cout << "manage request 4" << endl;
             simtime_t responseTime = simTime() - currentRequestMessageServed_->getArrivalTime();
             EV_INFO <<" MecServiceBase::manageRequest - Response time - " << responseTime << endl;
             emit(responseTimeSignal_, responseTime);
+            std::cout << "manage request 5" << endl;
         }
 
         if(currentRequestMessageServed_ != nullptr)
@@ -343,12 +348,15 @@ void MecServiceBase::scheduleNextEvent(bool now)
         EV <<"MecServiceBase::scheduleNextEvent - request branch"<< endl;
         currentRequestMessageServed_ = check_and_cast<HttpRequestMessage*>(requests_.pop());
 
+        std::cout << "request pop" << endl;
+
         if(loadGenerator_ && !currentRequestMessageServed_->isBackgroundRequest())
         {
             EV <<"MecServiceBase::scheduleNextEvent - load generator is on, use the response time in the packet"<< endl;
             /*
              * If the loadGenerator flag is active, use the responseTime calculated at arriving time
              */
+            std::cout << "scheduling request message" << endl;
             scheduleAt(simTime() + currentRequestMessageServed_->getResponseTime() , requestService_);
             return;
         }
@@ -357,6 +365,7 @@ void MecServiceBase::scheduleNextEvent(bool now)
             scheduleAt(simTime() + 0 , subscriptionService_);
         else
         {
+            std::cout << "scheduling request message 2" << endl;
             //calculate the serviceTime base on the type | parameters
             double serviceTime = calculateRequestServiceTime(); //must be >0
             EV <<"MecServiceBase::scheduleNextEvent- request service time: "<< serviceTime << endl;

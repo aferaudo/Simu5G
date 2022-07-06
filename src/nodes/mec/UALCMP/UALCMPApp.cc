@@ -174,6 +174,7 @@ void UALCMPApp::handleCreateContextAppAckMessage(UALCMPMessage *msg)
             std::stringstream uri;
             uri << baseUriQueries_<<"/app_contexts/"<< ack->getContextId();
             std::pair<std::string, std::string> locHeader("Location: ", uri.str());
+            EV << "UALCMP::jsonbody response: " << jsonBody.dump() << "\nUALCMP dest: " << socket->getRemoteAddress() << endl;
             Http::send201Response(socket, jsonBody.dump().c_str(), locHeader);
 
         }

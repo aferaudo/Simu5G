@@ -479,6 +479,8 @@ void MecOrchestratorApp::startMECApp(CreateContextAppMessage* contAppMsg, MECHos
     instAppRequest->setRequiredRam(appDesc.getVirtualResources().ram);
     instAppRequest->setRequiredDisk(appDesc.getVirtualResources().disk);
 
+    instAppRequest->setUeIpAddress(inet::L3Address(contAppMsg->getUeIpAddress()));
+
     // insert OMNeT like services, only one is supported, for now
     if(!appDesc.getOmnetppServiceRequired().empty())
         instAppRequest->setRequiredService(appDesc.getOmnetppServiceRequired().c_str());

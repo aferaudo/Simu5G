@@ -36,6 +36,9 @@
 #include "nodes/mec/Dynamic/MEO/Messages/MeoPackets_m.h"
 #include "inet/linklayer/common/InterfaceTag_m.h"
 
+// AMS packets
+#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/Messages/MobilityMessages_m.h"
+
 //###########################################################################
 //data structures and values
 
@@ -43,6 +46,8 @@
 #define SERVICE_NOT_AVAILABLE -2
 
 using namespace omnetpp;
+
+enum HostState {PARKED, LEAVING};
 
 struct HostDescriptor // CarDescriptor
 {
@@ -52,13 +57,16 @@ struct HostDescriptor // CarDescriptor
     int numRunningApp;
     inet::L3Address address;
     int viPort;
+    HostState state = PARKED;
 };
 
 struct MecAppEntryDyn
 {
+    std::string appInstanceId;
     int ueAppID;
     ResourceDescriptor usedResources;
     SockAddr endpoint;
+    inet::L3Address ueEndpoint; // 1-to-1 correspondence
     std::string moduleName;
     std::string moduleType;
     bool isBuffered;
@@ -94,8 +102,9 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     int port;
 
     std::map<int, HostDescriptor> handledHosts; // Resource Handling
-    std::map<std::string, MecAppEntryDyn> handledApp; // App Handling
+    std::map<std::string, MecAppEntryDyn *> handledApp; // App Handling(key DeviceAppId)
     std::map<std::string, MecAppEntryDyn> waitingInstantiationRequests; // vim waits for response from cars on which have requested instantiation
+    std::map<std::string, MecAppEntryDyn> migratingApps; // map that maintains the old mecapp that are currently migrating in another location
 
     int hostCounter = 0;    // counter to generate host ids
     int requestCounter = 0;
@@ -118,7 +127,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     int mp1Port;
 
 
-    inet::IInterfaceTable* ifacetable;
+    //inet::IInterfaceTable* ifacetable;
 
 
     std::string color;
@@ -203,6 +212,8 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 
         void printRequests();
 
+
+        void  instantiateMEAppLocally(MecAppEntryDyn, bool);
         /*
          * Allocate resources on specific host (car)
          */
@@ -235,6 +246,12 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
          */
         virtual void manageNotification() override;
 
+
+        /*
+         * This method sends the subscription to the broker when socket has been established
+         * */
+        virtual void socketEstablished(inet::TcpSocket *socket) override;
+
     private:
 
         void initResource();
@@ -252,6 +269,16 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         void sendMEORegistration();
         void handleResourceRequest(inet::Packet* resourcePacket);
         void handleMepmMessage(cMessage*);
+
+        void handleInstantiationResponse(cMessage*);
+
+        inet::Packet* createInstantiationRequest(MecAppEntryDyn &, std::string requiredOmnetppService="NULL", bool migration = false);
+        /*
+         * Method that migrates from dynamic resources to local resources
+         */
+        void handleMobilityRequest(cMessage *);
+
+        void mobilityTrigger(std::string appInstanceId);
 };
 
 #endif

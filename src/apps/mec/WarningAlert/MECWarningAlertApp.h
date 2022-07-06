@@ -20,8 +20,10 @@
 //MEWarningAlertPacket
 //#include "nodes/mec/MECPlatform/MECAppPacket_Types.h"
 #include "apps/mec/WarningAlert/packets/WarningAlertPacket_m.h"
+#include "apps/mec/WarningAlert/packets/MecWarningAppSyncMessage_m.h"
 
 #include "nodes/mec/MECPlatform/ServiceRegistry/ServiceRegistry.h"
+#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/resources/TargetAppInfo.h"
 
 #include "apps/mec/MecApps/MecAppBase.h"
 #include "apps/mec/MecApps/Dynamic/MecAppBaseDyn.h"
@@ -53,13 +55,22 @@ using namespace omnetpp;
 class MECWarningAlertApp : public MecAppBaseDyn
 {
 
+    inet::UdpSocket stateSocket;
     //UDP socket to communicate with the UeApp
     inet::UdpSocket ueSocket;
     int localUePort;
 
     inet::L3Address ueAppAddress;
     int ueAppPort;
+    bool ueRegistered;
 
+    std::string webHook;
+
+    bool isMigrating;
+    bool isMigrated;
+    inet::L3Address migrationAddress;
+    int migrationPort;
+    std::string status; // keeps trace of ue position
 
     int size_;
     std::string subId;
@@ -77,13 +88,15 @@ class MECWarningAlertApp : public MecAppBaseDyn
 
         virtual void finish() override;
 
-        virtual void handleServiceMessage() override;
-        virtual void handleMp1Message() override;
+        virtual void handleServiceMessage() override; // This method must be always redefined
+        virtual void handleMp1Message() override; // This method must be always redefined
+        virtual void handleAmsMessage() override; // This method must be always redefined when ams is supported, otherwise {}
+        virtual void handleStateMessage() override;  // This method must be always redefined when ams is supported, otherwise {}
 
         virtual void handleUeMessage(omnetpp::cMessage *msg) override;
 
-        virtual void modifySubscription();
-        virtual void sendSubscription();
+        virtual void modifySubscription(std::string criteria);
+        virtual void sendSubscription(std::string criteria);
         virtual void sendDeleteSubscription();
 
         virtual void handleSelfMessage(cMessage *msg) override;
@@ -95,6 +108,9 @@ class MECWarningAlertApp : public MecAppBaseDyn
     public:
        MECWarningAlertApp();
        virtual ~MECWarningAlertApp();
+
+    private:
+       void getServiceData(const char* uri);
 
 };
 

@@ -10,6 +10,7 @@
 
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/VirtualisationInfrastructureManagerDyn.h"
 #include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h" //MecAppInstanceInfo struct
+#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/resources/MobilityProcedureNotification.h"
 
 //BINDER and UTILITIES
 #include "common/LteCommon.h"
@@ -27,20 +28,40 @@
 
 #include <inet/transportlayer/contract/udp/UdpSocket.h>
 
+// MEO packets
 #include "nodes/mec/Dynamic/MEO/Messages/RegistrationPkt_m.h"
 #include "nodes/mec/Dynamic/MEO/Messages/MeoPackets_m.h"
+
+// AMS packets
+#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/Messages/MobilityMessages_m.h"
+
 #include "inet/linklayer/common/InterfaceTag_m.h"
+
+// subscriber class
+#include "apps/mec/ResourceSharingApps/PubSub/Subscriber/SubscriberBase.h"
 
 using namespace omnetpp;
 
 class ServiceInfo;
 class ServiceRegistry;
 
-class MecPlatformManagerDyn : public cSimpleModule
+/*
+ * MECPlatform manager is a subscriber of the AMS when present.
+ * It should be noted that for dynamic resource case, it becomes a publisher
+ * of MobilityProcedure event for two cases:
+ *  - Mobility request
+ *  - Mobility response
+ */
+class MecPlatformManagerDyn : public SubscriberBase
 {
 
     VirtualisationInfrastructureManagerDyn* vim;
     ServiceRegistry* serviceRegistry;
+
+    std::map<std::string, LinkType*> links_;
+
+
+    bool amsEnabled;
 
     inet::UdpSocket socket;
 
@@ -56,7 +77,13 @@ class MecPlatformManagerDyn : public cSimpleModule
     inet::L3Address vimAddress;
     int vimPort;
 
+    // ams parameters
+    std::string triggerURI;
+
     inet::IInterfaceTable* ifacetable;
+
+    //std::map<std::string, std::string> subscriptions_; // link -
+    // std::queue<std::string> appInstanceIds_; //used to take trace of next subscriptions
 
     public:
         MecPlatformManagerDyn();
@@ -73,17 +100,24 @@ class MecPlatformManagerDyn : public cSimpleModule
         void registerMecService(ServiceDescriptor&) const;
 
     protected:
-        virtual int numInitStages() const { return inet::NUM_INIT_STAGES; }
-        virtual void initialize(int stage);
-        virtual void handleMessage(cMessage *msg);
-        virtual void finish();
+        virtual void initialize(int stage) override;
+        virtual void handleMessageWhenUp(omnetpp::cMessage *msg) override;
+        virtual void handleStartOperation(inet::LifecycleOperation *operation) override ;
+        //virtual void handleMessage(cMessage *msg);
+
+        virtual void manageNotification() override;
 
     private:
         void sendMEORegistration();
         void handleServiceRequest(inet::Packet* resourcePacket);
         void handleInstantiationRequest(inet::Packet* instantiationPacket);
+        void handleInstantiationResponse(inet::Packet* instantiationPacket);
         void handleTerminationRequest(inet::Packet *packet);
         void handleTerminationResponse(inet::Packet * packet);
+        void handleServiceMobilityResponse(inet::Packet * packet);
+        void handleParkMigrationTrigger(inet::Packet*);
+        void handleSubscription(std::string appInstanceId);
+        bool checkServiceAvailability(const char* serviceName);
 
 };
 

@@ -37,8 +37,8 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
     	int brokerPort = default(3005); // destination broker port
     	double radius = default(150); //radius in meters
     	// pubsub parameters
-		string subscribeURI = "/broker/subscribe/";
-		string webHook = "/newresources/";
+		string subscribeURI = default("/broker/subscribe/");
+		string webHook = default("/newresources/");
     	
     	// mecorchestrator parameters
     	string meoAddress;

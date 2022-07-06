@@ -61,6 +61,11 @@ MecAppBase::~MecAppBase()
         cancelAndDelete(processedMp1Response);
     }
 
+    if(processedAmsResponse->isScheduled())
+    {
+        cancelAndDelete(processedAmsResponse);
+    }
+
 
 }
 
@@ -146,6 +151,25 @@ void MecAppBase::handleMessage(cMessage *msg)
                 mp1HttpMessage = nullptr;
             }
         }
+        else if (strcmp(msg->getName(), "processedAmsResponse") == 0)
+        {
+            handleAmsMessage();
+//            if(amsHttpMessage != nullptr)
+//            {
+//                delete amsHttpMessage;
+//                amsHttpMessage = nullptr;
+//            }
+        }
+        else if (strcmp(msg->getName(), "processedStateResponse") == 0)
+        {
+            handleStateMessage();
+
+            if(stateMessage != nullptr)
+            {
+                delete stateMessage;
+                stateMessage = nullptr;
+            }
+        }
         else
         {
             handleSelfMessage(msg);
@@ -162,12 +186,25 @@ void MecAppBase::handleMessage(cMessage *msg)
         {
             mp1Socket_.processMessage(msg);
         }
+        else if(amsSocket_.belongsToSocket(msg))
+        {
+            amsSocket_.processMessage(msg);
+        }
+        else if(stateSocket_->belongsToSocket(msg))
+        {
+            stateSocket_->processMessage(msg);
+        }
+        else if(serverSocket_.belongsToSocket(msg))
+        {
+            serverSocket_.processMessage(msg);
+        }
 
     }
 }
 
 void MecAppBase::socketEstablished(TcpSocket * socket)
 {
+    EV << "MecAppBase::socketEstablished " << socket->getSocketId() << endl;
     established(socket->getSocketId());
 }
 
@@ -193,7 +230,7 @@ void MecAppBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, b
 //
     std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
     std::string packet(bytes.begin(), bytes.end());
-//    EV << packet << endl;
+    EV << "data arrived" << endl;
 
     if(serviceSocket_.belongsToSocket(msg))
     {
@@ -202,7 +239,7 @@ void MecAppBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, b
         {
             serviceHttpMessage->setSockId(serviceSocket_.getSocketId());
             if(vim == nullptr)
-                throw cRuntimeError("MecAppBase::socketDataArrived - vim is null!");
+                throw cRuntimeError("MecAppBase::socketDataArrived - vim is null (service)!");
             double time = vim->calculateProcessingTime(mecAppId, 150);
             scheduleAt(simTime()+time, processedServiceResponse);
         }
@@ -214,10 +251,33 @@ void MecAppBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, b
         {
             mp1HttpMessage->setSockId(mp1Socket_.getSocketId());
             if(vim == nullptr)
-                throw cRuntimeError("MecAppBase::socketDataArrived - vim is null!");
+                throw cRuntimeError("MecAppBase::socketDataArrived - vim is null (mp1)!");
             double time = vim->calculateProcessingTime(mecAppId, 150);
             scheduleAt(simTime()+time, processedMp1Response);
         }
+
+    }
+    else if (amsSocket_.belongsToSocket(msg))
+    {
+        bool res =  Http::parseReceivedMsg(packet, &bufferedData, &amsHttpMessage);
+        if(res)
+        {
+            amsHttpMessage->setSockId(amsSocket_.getSocketId());
+            if(vim == nullptr)
+                throw cRuntimeError("MecAppBase::socketDataArrived - vim is null (ams)!");
+            double time = vim->calculateProcessingTime(mecAppId, 150);
+            scheduleAt(simTime()+time, processedAmsResponse);
+        }
+
+    }
+    else if (stateSocket_->belongsToSocket(msg))
+    {
+        EV << "it is a state message" << endl;
+        stateMessage = check_and_cast<inet::Packet*>(msg);
+        if(vim == nullptr)
+            throw cRuntimeError("MecAppBase::socketDataArrived - vim is null (ams)!");
+        double time = vim->calculateProcessingTime(mecAppId, 150);
+        scheduleAt(simTime()+time, processedStateResponse);
 
     }
     else
@@ -226,6 +286,21 @@ void MecAppBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, b
     }
     delete msg;
 
+}
+
+void MecAppBase::socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo)
+{
+    EV << "MecAppBase::socketAvailable - accepting " << availableInfo->getNewSocketId() << endl;
+
+    stateSocket_ = new TcpSocket(availableInfo);
+    stateSocket_->setOutputGate(gate("socketOut"));
+    stateSocket_->setCallback(this);
+
+    EV << "MecAPPBase::stateSocket created with id " << stateSocket_->getSocketId() << endl;
+
+
+    serverSocket_.accept(availableInfo->getNewSocketId());
+    EV << "MECAppBase::only one open socket is supported: stop listening!" << endl;
 }
 
 void MecAppBase::socketPeerClosed(TcpSocket *socket_)
@@ -251,6 +326,11 @@ void MecAppBase::finish()
         serviceSocket_.close();
     if(mp1Socket_.getState() == inet::TcpSocket::CONNECTED)
         mp1Socket_.close();
+    if(amsSocket_.getState() == inet::TcpSocket::CONNECTED)
+        amsSocket_.close();
+    if(stateSocket_->getState() == inet::TcpSocket::CONNECTED)
+        stateSocket_->close();
+
 }
 
 

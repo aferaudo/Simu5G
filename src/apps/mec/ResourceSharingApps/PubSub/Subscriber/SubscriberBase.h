@@ -34,6 +34,8 @@
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpResponseMessage/HttpResponseMessage.h"
 #include "nodes/mec/utils/httpUtils/json.hpp"
 
+#include <queue>
+
 #include <omnetpp.h>
 
 using namespace omnetpp;
@@ -49,18 +51,25 @@ class SubscriberBase: public inet::ApplicationBase, public inet::TcpSocket::ICal
 
   protected:
     std::string subscribeURI;
+    std::string unsubscribeURI;
 
     SubscriberState appState;
 
     cModule* host;
 
     // HttpMessageManagement
-    HttpBaseMessage* currentHttpMessage;
+    std::queue<HttpBaseMessage*> httpMessageQueue_;
+    HttpBaseMessage* currentHttpMessageBuffer_;
+    HttpBaseMessage* currentHttpMessageServed_;
     std::string buffer;
+    omnetpp::cQueue completedMessageQueue;
 
     std::string webHook;
+    std::string serverHost;
     inet::Coord center; // This is a fixed node so we consider it as a center of a circle
-    double radius; // loaded from ned file
+    double radius; // loaded from ned file - for dynamic mechosts
+
+    nlohmann::ordered_json subscriptionBody_; // this depends on the broker accepted requests
 
     inet::TcpSocket tcpSocket;
     inet::L3Address brokerIPAddress;

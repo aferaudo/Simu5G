@@ -50,6 +50,9 @@ struct RunningAppEntry
     std::string moduleType;
     std::string requiredService;
     cModule* module;
+    int port;
+    cGate* inputGate;
+    cGate* outputGate;
 };
 
 class VirtualisationInfrastructureApp : public cSimpleModule
@@ -69,6 +72,8 @@ class VirtualisationInfrastructureApp : public cSimpleModule
     std::list<std::string> managedApp;
     std::map<int, RunningAppEntry> runningApp;
     SchedulingMode scheduling;
+    cModule *toDelete;
+    std::queue<cModule *> terminatingModules;
 
     double maxCpu;
     double allocatedCpu;
@@ -100,6 +105,9 @@ class VirtualisationInfrastructureApp : public cSimpleModule
 
         bool handleInstantiation(InstantiationApplicationRequest* data);
         bool handleTermination(DeleteAppMessage* data);
+
+        void handleEndTerminationProcedure(cMessage *);
+        void handleModuleRemoval(cMessage *);
 
 };
 
