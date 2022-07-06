@@ -83,6 +83,7 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
     EV << "VirtualisationInfrastructureManagerDyn::Registering upf_mechost" << endl;
     inet::L3Address gtpAddress = inet::L3AddressResolver().resolve(getParentModule()->getParentModule()->getSubmodule("upf_mec")->getFullPath().c_str());
     binder_->registerMecHostUpfAddress(localAddress, gtpAddress);
+    binder_->registerMecHost(localAddress);
 
 
     // Broker settings
