@@ -129,8 +129,10 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 
     //inet::IInterfaceTable* ifacetable;
 
-
     std::string color;
+
+    // Statistics collection
+    simsignal_t allocationTimeSignal_;
 
 
     public:

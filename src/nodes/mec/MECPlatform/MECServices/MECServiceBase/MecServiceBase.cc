@@ -302,7 +302,7 @@ bool MecServiceBase::manageRequest()
             std::cout << "manage request 4" << endl;
             simtime_t responseTime = simTime() - currentRequestMessageServed_->getArrivalTime();
             EV_INFO <<" MecServiceBase::manageRequest - Response time - " << responseTime << endl;
-            emit(responseTimeSignal_, responseTime);
+//            emit(responseTimeSignal_, responseTime);
             std::cout << "manage request 5" << endl;
         }
 
@@ -443,7 +443,7 @@ void MecServiceBase::newRequest(HttpRequestMessage *msg)
 
         msg->setResponseTime(sunOfresponseTimes);
         lastFGRequestArrived_ = simTime();
-        emit(requestQueueSizeSignal_, numOfBGReqs+1);
+//        emit(requestQueueSizeSignal_, numOfBGReqs+1);
     }
 
     requests_.insert(msg);

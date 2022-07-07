@@ -123,6 +123,8 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
                 auto responsepck = inet::makeShared<InstantiationResponse>();
                 responsepck->setAllocatedPort(portCounter);
                 responsepck->setUeAppID(data->getUeAppID());
+                std::cout<<"VI!!!! " << data->getStartAllocationTime() << endl;
+                responsepck->setStartAllocationTime(data->getStartAllocationTime());
                 responsepck->setChunkLength(inet::B(100));
                 packet->insertAtBack(responsepck);
                 socket.sendTo(packet, vimAddress, vimPort);

@@ -58,6 +58,9 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         dispStr.setTagArg("b", 2, "rect");
         dispStr.setTagArg("b", 3, color.c_str());
         dispStr.setTagArg("b", 4, "black");
+
+        // statistics collection initialization
+        allocationTimeSignal_ = registerSignal("allocationTime");
     }
 
     inet::ApplicationBase::initialize(stage);
@@ -1103,7 +1106,9 @@ inet::Packet* VirtualisationInfrastructureManagerDyn::createInstantiationRequest
     registrationpck->setMp1Port(mp1Port);
     registrationpck->setContextId(meapp.contextID);
     registrationpck->setIsMigrating(migration);
-    registrationpck->setChunkLength(inet::B(sizeof(meapp) + mp1Address.str().size() + 8));
+    std::cout<<"VIM!!!! " << simTime() << endl;
+    registrationpck->setStartAllocationTime(simTime());
+    registrationpck->setChunkLength(inet::B(sizeof(meapp) + mp1Address.str().size() + 16));
     packet->insertAtBack(registrationpck);
 
     return packet;
@@ -1208,6 +1213,11 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
         host->numRunningApp -= 1;
         return;
     }
+
+    simtime_t totalAllocationTime = simTime() - data->getStartAllocationTime();
+    std::cout << "---->simTim: " <<simTime() << " startTime: " << data->getStartAllocationTime() << endl;
+    std::cout << "---->Time requested to allocate : " << totalAllocationTime.dbl() << ", scale: " << totalAllocationTime.getScale() << endl;
+    emit(allocationTimeSignal_, totalAllocationTime);
 
     releaseResources(entry->usedResources.ram, entry->usedResources.disk, entry->usedResources.cpu, host_key);
     allocateResources(entry->usedResources.ram, entry->usedResources.disk, entry->usedResources.cpu, host_key);

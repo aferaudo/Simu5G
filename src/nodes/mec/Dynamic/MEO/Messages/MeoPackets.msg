@@ -54,6 +54,9 @@ class InstantiationApplicationRequest extends GeneralMessage
     string mp1Address;
     int mp1Port;
     bool isMigrating = false;
+    
+    // statistics collection
+    simtime_t startAllocationTime;
 }
 
 class InstantiationApplicationResponse extends GeneralMessage
@@ -89,6 +92,7 @@ class TerminationAppInstResponse extends GeneralMessage
     // be forwarded to the Orchestrator
     bool isMigrating = false;
     string appInstanceId;
+    
 }
     
 
