@@ -212,8 +212,8 @@ void MECWarningAlertApp::modifySubscription(std::string criteria)
 
 void MECWarningAlertApp::sendSubscription(std::string criteria)
 {
-    if(isMigrated)
-        return;
+//    if(isMigrated)
+//        return;
 
     std::string body = "{  \"circleNotificationSubscription\": {"
                            "\"callbackReference\" : {"

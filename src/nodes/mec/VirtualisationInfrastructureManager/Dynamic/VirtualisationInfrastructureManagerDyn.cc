@@ -797,9 +797,9 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDynRoundRobin(double ram
         int key = it->first;
         HostDescriptor descriptor = (it->second);
 
-        if (it->first == getParentModule()->getId()){
-            continue;
-        }
+//        if (it->first == getParentModule()->getId()){
+//            continue;
+//        }
 
         bool available = ram < descriptor.totalAmount.ram - descriptor.usedAmount.ram - descriptor.reservedAmount.ram
                     && disk < descriptor.totalAmount.disk - descriptor.usedAmount.disk - descriptor.reservedAmount.disk
@@ -1106,7 +1106,6 @@ inet::Packet* VirtualisationInfrastructureManagerDyn::createInstantiationRequest
     registrationpck->setMp1Port(mp1Port);
     registrationpck->setContextId(meapp.contextID);
     registrationpck->setIsMigrating(migration);
-    std::cout<<"VIM!!!! " << simTime() << endl;
     registrationpck->setStartAllocationTime(simTime());
     registrationpck->setChunkLength(inet::B(sizeof(meapp) + mp1Address.str().size() + 16));
     packet->insertAtBack(registrationpck);
@@ -1215,8 +1214,6 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
     }
 
     simtime_t totalAllocationTime = simTime() - data->getStartAllocationTime();
-    std::cout << "---->simTim: " <<simTime() << " startTime: " << data->getStartAllocationTime() << endl;
-    std::cout << "---->Time requested to allocate : " << totalAllocationTime.dbl() << ", scale: " << totalAllocationTime.getScale() << endl;
     emit(allocationTimeSignal_, totalAllocationTime);
 
     releaseResources(entry->usedResources.ram, entry->usedResources.disk, entry->usedResources.cpu, host_key);

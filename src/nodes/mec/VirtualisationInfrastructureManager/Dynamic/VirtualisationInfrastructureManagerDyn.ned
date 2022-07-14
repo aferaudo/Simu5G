@@ -26,7 +26,7 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
     parameters:
     	@class(VirtualisationInfrastructureManagerDyn);
     	@signal[allocationTime];
-    	@statistic[allTime](source=allocationTime; record=mean,max,vector);
+    	@statistic[remoteAllocationTime](source=allocationTime; record=mean,max,vector);
     	int localPort = default(3333); // port for UDP communications VIM <--> VI
     	
 //    	string destAddress;
