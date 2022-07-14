@@ -278,16 +278,13 @@ void MecServiceBase::socketClosed(inet::TcpSocket *socket)
 bool MecServiceBase::manageRequest()
 {
     EV_INFO <<" MecServiceBase::manageRequest" << endl;
-    std::cout << "manage request 0" << endl;
   //  EV << "MecServiceBase::manageRequest - start manageRequest" << endl;
     inet::TcpSocket *socket = check_and_cast_nullable<inet::TcpSocket *>(socketMap.getSocketById(currentRequestMessageServed_->getSockId()));
-    std::cout << "manage request 1" << endl;
     if(socket)
     {
         /*
          * Manage backgroundRequest
          */
-        std::cout << "manage request 2" << endl;
         if(currentRequestMessageServed_->isBackgroundRequest())
         {
             if(currentRequestMessageServed_->isLastBackgroundRequest())
@@ -297,13 +294,10 @@ bool MecServiceBase::manageRequest()
         }
         else
         {
-            std::cout << "manage request 3" << endl;
             handleRequest(socket);
-            std::cout << "manage request 4" << endl;
             simtime_t responseTime = simTime() - currentRequestMessageServed_->getArrivalTime();
             EV_INFO <<" MecServiceBase::manageRequest - Response time - " << responseTime << endl;
-            emit(responseTimeSignal_, responseTime);
-            std::cout << "manage request 5" << endl;
+//            emit(responseTimeSignal_, responseTime);
         }
 
         if(currentRequestMessageServed_ != nullptr)
