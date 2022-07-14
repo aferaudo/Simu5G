@@ -93,6 +93,8 @@ class UEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallback
     HttpBaseMessage* amsHttpMessage;
     HttpBaseMessage* amsHttpCompleteMessage;
 
+    cModule* pingAppModule;
+
     // uses to write in a log a file
     bool log;
 
@@ -126,6 +128,8 @@ class UEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallback
         virtual void socketFailure(inet::TcpSocket *socket, int code) override {}
         virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
         virtual void socketDeleted(inet::TcpSocket *socket) override {}
+        virtual void allocatePingApp(inet::L3Address mecAppAddress, bool pingMigrated);
+        virtual void deallocatePingApp();
 };
 
 #endif

@@ -313,6 +313,7 @@ void UEWarningAlertApp::handleAckStartMEWarningAlertApp(cMessage* msg)
             scheduleAt(simTime() + stopTime, selfStop_);
             EV << "UEWarningAlertApp::handleAckStartMEWarningAlertApp - Starting sendStopMEWarningAlertApp() in " << stopTime << " seconds " << endl;
         }
+        allocatePingApp(mecAppAddress_, false);
     }
     else
     {
@@ -472,6 +473,8 @@ void UEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet 
                     interfaces = jsonBody["targetAppInfo"]["commInterface"]["ipAddresses"];
                     mecAppAddress_ = L3AddressResolver().resolve(std::string(interfaces.at(0)["host"]).c_str()); // take first interface
                     mecAppPort_ = interfaces.at(0)["port"];
+//                    deallocatePingApp();
+//                    allocatePingApp(mecAppAddress_, true);
                     EV << "UEWarningAlertApp::received new mecapp address: " <<  mecAppAddress_.str() << ":" << mecAppPort_ << endl;
                 }
             }else if(amsHttpCompleteMessage->getType() == RESPONSE){
@@ -509,4 +512,48 @@ void UEWarningAlertApp::socketPeerClosed(TcpSocket *socket_)
 void UEWarningAlertApp::socketClosed(TcpSocket *socket)
 {
     EV << "UEWarningAlertApp::socketClosed" << endl;
+}
+
+
+//  PING APP TEST
+void UEWarningAlertApp::allocatePingApp(inet::L3Address mecAppAddress, bool pingMigrated){
+//    MECWarningAlertApp simu5g.apps.mec.WarningAlert.MECWarningAlertApp
+    char* label;
+    if(pingMigrated){
+        label = "migrated";
+    }else{
+        label = "initial";
+    }
+
+
+    char* meModuleName = "PingApp";
+    cModuleType* moduleType = cModuleType::get("inet.applications.pingapp.PingApp");
+    pingAppModule = moduleType->create(meModuleName, getParentModule());
+    std::stringstream appName;
+    appName << meModuleName << "["<< label << "]";
+    pingAppModule->setName(appName.str().c_str());
+    EV << "UEWarningAlertApp::handleInstantiation - meModuleName: " << appName.str() << endl;
+
+    std::stringstream display;
+    display << "p=" << 744 + (100 * int(pingMigrated)) << "," << 72 << ";i=block/control";
+    pingAppModule->setDisplayString(display.str().c_str());
+
+    pingAppModule->par("destAddr") = mecAppAddress.str();
+    pingAppModule->finalizeParameters();
+
+    cModule *at = getParentModule()->getSubmodule("at");
+    cGate* newAtInGate = at->getOrCreateFirstUnconnectedGate("in", 0, false, true);
+    cGate* newAtOutGate = at->getOrCreateFirstUnconnectedGate("out", 0, false, true);
+
+    newAtOutGate->connectTo(pingAppModule->gate("socketIn"));
+    pingAppModule->gate("socketOut")->connectTo(newAtInGate);
+
+    pingAppModule->buildInside();
+    pingAppModule->scheduleStart(simTime());
+    pingAppModule->callInitialize();
+}
+
+void UEWarningAlertApp::deallocatePingApp(){
+    pingAppModule->callFinish();
+    pingAppModule->deleteModule();
 }
