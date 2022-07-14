@@ -796,7 +796,6 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDynRoundRobin(double ram
     for(auto it = handledHosts.begin(); it != handledHosts.end(); ++it){
         int key = it->first;
         HostDescriptor descriptor = (it->second);
-
 //        if (it->first == getParentModule()->getId()){
 //            continue;
 //        }

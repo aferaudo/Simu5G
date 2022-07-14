@@ -31,6 +31,8 @@ Define_Module(MECWarningAlertApp);
 using namespace inet;
 using namespace omnetpp;
 
+simsignal_t MECWarningAlertApp::migrationTime_ = registerSignal("migrationTime");
+
 MECWarningAlertApp::MECWarningAlertApp(): MecAppBaseDyn()
 {
     circle = nullptr; // circle danger zone
@@ -85,6 +87,7 @@ void MECWarningAlertApp::initialize(int stage)
 
     //testing
     EV << "MECWarningAlertApp::initialize - Mec application "<< getClassName() << " with mecAppId["<< mecAppId << "] has started!" << endl;
+
 
     // connect with the service registry
     cMessage *msg = new cMessage("connectMp1");
@@ -245,6 +248,7 @@ void MECWarningAlertApp::sendSubscription(std::string criteria)
     }
 
     Http::sendPostRequest(&serviceSocket_, body.c_str(), host.c_str(), uri.c_str());
+
 }
 
 void MECWarningAlertApp::sendDeleteSubscription()
@@ -381,6 +385,7 @@ void MECWarningAlertApp::handleMp1Message()
                     serviceAddress = L3AddressResolver().resolve(address.c_str());;
                     servicePort = endPoint["port"];
                 }
+
             }
             else if(serName.compare("ApplicationMobilityService") == 0){
                 if(jsonBody.contains("transportInfo"))
@@ -592,9 +597,19 @@ void MECWarningAlertApp::handleServiceMessage()
              serviceSocket_.close();
              getSimulation()->getSystemModule()->getCanvas()->removeFigure(circle);
 
+             // emit unsub time
+             if(!isMigrating)
+             {
+                 emit(migrationTime_, simTime());
+             }
         }
         else if(rspMsg->getCode() == 201) // in response to a POST
         {
+
+            if(isMigrating)
+            {
+                emit(migrationTime_, simTime());
+            }
             nlohmann::json jsonBody;
             EV << "MEClusterizeService::handleTcpMsg - response 201 " << rspMsg->getBody()<< endl;
             try

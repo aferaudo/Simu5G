@@ -81,6 +81,9 @@ class MECWarningAlertApp : public MecAppBaseDyn
     double centerPositionY;
     double radius;
 
+    // statistics
+    static simsignal_t migrationTime_;
+
     protected:
         virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
         virtual void initialize(int stage) override;
