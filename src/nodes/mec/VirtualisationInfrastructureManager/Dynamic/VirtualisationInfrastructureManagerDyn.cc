@@ -47,6 +47,8 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         // Mep settings
         mp1Port = par("mp1Port").intValue();
 
+        skipLocalResources = par("skipLocalResources").boolValue();
+
         std::cout << getParentModule()->getSubmodule("interfaceTable") << endl;
         //ifacetable = check_and_cast<inet::InterfaceTable*>(getParentModule()->getSubmodule("interfaceTable"));
 
@@ -769,7 +771,7 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDynBestFirst(double ram,
         int key = it->first;
         HostDescriptor descriptor = (it->second);
 
-        if (it->first == getParentModule()->getId()){
+        if (skipLocalResources && it->first == getParentModule()->getId()){
             continue;
         }
 
@@ -796,9 +798,10 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDynRoundRobin(double ram
     for(auto it = handledHosts.begin(); it != handledHosts.end(); ++it){
         int key = it->first;
         HostDescriptor descriptor = (it->second);
-//        if (it->first == getParentModule()->getId()){
-//            continue;
-//        }
+
+        if (skipLocalResources && it->first == getParentModule()->getId()){
+            continue;
+        }
 
         bool available = ram < descriptor.totalAmount.ram - descriptor.usedAmount.ram - descriptor.reservedAmount.ram
                     && disk < descriptor.totalAmount.disk - descriptor.usedAmount.disk - descriptor.reservedAmount.disk

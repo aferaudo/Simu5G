@@ -101,6 +101,8 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     inet::L3Address localAddress;
     int port;
 
+    bool skipLocalResources;
+
     std::map<int, HostDescriptor> handledHosts; // Resource Handling
     std::map<std::string, MecAppEntryDyn *> handledApp; // App Handling(key DeviceAppId)
     std::map<std::string, MecAppEntryDyn> waitingInstantiationRequests; // vim waits for response from cars on which have requested instantiation
