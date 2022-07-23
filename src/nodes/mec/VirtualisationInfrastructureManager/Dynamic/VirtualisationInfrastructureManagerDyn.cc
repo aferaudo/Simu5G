@@ -1215,6 +1215,7 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
         return;
     }
 
+    // signals are emitted only for allocation time related to ue requests (not migration)
     simtime_t totalAllocationTime = simTime() - data->getStartAllocationTime();
     emit(allocationTimeSignal_, totalAllocationTime);
 
