@@ -27,21 +27,10 @@ MecAppBaseDyn::~MecAppBaseDyn()
         delete mp1HttpMessage;
     }
 
-
-    if(processedServiceResponse->isScheduled())
-    {
-        cancelAndDelete(processedServiceResponse);
-    }
-
-    if(processedMp1Response->isScheduled())
-    {
-        cancelAndDelete(processedMp1Response);
-    }
-
-    if(processedAmsResponse->isScheduled())
-    {
-        cancelAndDelete(processedAmsResponse);
-    }
+    cancelAndDelete(processedServiceResponse);
+    cancelAndDelete(processedMp1Response);
+    cancelAndDelete(processedAmsResponse);
+    cancelAndDelete(processedStateResponse);
 
 }
 

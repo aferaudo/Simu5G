@@ -41,7 +41,8 @@ UEWarningAlertApp::~UEWarningAlertApp(){
     cancelAndDelete(selfStart_);
     cancelAndDelete(selfStop_);
     cancelAndDelete(selfMecAppStart_);
-
+    cancelAndDelete(connectAmsMessage_);
+    cancelAndDelete(subAmsMessage_);
 }
 
 void UEWarningAlertApp::initialize(int stage)
@@ -98,8 +99,8 @@ void UEWarningAlertApp::initialize(int stage)
     selfStart_ = new cMessage("selfStart");
     selfStop_ = new cMessage("selfStop");
     selfMecAppStart_ = new cMessage("selfMecAppStart");
-
-    cMessage * connectAmsMessage_ = new cMessage("connectAms");
+    subAmsMessage_ = new cMessage("subscribeAms");
+    connectAmsMessage_ = new cMessage("connectAms");
 
     //starting UEWarningAlertApp
     simtime_t startTime = par("startTime");
@@ -159,6 +160,7 @@ void UEWarningAlertApp::handleMessage(cMessage *msg)
         }
 
         else    throw cRuntimeError("UEWarningAlertApp::handleMessage - \tWARNING: Unrecognized self message");
+
     }
     // Receiver Side
     else if(socket.belongsToSocket(msg)){
@@ -444,7 +446,6 @@ void UEWarningAlertApp::socketEstablished(TcpSocket * socket)
 {
     EV << "UEWarningAlertApp::socketEstablished " << socket->getSocketId() << endl;
 
-    cMessage * subAmsMessage_ = new cMessage("subscribeAms");
     scheduleAt(simTime() + 0.01, subAmsMessage_);
 }
 
@@ -490,14 +491,12 @@ void UEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet 
 
             }
         }
-//        if(amsHttpMessage != nullptr)
-//        {
-//            amsHttpMessage = nullptr;
-//        }
     }
     else{
         throw cRuntimeError("UEWarningAlertApp::socketDataArrived - Socket %d not recognized", socket->getSocketId());
     }
+
+    delete msg;
 }
 
 void UEWarningAlertApp::socketPeerClosed(TcpSocket *socket_)

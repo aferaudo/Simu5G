@@ -25,6 +25,19 @@ VirtualisationInfrastructureApp::VirtualisationInfrastructureApp()
 
 }
 
+VirtualisationInfrastructureApp::~VirtualisationInfrastructureApp()
+{
+    if(deleteModuleMessage->isScheduled())
+    {
+        std::cout << "Message is scheduled deleting it..."<<endl;
+        cancelAndDelete(deleteModuleMessage);
+    }
+    else
+    {
+        delete deleteModuleMessage; // even though message is not scheduled it has to be deleted
+    }
+}
+
 void VirtualisationInfrastructureApp::initialize(int stage)
 {
     cSimpleModule::initialize(stage);
@@ -88,7 +101,7 @@ void VirtualisationInfrastructureApp::initialize(int stage)
     posy = atof(dispStr.getTagArg("p", 1));
 
     EV << "VirtualisationInfrastructureApp::initialize - reference position: " << posx << " , " << posy << endl;
-
+    deleteModuleMessage = new cMessage("deleteModule");
 }
 
 void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
@@ -123,7 +136,6 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
                 auto responsepck = inet::makeShared<InstantiationResponse>();
                 responsepck->setAllocatedPort(portCounter);
                 responsepck->setUeAppID(data->getUeAppID());
-                responsepck->setStartAllocationTime(data->getStartAllocationTime());
                 responsepck->setChunkLength(inet::B(100));
                 packet->insertAtBack(responsepck);
                 socket.sendTo(packet, vimAddress, vimPort);
@@ -164,9 +176,10 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
         {
            handleEndTerminationProcedure(msg);
         }
+        delete msg;
     }
 
-    delete msg;
+
 }
 
 bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicationRequest* data)
@@ -332,7 +345,6 @@ void VirtualisationInfrastructureApp::handleEndTerminationProcedure(cMessage* ms
 
         toDelete = module;
         terminatingModules.push(module);
-        cMessage *deleteModuleMessage = new cMessage("deleteModule");
         if(!deleteModuleMessage->isScheduled())
         {
             scheduleAt(simTime()+0.1, deleteModuleMessage);
@@ -353,9 +365,10 @@ void VirtualisationInfrastructureApp::handleModuleRemoval(cMessage*)
         terminatingModules.pop();
         EV << "VirtualisationInfrastructureApp::Module removed. Still to be removed: " << terminatingModules.size() << endl;
         std::cout << "Module removed " << endl;
-        cMessage *deleteModuleMessage = new cMessage("deleteModule");
         if(!deleteModuleMessage->isScheduled() && terminatingModules.size() > 0)
             scheduleAt(simTime()+0.1, deleteModuleMessage);
     }
 
 }
+
+

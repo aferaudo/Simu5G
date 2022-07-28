@@ -82,11 +82,13 @@ class MecPlatformManagerDyn : public SubscriberBase
 
     inet::IInterfaceTable* ifacetable;
 
+    cMessage* registerMessage_;
     //std::map<std::string, std::string> subscriptions_; // link -
     // std::queue<std::string> appInstanceIds_; //used to take trace of next subscriptions
 
     public:
         MecPlatformManagerDyn();
+        ~MecPlatformManagerDyn();
 
         MecAppInstanceInfo* instantiateMEApp(InstantiationApplicationRequest*);
         bool terminateMEApp(DeleteAppMessage*);

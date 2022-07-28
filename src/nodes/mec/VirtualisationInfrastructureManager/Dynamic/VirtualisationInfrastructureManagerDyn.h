@@ -135,6 +135,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 
     public:
         VirtualisationInfrastructureManagerDyn();
+        ~VirtualisationInfrastructureManagerDyn();
 
         /*
          * Istantiate ME Application on an handled car
@@ -271,6 +272,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         void handleMepmMessage(cMessage*);
 
         void handleInstantiationResponse(cMessage*);
+        void handleTerminationResponse(cMessage*);
 
         inet::Packet* createInstantiationRequest(MecAppEntryDyn &, std::string requiredOmnetppService="NULL", bool migration = false);
         /*

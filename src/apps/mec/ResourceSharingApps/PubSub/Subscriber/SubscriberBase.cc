@@ -24,6 +24,12 @@ SubscriberBase::SubscriberBase()
     currentHttpMessageServed_ = nullptr;
 }
 
+SubscriberBase::~SubscriberBase()
+{
+    std::cout<<"called subscriberBase destructor" << endl;
+    cancelAndDelete(nextEvent);
+}
+
 void SubscriberBase::initialize(int stage)
 {
     if (stage == inet::INITSTAGE_LOCAL)
@@ -52,7 +58,7 @@ void SubscriberBase::handleStartOperation(inet::LifecycleOperation *operation)
     tcpSocket.bind(localToBrokerPort);
     tcpSocket.setCallback(this);
     appState = UNSUB;
-
+    nextEvent = new cMessage("nextEvent");
     // drawing a cricle
 //    host->getParentModule()->getDisplayString().setTagArg("p", 0, center.getX());
 //    host->getParentModule()->getDisplayString().setTagArg("p", 1, center.getY());
@@ -82,7 +88,6 @@ void SubscriberBase::handleMessageWhenUp(omnetpp::cMessage *msg)
             httpMessageQueue_.pop();
             manageNotification();
             EV << "SubscriberBase::http message to be processed: " << httpMessageQueue_.size() << endl;
-            cMessage *nextEvent = new cMessage("nextEvent");
             if(!nextEvent->isScheduled() && httpMessageQueue_.size() > 0)
                scheduleAt(simTime(), nextEvent);
         }
@@ -93,7 +98,7 @@ void SubscriberBase::handleMessageWhenUp(omnetpp::cMessage *msg)
         }
 
 
-        delete msg;
+        //delete msg;
     }
     else if (msg->isSelfMessage() && strcmp(msg->getName(), "unsub") == 0)
     {
@@ -211,7 +216,6 @@ void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *pa
                     // In case of multiple notification a queue may be needed (AMS scenario)
                     httpMessageQueue_.push(currentHttpMessage);
 
-                    cMessage *nextEvent = new cMessage("nextEvent");
                     if(!nextEvent->isScheduled())
                     {
                        std::cout<<"Scheduling nextEvent " << httpMessageQueue_.size() << endl;

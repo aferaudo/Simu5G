@@ -101,7 +101,7 @@ void MECWarningAlertApp::handleMessage(cMessage *msg)
 
         cMessage *b = new cMessage("deleteRegistration");
         scheduleAt(simTime()+0.001, b);
-
+        delete msg;
         return;
     }
     else if (!msg->isSelfMessage())

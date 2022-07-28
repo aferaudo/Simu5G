@@ -27,34 +27,7 @@ void SocketManager::dataArrived(inet::Packet *msg, bool urgent){
     EV << "SocketManager::dataArrived" << endl;
     msg->removeControlInfo();
 
-    inet::b offset = inet::b(0);
-    int idx = 0;
-    std::vector<uint8_t> bytes =  msg->dup()->peekDataAsBytes()->getBytes();
-    auto chunkbytes =  msg->dup()->peekDataAsBytes();
-    EV << "SocketManager::dataArrived modified - maxdata : " << msg->getDataLength() << endl;
-    int i = 0;
-//    std::string packet;
-    while(offset < msg->getDataLength()){
-        auto chunk = msg->peekAt(offset)->dupShared();
-
-        if(chunk->getChunkLength() > inet::b(0)){
-            auto length = chunk->getChunkLength();
-
-            // Logic
-            std::vector<uint8_t> interesting_bytes = chunkbytes->peek<inet::BytesChunk>(offset, length)->getBytes();
-            std::string interesting_packet(interesting_bytes.begin(), interesting_bytes.end());
-//            if(i==0){
-//                packet = interesting_packet;
-//            }
-            i++;
-            EV << "SocketManager::dataArrived modified - payload : " << interesting_packet << endl;
-
-            // End Logic
-
-            offset += length;
-            EV << "SocketManager::dataArrived modified - new offset : " << offset << endl;
-        }
-    }
+    std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
 
     EV << "SocketManager::dataArrived - payload length: " << bytes.size() << endl;
     std::string packet(bytes.begin(), bytes.end());
@@ -102,52 +75,39 @@ void SocketManager::dataArrived(inet::Packet *msg, bool urgent){
     }
     // ########################
 
-    bool res = true;
-    EV_INFO << "there are " << completedMessageQueue.getLength() << " messages" << endl;
-    std::cout << "Buffer prima " << bufferedData << endl;
+
+    EV_INFO << "SocketManager::there are " << completedMessageQueue.getLength() << " messages" << endl;
+
     Http::parseReceivedMsg(sock->getSocketId(), packet, completedMessageQueue, &bufferedData, &currentHttpMessage);
-    std::cout << "Buffer dopo" << bufferedData << endl;
-    if(currentHttpMessage == nullptr){
-        std::cout << "nullptr message" << endl;
-    }else{
-        std::cout << (*currentHttpMessage).getBody() << endl;
-    }
-    EV_INFO << "found " << completedMessageQueue.getLength() << " messages" << endl;
-    std::cout << "found " << completedMessageQueue.getLength() << " messages" << endl;
-    if(res)
-    {
 
-        while(completedMessageQueue.getLength() > 0){
-            HttpBaseMessage* message = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
+    // debug
+//    if(currentHttpMessage == nullptr){
+//        std::cout << "nullptr message" << endl;
+//    }else{
+//        std::cout << (*currentHttpMessage).getBody() << endl;
+//    }
+//    EV_INFO << "found " << completedMessageQueue.getLength() << " messages" << endl;
+//    std::cout << "found " << completedMessageQueue.getLength() << " messages" << endl;
 
-            std::cout << "analyzing " << message->getBody() << endl;
-            message->setSockId(sock->getSocketId());
-            std::cout << "analyzing 2" << endl;
-            if(message->getType() == REQUEST)
-            {
-                std::cout << "analyzing 3" << endl;
-                service->emitRequestQueueLength();
-                message->setArrivalTime(simTime());
-                service->newRequest(check_and_cast<HttpRequestMessage*>(message));
-                std::cout << "analyzing 4" << endl;
-            }
-            else
-            {
-                delete message;
-            }
-//            if(currentHttpMessage != nullptr)
-//            {
-//              currentHttpMessage = nullptr;
-//            }
+    // Processing completed messages
+    while(completedMessageQueue.getLength() > 0){
+        HttpBaseMessage* message = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
+
+        message->setSockId(sock->getSocketId());
+        if(message->getType() == REQUEST)
+        {
+            service->emitRequestQueueLength();
+            message->setArrivalTime(simTime());
+            service->newRequest(check_and_cast<HttpRequestMessage*>(message));
         }
-
-        std::cout << "analyzing 5 - " << completedMessageQueue.getLength() << endl;
-//        completedMessageQueue.clear();
-        std::cout << "analyzing 55" << endl;
+        else
+        {
+            delete message;
+        }
     }
-    std::cout << "analyzing 56" << endl;
+
+
     delete msg;
-    std::cout << "analyzing 6" << endl;
     return;
 }
 
