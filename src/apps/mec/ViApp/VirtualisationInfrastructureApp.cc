@@ -362,6 +362,7 @@ void VirtualisationInfrastructureApp::handleModuleRemoval(cMessage*)
         cModule *module = terminatingModules.front();
         EV << "VirtualisationInfrastructureApp::Removing module from car" << endl;
         module->deleteModule();
+        std::cout << "module deleted" << endl;
         terminatingModules.pop();
         EV << "VirtualisationInfrastructureApp::Module removed. Still to be removed: " << terminatingModules.size() << endl;
         std::cout << "Module removed " << endl;

@@ -15,6 +15,8 @@ class  MecAppBaseDyn : public MecAppBase
 {
     protected:
         VirtualisationInfrastructureApp* vi;
+        HttpBaseMessage *bufferHttpMessageService;
+        HttpBaseMessage *bufferHttpMessageAms;
 
 
     public:
@@ -23,6 +25,8 @@ class  MecAppBaseDyn : public MecAppBase
 
     protected:
         virtual void initialize(int stage) override;
+        virtual void handleMessage(cMessage *msg) override;
+        virtual void finish() override;
 
         /* Method to be implemented for real MEC apps */
         virtual void handleSelfMessage(omnetpp::cMessage *msg) override {};
