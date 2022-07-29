@@ -9,6 +9,8 @@ MecAppBaseDyn::MecAppBaseDyn()
 {
     mecHost = nullptr;
     serviceHttpMessage = nullptr;
+    bufferHttpMessageService = nullptr;
+    bufferHttpMessageAms = nullptr;
     mp1HttpMessage = nullptr;
     vim = nullptr;
     vi = nullptr;
@@ -17,32 +19,36 @@ MecAppBaseDyn::MecAppBaseDyn()
 
 MecAppBaseDyn::~MecAppBaseDyn()
 {
-
-    if(serviceHttpMessage != nullptr)
+//    if(serviceHttpMessage != nullptr)
+//    {
+//        delete serviceHttpMessage;
+//    }
+    if(bufferHttpMessageService != nullptr)
     {
-        delete serviceHttpMessage;
+        delete bufferHttpMessageService;
+    }
+    if(bufferHttpMessageAms != nullptr)
+    {
+        delete bufferHttpMessageAms;
     }
     if(mp1HttpMessage != nullptr)
     {
         delete mp1HttpMessage;
     }
 
+//    cancelAndDelete(processedServiceResponse);
+    cancelAndDelete(processedMp1Response);
+//    cancelAndDelete(processedAmsResponse);
+    cancelAndDelete(processedStateResponse);
 
-    if(processedServiceResponse->isScheduled())
+    while(amsHttpMessages_.getLength())
     {
-        cancelAndDelete(processedServiceResponse);
+        delete amsHttpMessages_.pop();
     }
-
-    if(processedMp1Response->isScheduled())
+    while(serviceHttpMessages_.getLength())
     {
-        cancelAndDelete(processedMp1Response);
+        delete serviceHttpMessages_.pop();
     }
-
-    if(processedAmsResponse->isScheduled())
-    {
-        cancelAndDelete(processedAmsResponse);
-    }
-
 }
 
 void MecAppBaseDyn::initialize(int stage)
@@ -84,10 +90,6 @@ void MecAppBaseDyn::initialize(int stage)
         vi = check_and_cast<VirtualisationInfrastructureApp*>(getParentModule()->getSubmodule("app", 1));
     }else
         vi = check_and_cast<VirtualisationInfrastructureApp*>(getParentModule()->getSubmodule("viApp"));
-    //    vim = check_and_cast<VirtualisationInfrastructureManager*>(getParentModule()->getSubmodule("vim"));
-//    mecHost = getParentModule();
-//    mecPlatform = mecHost->getSubmodule("mecPlatform");
-//    serviceRegistry = check_and_cast<ServiceRegistry *>(mecPlatform->getSubmodule("serviceRegistry"));
 
     processedServiceResponse = new cMessage("processedServiceResponse");
     processedMp1Response = new cMessage("processedMp1Response");
@@ -104,14 +106,16 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
     {
         std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
         std::string packet(bytes.begin(), bytes.end());
-        bool res =  Http::parseReceivedMsg(packet, &bufferedData, &serviceHttpMessage);
-        if(res)
+        Http::parseReceivedMsg(serviceSocket_.getSocketId(), packet, serviceHttpMessages_, &bufferedDataService, &bufferHttpMessageService);
+
+        if(serviceHttpMessages_.getLength() > 0)
         {
-            serviceHttpMessage->setSockId(serviceSocket_.getSocketId());
             if(vi == nullptr)
                 throw cRuntimeError("MecAppBase::socketDataArrived - vi is null (service)!");
             double time = vi->calculateProcessingTime(mecAppId, 150);
-            scheduleAt(simTime()+time, processedServiceResponse);
+
+            if(!processedServiceResponse->isScheduled())
+                scheduleAt(simTime()+time, processedServiceResponse);
         }
     }
     else if (mp1Socket_.belongsToSocket(msg))
@@ -136,10 +140,9 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
         }
         std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
         std::string packet(bytes.begin(), bytes.end());
-        bool res =  Http::parseReceivedMsg(packet, &bufferedData, &amsHttpMessage);
-        if(res)
+        Http::parseReceivedMsg(amsSocket_.getSocketId(), packet, amsHttpMessages_, &bufferedDataAms, &bufferHttpMessageAms);
+        if(amsHttpMessages_.getLength() > 0)
         {
-            amsHttpMessage->setSockId(amsSocket_.getSocketId());
             if(vi == nullptr)
                 throw cRuntimeError("MecAppBase::socketDataArrived - vi is null! (ams)");
             double time = vi->calculateProcessingTime(mecAppId, 150);
@@ -169,7 +172,53 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
 }
 
 void MecAppBaseDyn::closeAllSockets() {
-    serviceSocket_.close();
-    mp1Socket_.close();
-    amsSocket_.close();
+//    serviceSocket_.close();
+//    mp1Socket_.close();
+//    amsSocket_.close();
+}
+
+void MecAppBaseDyn::handleMessage(cMessage *msg)
+{
+    if(msg->isSelfMessage() && strcmp(msg->getName(), "processedAmsResponse") == 0)
+    {
+        amsHttpMessage = check_and_cast<HttpBaseMessage*>(amsHttpMessages_.pop());
+        amsHttpMessage->setSockId(amsSocket_.getSocketId());
+        handleAmsMessage();
+        delete amsHttpMessage;
+        if(amsHttpMessages_.getLength() > 0)
+        {
+            double time = vi->calculateProcessingTime(mecAppId, 150);
+            if(!processedAmsResponse->isScheduled()){
+                scheduleAt(simTime()+time, processedAmsResponse);
+            }
+        }
+    }
+    else if(msg->isSelfMessage() && strcmp(msg->getName(), "processedServiceResponse") == 0)
+    {
+        serviceHttpMessage = check_and_cast<HttpBaseMessage*>(serviceHttpMessages_.pop());
+        serviceHttpMessage->setSockId(serviceSocket_.getSocketId());
+        handleServiceMessage();
+        //delete serviceHttpMessage;
+        if(serviceHttpMessages_.getLength() > 0)
+        {
+            double time = vi->calculateProcessingTime(mecAppId, 150);
+            if(!processedServiceResponse->isScheduled()){
+                scheduleAt(simTime()+time, processedServiceResponse);
+            }
+        }
+    }
+    else
+    {
+        MecAppBase::handleMessage(msg);
+    }
+}
+
+void MecAppBaseDyn::finish()
+{
+    EV << "MecAppBase::finish()" << endl;
+    cancelAndDelete(processedServiceResponse); // discarding queue messages (these are typically delete replies)
+
+    cancelAndDelete(processedAmsResponse); // discarding queue messages (these are typically delete replies)
+
+    MecAppBase::finish();
 }

@@ -18,6 +18,10 @@ VirtualisationInfrastructureManagerDyn::VirtualisationInfrastructureManagerDyn()
     handledApp.clear();
 }
 
+VirtualisationInfrastructureManagerDyn::~VirtualisationInfrastructureManagerDyn()
+{
+}
+
 void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 {
     cSimpleModule::initialize(stage);
@@ -158,127 +162,37 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
     else if(!msg->isSelfMessage() && socket.belongsToSocket(msg)){
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - other message received!" << endl;
 
-           // TODO remove after the implementation of the publisher
-//        if (!strcmp(msg->getName(), "Register")){
-//            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: Register" << endl;
-//
-//            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
-//            if (pPacket == 0)
-//               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
-//
-//            auto data = pPacket->peekData<RegistrationPacket>();
-//            //        inet::PacketPrinter printer;
-//            //        printer.printPacket(std::cout, pPacket);
-//
-//            registerHost(data->getRam(),data->getDisk(),data->getCpu(),data->getAddress());
-//
-//            getParentModule()->bubble("Host Registrato");
-//            delete msg;
         if (!strcmp(msg->getName(), "InstantiationResponse")){
             EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: InstantiationResponse" << endl;
 
             handleInstantiationResponse(msg);
 
-            delete msg;
         }else if (!strcmp(msg->getName(), "TerminationResponse")){
             EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: TerminationResponse" << endl;
-
-            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
-            if (pPacket == 0)
-               throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
-
-            auto data = pPacket->peekData<TerminationResponse>();
-            inet::PacketPrinter printer;
-            printer.printPacket(std::cout, pPacket);
-
-            int ueAppID = data->getUeAppID();
-            MecAppEntryDyn entry;
-            if(data->isMigrating())
-            {
-                // migration
-                EV << "VirtualisationInfrastructureManagerDyn::TerminationResponse for migrating app" << endl;
-                auto itMigrating = migratingApps.find(std::to_string(ueAppID));
-                if(itMigrating == migratingApps.end())
-                {
-                    throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - TerminationResponse - cannot find registered app");
-                }
-                entry = itMigrating->second;
-
-                migratingApps.erase(itMigrating);
-                std::cout << "Dimension Migrating apps after erase " << migratingApps.size() << endl;
-                std::cout << "Dimension handled apps after erase on migration " << handledApp.size() << endl;
-            }
-            else
-            {
-                //printHandledApp();
-                std::cout << "An app has been terminated before find: " << handledApp.size() << endl;
-                auto itHandled = handledApp.find(std::to_string(ueAppID));
-                EV << "VirtualisationInfrastructureManagerDyn::TerminationResponse for normal app" << endl;
-                if(itHandled == handledApp.end()){
-                    throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - TerminationResponse - cannot find registered app");
-                }
-                entry = *(itHandled->second);
-
-
-                handledApp.erase(itHandled);
-                std::cout << "An app has been terminated: " << handledApp.size() << " entry: " << entry.appInstanceId << endl;
-            }
-
-            int host_key = findHostIDByAddress(entry.endpoint.addr);
-            HostDescriptor* host = &((handledHosts.find(host_key))->second);
-            host->numRunningApp -= 1;
-            deallocateResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, host_key);
-            unregisterHost(host_key);
-            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - Termination response - sending reply to orchestrator" << endl;
-
-            inet::Packet *packet = new inet::Packet("terminationAppInstResponse");
-            auto terminationResponse = inet::makeShared<TerminationAppInstResponse>();
-            terminationResponse->setDeviceAppId(std::to_string(entry.ueAppID).c_str());
-            terminationResponse->setContextId(entry.contextID);
-            terminationResponse->setMecHostId(getParentModule()->getParentModule()->getId());
-            terminationResponse->setRequestId(data->getRequestId());
-            terminationResponse->setStatus(true);
-            terminationResponse->setIsMigrating(data->isMigrating()); // migration
-            terminationResponse->setAppInstanceId(data->getAppInstanceId());
-            terminationResponse->setChunkLength(inet::B(1000));
-            std::cout<< "before sending: " << handledApp.size() << " " << simTime() << endl;
-            printHandledApp();
-            packet->insertAtBack(terminationResponse);
-            //packet->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
-
-            socket.sendTo(packet, mepmAddress, mepmPort);
-
-            EV << "VirtualisationInfrastructureManagerDyn:: response - terminate" << endl;
-            printResources();
-            std::cout<< "After sending: " << handledApp.size() << " " << simTime() << endl;
-            printHandledApp();
-            delete msg;
+            handleTerminationResponse(msg);
         }else if(!strcmp(msg->getName(), "instantiationApplicationRequest") || !strcmp(msg->getName(), "terminationAppInstRequest")){
             EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE:" << msg->getName() << endl;
 
             handleMepmMessage(msg);
-            delete msg;
         }
         else if (!strcmp(msg->getName(), "ResourceRequest")){
             EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: ResourceRequest" << endl;
 
             inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
             handleResourceRequest(pPacket);
-            delete msg;
         }
         else if(!strcmp(msg->getName(), "ServiceMobilityRequest"))
         {
             EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: ServiceMobilityRequest" << endl;
             handleMobilityRequest(msg);
         }
+        delete msg;
     }
     else{
         std::cout << "Else virtualisationinfrastracturedyn " << endl;
         EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TCP message received!" << endl;
         SubscriberBase::handleMessageWhenUp(msg);
     }
-
-//    delete msg;
 }
 
 int VirtualisationInfrastructureManagerDyn::registerHost(int host_id, double ram, double disk, double cpu, inet::L3Address ip_addr, int viPort)
@@ -1052,7 +966,7 @@ void VirtualisationInfrastructureManagerDyn::handleMobilityRequest(cMessage* msg
                 {
                     instantiateMEAppLocally((*value.second), true);
                 }
-                return;
+                break;
             }
         }
     }
@@ -1064,8 +978,9 @@ void VirtualisationInfrastructureManagerDyn::handleMobilityRequest(cMessage* msg
          * The correspondence MECapp UE is 1 to 1 so far, thus
          * only one MECApp at time will be migrated
          */
-        return;
+//        return;
     }
+
 
 }
 
@@ -1108,7 +1023,6 @@ inet::Packet* VirtualisationInfrastructureManagerDyn::createInstantiationRequest
     registrationpck->setMp1Port(mp1Port);
     registrationpck->setContextId(meapp.contextID);
     registrationpck->setIsMigrating(migration);
-    registrationpck->setStartAllocationTime(simTime());
     registrationpck->setChunkLength(inet::B(sizeof(meapp) + mp1Address.str().size() + 16));
     packet->insertAtBack(registrationpck);
 
@@ -1267,4 +1181,78 @@ void VirtualisationInfrastructureManagerDyn::mobilityTrigger(
 
     socket.sendTo(toSend, mepmAddress, mepmPort);
 
+}
+
+void VirtualisationInfrastructureManagerDyn::handleTerminationResponse(
+        cMessage* msg) {
+
+    inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+    if (pPacket == 0)
+       throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - FATAL! Error when casting to inet packet");
+
+    auto data = pPacket->peekData<TerminationResponse>();
+    inet::PacketPrinter printer;
+    printer.printPacket(std::cout, pPacket);
+
+    int ueAppID = data->getUeAppID();
+    MecAppEntryDyn entry;
+    if(data->isMigrating())
+    {
+        // migration
+        EV << "VirtualisationInfrastructureManagerDyn::TerminationResponse for migrating app" << endl;
+        auto itMigrating = migratingApps.find(std::to_string(ueAppID));
+        if(itMigrating == migratingApps.end())
+        {
+            throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - TerminationResponse - cannot find registered app");
+        }
+        entry = itMigrating->second;
+
+        migratingApps.erase(itMigrating);
+        std::cout << "Dimension Migrating apps after erase " << migratingApps.size() << endl;
+        std::cout << "Dimension handled apps after erase on migration " << handledApp.size() << endl;
+    }
+    else
+    {
+        //printHandledApp();
+        std::cout << "An app has been terminated before find: " << handledApp.size() << endl;
+        auto itHandled = handledApp.find(std::to_string(ueAppID));
+        EV << "VirtualisationInfrastructureManagerDyn::TerminationResponse for normal app" << endl;
+        if(itHandled == handledApp.end()){
+            throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - TerminationResponse - cannot find registered app");
+        }
+        entry = *(itHandled->second);
+
+
+        handledApp.erase(itHandled);
+        std::cout << "An app has been terminated: " << handledApp.size() << " entry: " << entry.appInstanceId << endl;
+    }
+
+    int host_key = findHostIDByAddress(entry.endpoint.addr);
+    HostDescriptor* host = &((handledHosts.find(host_key))->second);
+    host->numRunningApp -= 1;
+    deallocateResources(entry.usedResources.ram, entry.usedResources.disk, entry.usedResources.cpu, host_key);
+    unregisterHost(host_key);
+    EV << "VirtualisationInfrastructureManagerDyn::handleMessage - Termination response - sending reply to orchestrator" << endl;
+
+    inet::Packet *packet = new inet::Packet("terminationAppInstResponse");
+    auto terminationResponse = inet::makeShared<TerminationAppInstResponse>();
+    terminationResponse->setDeviceAppId(std::to_string(entry.ueAppID).c_str());
+    terminationResponse->setContextId(entry.contextID);
+    terminationResponse->setMecHostId(getParentModule()->getParentModule()->getId());
+    terminationResponse->setRequestId(data->getRequestId());
+    terminationResponse->setStatus(true);
+    terminationResponse->setIsMigrating(data->isMigrating()); // migration
+    terminationResponse->setAppInstanceId(data->getAppInstanceId());
+    terminationResponse->setChunkLength(inet::B(1000));
+    std::cout<< "before sending: " << handledApp.size() << " " << simTime() << endl;
+    printHandledApp();
+    packet->insertAtBack(terminationResponse);
+    //packet->addTag<inet::InterfaceReq>()->setInterfaceId(ifacetable->findInterfaceByName("pppIfRouter")->getInterfaceId());
+
+    socket.sendTo(packet, mepmAddress, mepmPort);
+
+    EV << "VirtualisationInfrastructureManagerDyn:: response - terminate" << endl;
+    printResources();
+    std::cout<< "After sending: " << handledApp.size() << " " << simTime() << endl;
+    printHandledApp();
 }

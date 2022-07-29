@@ -47,7 +47,7 @@ class SubscriberBase: public inet::ApplicationBase, public inet::TcpSocket::ICal
 
    public:
       SubscriberBase();
-      ~SubscriberBase(){};
+      ~SubscriberBase();
 
   protected:
     std::string subscribeURI;
@@ -56,6 +56,7 @@ class SubscriberBase: public inet::ApplicationBase, public inet::TcpSocket::ICal
     SubscriberState appState;
 
     cModule* host;
+    cMessage *nextEvent;
 
     // HttpMessageManagement
     std::queue<HttpBaseMessage*> httpMessageQueue_;

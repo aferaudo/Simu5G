@@ -23,6 +23,12 @@ MecPlatformManagerDyn::MecPlatformManagerDyn()
     amsEnabled = false;
 }
 
+MecPlatformManagerDyn::~MecPlatformManagerDyn()
+{
+    // TODO
+    cancelAndDelete(registerMessage_);
+}
+
 void MecPlatformManagerDyn::initialize(int stage)
 {
 
@@ -80,8 +86,8 @@ void MecPlatformManagerDyn::handleStartOperation(inet::LifecycleOperation *opera
     // Broker settings - ams address
     brokerIPAddress = inet::L3AddressResolver().resolve(par("brokerAddress").stringValue());
 
-
-    scheduleAt(simTime()+0.01, new cMessage("register"));
+    registerMessage_ = new cMessage("register");
+    scheduleAt(simTime()+0.01, registerMessage_);
     SubscriberBase::handleStartOperation(operation);
 }
 
@@ -104,14 +110,14 @@ void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
         {
             connectToBroker();
         }
-        delete msg;
+//        delete msg;
     }else if (!msg->isSelfMessage() && socket.belongsToSocket(msg))
     {
         EV << "MecPlatformManagerDyn::handleMessage - TYPE: "<< msg->getName() << endl;
         if(!strcmp(msg->getName(), "ServiceRequest")){
                 inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
                 handleServiceRequest(pPacket);
-                delete msg;
+//                delete msg;
         }
         else if (!strcmp(msg->getName(), "instantiationApplicationRequest")){
             inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
@@ -138,17 +144,18 @@ void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
         {
             inet::Packet* packet = check_and_cast<inet::Packet*>(msg);
             handleParkMigrationTrigger(packet);
-            delete msg;
+//            delete msg;
         }
         else if(!strcmp(msg->getName(), "ServiceMobilityResponse"))
         {
             inet::Packet* packet = check_and_cast<inet::Packet*>(msg);
             handleServiceMobilityResponse(packet);
-            delete msg;
+//            delete msg;
         }
         else{
             EV << "MecPlatformManagerDyn::handleMessage - unknown package" << endl;
         }
+        delete msg;
     }
     else
     {
@@ -315,8 +322,6 @@ void MecPlatformManagerDyn::handleTerminationRequest(inet::Packet *packet)
 
 void MecPlatformManagerDyn::handleTerminationResponse(inet::Packet * packet)
 {
-    inet::Packet* pktdup = new inet::Packet("terminationAppInstResponse");
-    auto deleteAppResponse = inet::makeShared<TerminationAppInstResponse>();
     auto data = packet->peekData<TerminationAppInstResponse>().get();
     if(data->isMigrating())
     {
@@ -337,6 +342,8 @@ void MecPlatformManagerDyn::handleTerminationResponse(inet::Packet * packet)
         appState = SUB;
         return;
     }
+    inet::Packet* pktdup = new inet::Packet("terminationAppInstResponse");
+    auto deleteAppResponse = inet::makeShared<TerminationAppInstResponse>();
     deleteAppResponse = data->dup();
     pktdup->insertAtBack(deleteAppResponse);
 

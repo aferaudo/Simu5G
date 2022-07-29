@@ -78,6 +78,8 @@ class  MecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICall
 
 
     std::string bufferedData;
+    std::string bufferedDataAms;
+    std::string bufferedDataService;
 
     VirtualisationInfrastructureManager* vim;
 

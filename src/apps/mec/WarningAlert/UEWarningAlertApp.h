@@ -80,8 +80,9 @@ class UEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallback
     //scheduling
     cMessage *selfStart_;
     cMessage *selfStop_;
-
     cMessage *selfMecAppStart_;
+    cMessage * connectAmsMessage_;
+    cMessage * subAmsMessage_;
 
     inet::L3Address amsAddress;
     int amsPort;

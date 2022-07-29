@@ -74,6 +74,7 @@ class VirtualisationInfrastructureApp : public cSimpleModule
     SchedulingMode scheduling;
     cModule *toDelete;
     std::queue<cModule *> terminatingModules;
+    cMessage *deleteModuleMessage;
 
     double maxCpu;
     double allocatedCpu;
@@ -90,6 +91,7 @@ class VirtualisationInfrastructureApp : public cSimpleModule
 
     public:
         VirtualisationInfrastructureApp();
+        ~VirtualisationInfrastructureApp();
 
         double calculateProcessingTime(int ueAppID, int numOfInstructions);
 

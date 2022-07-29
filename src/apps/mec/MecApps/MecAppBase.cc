@@ -51,20 +51,20 @@ MecAppBase::~MecAppBase()
 
 
     // TODO: Segmentation fault if these line are not commented. Why?
-    if(processedServiceResponse->isScheduled())
-    {
-        cancelAndDelete(processedServiceResponse);
-    }
+//    if(processedServiceResponse->isScheduled())
+//    {
+//        cancelAndDelete(processedServiceResponse);
+//    }
 
-    if(processedMp1Response->isScheduled())
-    {
-        cancelAndDelete(processedMp1Response);
-    }
+//    if(processedMp1Response->isScheduled())
+//    {
+//        cancelAndDelete(processedMp1Response);
+//    }
 
-    if(processedAmsResponse->isScheduled())
-    {
-        cancelAndDelete(processedAmsResponse);
-    }
+//    if(processedAmsResponse->isScheduled())
+//    {
+//        cancelAndDelete(processedAmsResponse);
+//    }
 
 
 }
@@ -259,6 +259,7 @@ void MecAppBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, b
     }
     else if (amsSocket_.belongsToSocket(msg))
     {
+        std::cout << "AMS base " << endl;
         bool res =  Http::parseReceivedMsg(packet, &bufferedData, &amsHttpMessage);
         if(res)
         {
@@ -306,6 +307,7 @@ void MecAppBase::socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo
 void MecAppBase::socketPeerClosed(TcpSocket *socket_)
 {
     EV << "MecAppBase::socketPeerClosed" << endl;
+    std::cout<<"Closing peer socket MECApp Base" << endl;
     socket_->close();
 }
 

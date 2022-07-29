@@ -104,7 +104,7 @@ void MECWarningAlertApp::handleMessage(cMessage *msg)
 
         cMessage *b = new cMessage("deleteRegistration");
         scheduleAt(simTime()+0.001, b);
-
+        delete msg;
         return;
     }
     else if (!msg->isSelfMessage())
@@ -116,12 +116,12 @@ void MECWarningAlertApp::handleMessage(cMessage *msg)
             return;
         }
     }
-    MecAppBase::handleMessage(msg);
+    MecAppBaseDyn::handleMessage(msg);
 
 }
 
 void MECWarningAlertApp::finish(){
-    MecAppBase::finish();
+    MecAppBaseDyn::finish();
     EV << "MECWarningAlertApp::finish()" << endl;
 
     if(gate("socketOut")->isConnected()){
@@ -254,6 +254,7 @@ void MECWarningAlertApp::sendSubscription(std::string criteria)
 void MECWarningAlertApp::sendDeleteSubscription()
 {
     std::string uri = "/example/location/v2/subscriptions/area/circle/" + subId;
+    std::cout << "MECWarningAlertApp: WhoAmI: " << localAddress << " subId: " << subId << endl;
     subId = "";
     std::string host = serviceSocket_.getRemoteAddress().str()+":"+std::to_string(serviceSocket_.getRemotePort());
     Http::sendDeleteRequest(&serviceSocket_, host.c_str(), uri.c_str());
@@ -340,12 +341,12 @@ void MECWarningAlertApp::established(int connId)
             stateSocket_->send(packet);
 
             EV << "MECWarningAlertApp::context message sent closing socket" << endl;
-            stateSocket_->close();
 
             isMigrated = true;
 
             if(!subId.empty()){
                 EV << "MECWarningAlertApp::deleting subscription " << subId << endl;
+                std::cout << "First time! DELETE" << endl;
                 sendDeleteSubscription();
             }
 
@@ -571,6 +572,7 @@ void MECWarningAlertApp::handleServiceMessage()
                             myfile.close();
                         }
                     }
+                    std::cout << "Second time! DELETE" << endl;
                     sendDeleteSubscription();
                 }
 
@@ -653,14 +655,14 @@ void MECWarningAlertApp::handleStateMessage(){
     EV << "MECWarningAlertApp::handleStateMessage - received message " << endl;
 
     auto data = stateMessage->peekData<MecWarningAppSyncMessage>();
-    EV << "MECWarningAlertApp::setting new state: " << endl;
-    EV << "MECWarningAlertApp::position x: " << data->getPositionX() << endl;
-    EV << "MECWarningAlertApp::position y: " << data->getPositionY() << endl;
-    EV << "MECWarningAlertApp::radius: " << data->getRadius() << endl;
-    EV << "MECWarningAlertApp::ue addr: " << data->getUeAddress() << endl;
-    EV << "MECWarningAlertApp::ue port: " << data->getUePort() << endl;
-    EV << "MECWarningAlertApp::contextId: " << data->getContextId() << endl;
-    EV << "MECWarningAlertApp::state: " << data->getState() << endl;
+    std::cout << "MECWarningAlertApp::setting new state: " << endl;
+    std::cout << "MECWarningAlertApp::position x: " << data->getPositionX() << endl;
+    std::cout << "MECWarningAlertApp::position y: " << data->getPositionY() << endl;
+    std::cout << "MECWarningAlertApp::radius: " << data->getRadius() << endl;
+    std::cout << "MECWarningAlertApp::ue addr: " << data->getUeAddress() << endl;
+    std::cout << "MECWarningAlertApp::ue port: " << data->getUePort() << endl;
+    std::cout << "MECWarningAlertApp::contextId: " << data->getContextId() << endl;
+    std::cout << "MECWarningAlertApp::state: " << data->getState() << endl;
 
     centerPositionX = data->getPositionX();
     centerPositionY = data->getPositionY();
@@ -854,7 +856,7 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         //Http::sendDeleteRequest(&amsSocket_, host.c_str(), uri);
 
         cMessage *b = new cMessage("deleteModule");
-        closeAllSockets();
+//        closeAllSockets();
         scheduleAt(simTime()+0.001, b);
 
     }

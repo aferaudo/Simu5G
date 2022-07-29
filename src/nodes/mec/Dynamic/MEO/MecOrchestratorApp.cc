@@ -38,6 +38,7 @@ MecOrchestratorApp::~MecOrchestratorApp()
 {
 //    mecHosts.clear();
 //    mecApplicationDescriptors_.clear();
+    pendingRequests.clear();
 }
 
 void MecOrchestratorApp::initialize(int stage)
@@ -438,6 +439,7 @@ void MecOrchestratorApp::handleInstantiationResponse(inet::Packet *packet)
         sendCreateAppContextAck(true, itUALCMPRequest->second->getRequestId(), appResponse->getContextId());
 
         // delete pending request
+        delete itUALCMPRequest->second;
         pendingRequests.erase(itUALCMPRequest);
 
     }else
@@ -618,10 +620,10 @@ double MecOrchestratorApp::sendSRRequest(inet::Packet* pktMM3, inet::Packet* pkt
     EV << "MEOApp::Sending requests to " << mepmHostAddress.str() << " and " << vimHostAddress.str() <<endl;
 
     // Requesting to vim if MECApp is allocable
-    socket.sendTo(pktMM4->dup(), vimHostAddress, vimPort);
+    socket.sendTo(pktMM4, vimHostAddress, vimPort);
 
     // Requesting to MEPM if the MECPlatform has the needed services
-    socket.sendTo(pktMM3->dup(), mepmHostAddress, mepmPort);
+    socket.sendTo(pktMM3, mepmHostAddress, mepmPort);
 
     return simTime().dbl();
 }
@@ -660,6 +662,8 @@ void MecOrchestratorApp::sendCreateAppContextAck(bool result, unsigned int reque
         if(!deviceAppId.empty()){
             EV << "MEOApp::Deleting pending requests and responses"<<endl;
             // Deleting pending request from UALCMP
+            auto entry = pendingRequests.find(deviceAppId);
+            delete entry->second;
             pendingRequests.erase(deviceAppId);
 
             // Deleting pending response from MECHosts
