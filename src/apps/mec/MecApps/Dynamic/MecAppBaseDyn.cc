@@ -36,9 +36,9 @@ MecAppBaseDyn::~MecAppBaseDyn()
         delete mp1HttpMessage;
     }
 
-//    cancelAndDelete(processedServiceResponse);
+    cancelAndDelete(processedServiceResponse);
     cancelAndDelete(processedMp1Response);
-//    cancelAndDelete(processedAmsResponse);
+    cancelAndDelete(processedAmsResponse);
     cancelAndDelete(processedStateResponse);
 
     while(amsHttpMessages_.getLength())
@@ -49,6 +49,7 @@ MecAppBaseDyn::~MecAppBaseDyn()
     {
         delete serviceHttpMessages_.pop();
     }
+
 }
 
 void MecAppBaseDyn::initialize(int stage)
@@ -216,9 +217,9 @@ void MecAppBaseDyn::handleMessage(cMessage *msg)
 void MecAppBaseDyn::finish()
 {
     EV << "MecAppBase::finish()" << endl;
-    cancelAndDelete(processedServiceResponse); // discarding queue messages (these are typically delete replies)
+//    cancelAndDelete(processedServiceResponse); // discarding queue messages (these are typically delete replies)
 
-    cancelAndDelete(processedAmsResponse); // discarding queue messages (these are typically delete replies)
+//    cancelAndDelete(processedAmsResponse); // discarding queue messages (these are typically delete replies)
 
     MecAppBase::finish();
 }

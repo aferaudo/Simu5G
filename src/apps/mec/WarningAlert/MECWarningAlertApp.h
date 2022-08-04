@@ -84,6 +84,11 @@ class MECWarningAlertApp : public MecAppBaseDyn
     // statistics
     static simsignal_t migrationTime_;
 
+    // response counter
+    int responsecounter;
+
+    omnetpp::cMessage* tryDeletion_;
+
     protected:
         virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
         virtual void initialize(int stage) override;

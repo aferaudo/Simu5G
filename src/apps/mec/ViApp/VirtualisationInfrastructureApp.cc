@@ -340,15 +340,15 @@ void VirtualisationInfrastructureApp::handleEndTerminationProcedure(cMessage* ms
         allocatedRam -= selected->resources.ram;
         allocatedDisk -= selected->resources.disk;
 
-        cModule* module = selected->module;
-        module->callFinish();
-
-        toDelete = module;
-        terminatingModules.push(module);
-        if(!deleteModuleMessage->isScheduled())
-        {
-            scheduleAt(simTime()+0.1, deleteModuleMessage);
-        }
+//        cModule* module = selected->module;
+//        module->callFinish();
+//
+//        toDelete = module;
+//        terminatingModules.push(module);
+//        if(!deleteModuleMessage->isScheduled())
+//        {
+//            scheduleAt(simTime()+0.1, deleteModuleMessage);
+//        }
      }
 
     return;

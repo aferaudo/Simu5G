@@ -74,6 +74,9 @@ void MECWarningAlertApp::initialize(int stage)
     isMigrated=false;
     status = "Entering";
 
+
+    responsecounter = 0;
+
     if(isMigrating){
         EV << "MECWarningAlertApp::migrating state: LISTEN for context information on " << localAddress << ":" << localUePort << endl;
         serverSocket_.setOutputGate(gate("socketOut"));
@@ -84,6 +87,8 @@ void MECWarningAlertApp::initialize(int stage)
 
 
     webHook="/amsWebHook_" + std::to_string(getId());
+
+    tryDeletion_ = new cMessage("tryDeletion");
 
     //testing
     EV << "MECWarningAlertApp::initialize - Mec application "<< getClassName() << " with mecAppId["<< mecAppId << "] has started!" << endl;
@@ -211,6 +216,8 @@ void MECWarningAlertApp::modifySubscription(std::string criteria)
     std::string uri = "/example/location/v2/subscriptions/area/circle/" + subId;
     std::string host = serviceSocket_.getRemoteAddress().str()+":"+std::to_string(serviceSocket_.getRemotePort());
     Http::sendPutRequest(&serviceSocket_, body.c_str(), host.c_str(), uri.c_str());
+    responsecounter++;
+
 }
 
 void MECWarningAlertApp::sendSubscription(std::string criteria)
@@ -248,16 +255,17 @@ void MECWarningAlertApp::sendSubscription(std::string criteria)
     }
 
     Http::sendPostRequest(&serviceSocket_, body.c_str(), host.c_str(), uri.c_str());
-
+    responsecounter++;
 }
 
 void MECWarningAlertApp::sendDeleteSubscription()
 {
     std::string uri = "/example/location/v2/subscriptions/area/circle/" + subId;
-    std::cout << "MECWarningAlertApp: WhoAmI: " << localAddress << " subId: " << subId << endl;
+    std::cout << "MECWarningAlertApp: WhoAmI: " << localAddress << " subId: " << subId <<  " " << this->getName() << endl;
     subId = "";
     std::string host = serviceSocket_.getRemoteAddress().str()+":"+std::to_string(serviceSocket_.getRemotePort());
     Http::sendDeleteRequest(&serviceSocket_, host.c_str(), uri.c_str());
+    responsecounter++;
 }
 
 void MECWarningAlertApp::established(int connId)
@@ -301,6 +309,7 @@ void MECWarningAlertApp::established(int connId)
         std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
         const char *uri = "/example/amsi/v1/app_mobility_services/";
         Http::sendPostRequest(&amsSocket_, registrationBody.dump().c_str(), host.c_str(), uri);
+        responsecounter++;
 
         return;
     }
@@ -369,6 +378,11 @@ void MECWarningAlertApp::established(int connId)
 void MECWarningAlertApp::handleMp1Message()
 {
     EV << "MECWarningAlertApp::handleMp1Message - payload: " << mp1HttpMessage->getBody() << endl;
+    if(mp1HttpMessage->getType() == RESPONSE){
+        HttpResponseMessage *rspMsg = dynamic_cast<HttpResponseMessage*>(mp1HttpMessage);
+        responsecounter--;
+    }
+
     try
     {
         nlohmann::json jsonBody = nlohmann::json::parse(mp1HttpMessage->getBody()); // get the JSON structure
@@ -465,8 +479,10 @@ void MECWarningAlertApp::handleAmsMessage()
 
         }
         else if(amsHttpMessage->getType() == RESPONSE){
+            responsecounter--;
             EV << "MECWarningAlertApp::handleAmsMessage - Received response - payload: " << " " << amsHttpMessage->getBody() << endl;
             HttpResponseMessage* amsResponse = check_and_cast<HttpResponseMessage*>(amsHttpMessage);
+
             nlohmann::json jsonBody = nlohmann::json::parse(amsResponse->getBody());
             if(!jsonBody.empty()){
                 if(jsonBody.contains("appMobilityServiceId"))
@@ -590,8 +606,10 @@ void MECWarningAlertApp::handleServiceMessage()
     }
     else if(serviceHttpMessage->getType() == RESPONSE)
     {
+        responsecounter--;
         HttpResponseMessage *rspMsg = dynamic_cast<HttpResponseMessage*>(serviceHttpMessage);
         EV <<  "MEClusterizeService::handleTcpMsg - received response" << endl;
+
 
         if(rspMsg->getCode() == 204) // in response to a DELETE
         {
@@ -772,6 +790,7 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
         std::string uristring = "/example/amsi/v1/subscriptions/";
         Http::sendPostRequest(&amsSocket_, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
+        responsecounter++;
 
     }
     else if (strcmp(msg->getName(), "updateSubscription") == 0){
@@ -799,6 +818,7 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         std::string host = amsSocket_.getRemoteAddress().str()+":"+std::to_string(amsSocket_.getRemotePort());
         std::string uristring = "/example/amsi/v1/subscriptions/" + amsSubscriptionId;
         Http::sendPutRequest(&amsSocket_, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
+        responsecounter++;
 
         cMessage *m = new cMessage("getServiceData");
         scheduleAt(simTime()+0.001, m);
@@ -830,6 +850,7 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         std::string uristring = "/example/amsi/v1/app_mobility_services/" + amsRegistrationId;
         const char *uri = uristring.c_str();
         Http::sendPutRequest(&amsSocket_, registrationBody.dump().c_str(), host.c_str(), uri);
+        responsecounter++;
     }
     else if (strcmp(msg->getName(), "migrateState") == 0){
         EV << "Connecting to new app " << migrationAddress << ":" << migrationPort << endl;
@@ -842,6 +863,10 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
         std::string uristring = "/example/amsi/v1/app_mobility_services/" + amsRegistrationId;
         const char *uri = uristring.c_str();
         Http::sendDeleteRequest(&amsSocket_, host.c_str(), uri);
+//        responsecounter++;
+//        if((std::string(this->getName()).find("[13]")) != string::npos && isMigrating == false){
+//            std::cout << "SENDING HTTP DELETE to " << uri << " -- counter is " << responsecounter << endl;
+//        }
 
         cMessage *b = new cMessage("deleteSubscriptionTriggered");
         scheduleAt(simTime()+0.001, b);
@@ -866,9 +891,25 @@ void MECWarningAlertApp::handleSelfMessage(cMessage *msg)
 //        callFinish();
 //        deleteModule();
 
-        cGate* gate = this->gate("viAppGate$o");
-        cMessage* t = new cMessage("endTerminationProcedure");
-        send(t, gate->getName());
+//        cGate* gate = this->gate("viAppGate$o");
+//        cMessage* t = new cMessage("endTerminationProcedure");
+//        send(t, gate->getName());
+
+        scheduleAt(simTime()+0.01, tryDeletion_);
+    }
+    else if (strcmp(msg->getName(), "tryDeletion") == 0){
+        std::cout << "counter " << responsecounter << " " << this->getName() << endl;
+        if(responsecounter > 0){
+            scheduleAt(simTime()+0.01, tryDeletion_);
+            return;
+        }
+        else{
+            cGate* gate = this->gate("viAppGate$o");
+            cMessage* t = new cMessage("endTerminationProcedure");
+            send(t, gate->getName());
+            callFinish();
+            deleteModule();
+        }
     }
 
     delete msg;
@@ -878,4 +919,5 @@ void MECWarningAlertApp::getServiceData(const char* uri){
     std::string host = mp1Socket_.getRemoteAddress().str()+":"+std::to_string(mp1Socket_.getRemotePort());
 
     Http::sendGetRequest(&mp1Socket_, host.c_str(), uri);
+    responsecounter++;
 }
