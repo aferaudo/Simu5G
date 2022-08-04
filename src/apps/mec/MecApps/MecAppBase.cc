@@ -65,8 +65,6 @@ MecAppBase::~MecAppBase()
 //    {
 //        cancelAndDelete(processedAmsResponse);
 //    }
-
-
 }
 
 void MecAppBase::initialize(int stage)
@@ -308,7 +306,8 @@ void MecAppBase::socketPeerClosed(TcpSocket *socket_)
 {
     EV << "MecAppBase::socketPeerClosed" << endl;
     std::cout<<"Closing peer socket MECApp Base" << endl;
-    socket_->close();
+//    socket_->close();
+    socket_->setState(inet::TcpSocket::PEER_CLOSED);
 }
 
 void MecAppBase::socketClosed(TcpSocket *socket)

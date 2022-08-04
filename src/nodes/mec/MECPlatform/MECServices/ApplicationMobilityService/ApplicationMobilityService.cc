@@ -313,6 +313,7 @@ void ApplicationMobilityService::handlePUTRequest(const HttpRequestMessage *curr
                 subscriptions_[sub->first] = subscription;
                 EV << "AMS::Subscription " << subscription->toJson() << endl;
                 EV << "AMS::Subscription Updated" << endl;
+                Http::send200Response(socket, request.dump().c_str());
             }
             else
             {

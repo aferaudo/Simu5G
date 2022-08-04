@@ -81,6 +81,11 @@ class MECWarningAlertApp : public MecAppBaseDyn
     double centerPositionY;
     double radius;
 
+    // response counter
+    int responsecounter;
+
+    omnetpp::cMessage* tryDeletion_;
+
     protected:
         virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
         virtual void initialize(int stage) override;
