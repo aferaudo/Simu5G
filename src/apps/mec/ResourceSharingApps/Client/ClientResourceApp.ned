@@ -22,7 +22,7 @@ simple ClientResourceApp like IApp{
 	    @display("i=block/app");
 	    // resources may be loaded from a json file
 	    // localAddress
-	    string localAddress = default("");
+	    string localAddress = default("") @mutable;
 	    int localPort = default(3001);
 	    
 	    string destAddress = default("");
@@ -33,7 +33,7 @@ simple ClientResourceApp like IApp{
 	    int viPort;
 	    
 	    double startTime @unit(s) = default(1s); 
-    	double parkTime @unit(s) = default(1s); // for how long a car will be parked
+    	double parkTime @unit(s) = default(1s) @mutable; // for how long a car will be parked
 	    
 	    
 	    

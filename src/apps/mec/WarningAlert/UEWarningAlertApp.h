@@ -96,6 +96,8 @@ class UEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallback
 
     cModule* pingAppModule;
 
+    static simsignal_t logicTerminated_;
+
     // uses to write in a log a file
     bool log;
 

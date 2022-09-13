@@ -40,6 +40,9 @@ MECWarningAlertApp::MECWarningAlertApp(): MecAppBaseDyn()
 }
 MECWarningAlertApp::~MECWarningAlertApp()
 {
+//    if(tryDeletion_ != nullptr)
+//        delete tryDeletion_;
+
     if(circle != nullptr)
     {
         if(getSimulation()->getSystemModule()->getCanvas()->findFigure(circle) != -1)
@@ -614,7 +617,7 @@ void MECWarningAlertApp::handleServiceMessage()
         if(rspMsg->getCode() == 204) // in response to a DELETE
         {
             EV << "MEClusterizeService::handleTcpMsg - response 204, removing circle" << rspMsg->getBody()<< endl;
-             serviceSocket_.close();
+//             serviceSocket_.close();
              getSimulation()->getSystemModule()->getCanvas()->removeFigure(circle);
 
              // emit unsub time

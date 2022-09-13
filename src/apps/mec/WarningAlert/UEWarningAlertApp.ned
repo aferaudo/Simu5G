@@ -33,12 +33,13 @@ import inet.applications.contract.IApp;
 simple UEWarningAlertApp like IApp
 {
     parameters:       
-         @display("i=block/source");    
+         @display("i=block/source");
+         @signal[logicTerminated](type=string);   
         
         //connection infos
         int localPort = default(4000);
         int deviceAppPort = default(4000); // ipAddress of the DeviceApp
-        string deviceAppAddress; // port of the DeviceApp
+        string deviceAppAddress = default("") @mutable; // port of the DeviceApp
                 
         int packetSize = default(10);
         

@@ -67,7 +67,11 @@ simple ApplicationMobilityService like IMECService, IApp
     @signal[responseTime];
     @statistic[responseTimeStat](title="Response time of foreground requests"; source="responseTime"; record=mean,vector);
     
-    
+    // used when emitting migration counter
+//    @signal[totalMigrations](type=long);
+//    @statistic[totalMigrations](source=totalMigrations; record=last; interpolationmode=none);
+    @signal[totalMigrations];
+    @statistic[migrationHappened](source=totalMigrations; record=vector; interpolationmode=none);
     gates:
         input socketIn;
         output socketOut;

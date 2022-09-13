@@ -30,6 +30,8 @@ using namespace std;
 
 Define_Module(UEWarningAlertApp);
 
+simsignal_t UEWarningAlertApp::logicTerminated_ = registerSignal("logicTerminated");
+
 UEWarningAlertApp::UEWarningAlertApp(){
     selfStart_ = NULL;
     selfStop_ = NULL;
@@ -410,6 +412,9 @@ void UEWarningAlertApp::handleAckStopMEWarningAlertApp(cMessage* msg)
     ue->getDisplayString().setTagArg("i",1, "white");
 
     cancelEvent(selfStop_);
+
+    EV << "Emitting... " << getParentModule()->getName() << endl;
+    emit(logicTerminated_, getParentModule()->getName());
 }
 
 /*

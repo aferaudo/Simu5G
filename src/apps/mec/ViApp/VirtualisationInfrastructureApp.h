@@ -35,6 +35,7 @@
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
 #include "nodes/mec/Dynamic/MEO/Messages/MeoPackets_m.h" // new messages
 #include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h"
+#include "apps/mec/ResourceSharingApps/Client/ClientResourceApp.h"
 #include "apps/mec/ViApp/msg/InstantiationResponse_m.h"
 #include "apps/mec/ViApp/msg/TerminationResponse_m.h"
 #include "inet/common/packet/printer/PacketPrinter.h"
@@ -54,6 +55,8 @@ struct RunningAppEntry
     cGate* inputGate;
     cGate* outputGate;
 };
+
+class ClientResourceApp;
 
 class VirtualisationInfrastructureApp : public cSimpleModule
 {
@@ -89,11 +92,16 @@ class VirtualisationInfrastructureApp : public cSimpleModule
     float posx;
     float posy;
 
+    static simsignal_t parkingReleased_;
+
+    ClientResourceApp* resourceApp;
+
     public:
         VirtualisationInfrastructureApp();
         ~VirtualisationInfrastructureApp();
 
         double calculateProcessingTime(int ueAppID, int numOfInstructions);
+        int getHostedAppNum();
 
     protected:
 

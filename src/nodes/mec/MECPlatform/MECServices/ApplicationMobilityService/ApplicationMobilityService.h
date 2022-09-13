@@ -53,6 +53,10 @@ class ApplicationMobilityService : public MecServiceBase
   // list of subscription for that device
   std::map<std::string, SubscriptionLinkList> subscriptionLinkList; // Not used so far..
 
+
+  int migrationCounter_;
+  simsignal_t totalMigrationsSignal_;
+
   public:
     ApplicationMobilityService();
     ~ApplicationMobilityService();

@@ -20,6 +20,8 @@
 
 Define_Module(VirtualisationInfrastructureApp);
 
+simsignal_t VirtualisationInfrastructureApp::parkingReleased_ = registerSignal("parkingReleased");
+
 VirtualisationInfrastructureApp::VirtualisationInfrastructureApp()
 {
 
@@ -81,6 +83,10 @@ void VirtualisationInfrastructureApp::initialize(int stage)
         scheduling = SEGREGATION;
     }
 
+    if(strcmp(getParentModule()->getName(), "vim") != 0){
+        resourceApp = check_and_cast<ClientResourceApp*>(getParentModule()->getSubmodule("app",0));
+    }
+
 
     cModule* modulewresdefinition = nullptr;
     if(!std::strcmp(getParentModule()->getFullName(), "vim"))
@@ -102,6 +108,7 @@ void VirtualisationInfrastructureApp::initialize(int stage)
 
     EV << "VirtualisationInfrastructureApp::initialize - reference position: " << posx << " , " << posy << endl;
     deleteModuleMessage = new cMessage("deleteModule");
+
 }
 
 void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
@@ -137,6 +144,7 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
                 responsepck->setAllocatedPort(portCounter);
                 responsepck->setUeAppID(data->getUeAppID());
                 responsepck->setChunkLength(inet::B(100));
+                responsepck->setStartAllocationTime(data->getStartAllocationTime());
                 packet->insertAtBack(responsepck);
                 socket.sendTo(packet, vimAddress, vimPort);
 
@@ -175,12 +183,21 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
         else if(strcmp(msg->getName(), "endTerminationProcedure") == 0)
         {
            handleEndTerminationProcedure(msg);
+           std::cout << "here " << simTime() << endl;
+           if(strcmp(getParentModule()->getName(), "vim") != 0 && appcounter == 0 && resourceApp->getState() == RELEASING){
+               emit(parkingReleased_, getParentModule()->getName());
+           }
         }
         delete msg;
     }
 
 
 }
+
+int VirtualisationInfrastructureApp::getHostedAppNum(){
+    return appcounter;
+}
+
 
 bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicationRequest* data)
 {

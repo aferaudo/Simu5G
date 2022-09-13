@@ -1023,6 +1023,7 @@ inet::Packet* VirtualisationInfrastructureManagerDyn::createInstantiationRequest
     registrationpck->setMp1Port(mp1Port);
     registrationpck->setContextId(meapp.contextID);
     registrationpck->setIsMigrating(migration);
+    registrationpck->setStartAllocationTime(simTime());
     registrationpck->setChunkLength(inet::B(sizeof(meapp) + mp1Address.str().size() + 16));
     packet->insertAtBack(registrationpck);
 
@@ -1130,6 +1131,8 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
     }
 
     // signals are emitted only for allocation time related to ue requests (not migration)
+//    std::cout << "This is the simtime " << simTime() << endl;
+//    std::cout << "This is the start allocationTime" <<  data->getStartAllocationTime() << endl;
     simtime_t totalAllocationTime = simTime() - data->getStartAllocationTime();
     emit(allocationTimeSignal_, totalAllocationTime);
 

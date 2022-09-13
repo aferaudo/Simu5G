@@ -43,6 +43,8 @@ ApplicationMobilityService::~ApplicationMobilityService()
 void ApplicationMobilityService::initialize(int stage)
 {
     EV << "AMS::Initializing..." << endl;
+    migrationCounter_ = 0;
+    totalMigrationsSignal_ = registerSignal("totalMigrations");
     MecServiceBase::initialize(stage);
 }
 
@@ -65,6 +67,17 @@ void ApplicationMobilityService::handleMessage(cMessage *msg)
                 {
                     notification->setMobilityStatus(INTERHOST_MOVEOUT_COMPLETED);
                     notification->setTargetAppInfo(*el.second);
+
+                    // statistics
+                    simtime_t migrationUpdateTime = simTime();
+                    // total migration from the start
+                    migrationCounter_ ++;
+                    std::cout << "Migration counter has been updated: " << migrationCounter_ << endl;
+
+                    // migration at this time (useful to set grop migration per an interval of time)
+                    // value = 1 is just an indication
+                    emit(totalMigrationsSignal_, 1);
+
 
                     std::vector<AssociateId> associateId;
                     for(auto devInfo : r->getDeviceInformation())
