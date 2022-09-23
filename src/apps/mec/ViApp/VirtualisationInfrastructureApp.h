@@ -71,6 +71,7 @@ class VirtualisationInfrastructureApp : public cSimpleModule
 
     // Business logic parameters
     int appcounter;
+    int maxappcounter;
     int portCounter = 10000;    // counter to assign port to app
     std::list<std::string> managedApp;
     std::map<int, RunningAppEntry> runningApp;
@@ -93,6 +94,7 @@ class VirtualisationInfrastructureApp : public cSimpleModule
     float posy;
 
     static simsignal_t parkingReleased_;
+    static simsignal_t numApp_;
 
     ClientResourceApp* resourceApp;
 
@@ -110,6 +112,8 @@ class VirtualisationInfrastructureApp : public cSimpleModule
         void initialize(int stage);
 
         virtual void handleMessage(cMessage *msg);
+
+        virtual void finish() override;
 
     private:
 

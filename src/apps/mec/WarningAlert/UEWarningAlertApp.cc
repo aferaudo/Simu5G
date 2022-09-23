@@ -415,6 +415,8 @@ void UEWarningAlertApp::handleAckStopMEWarningAlertApp(cMessage* msg)
 
     EV << "Emitting... " << getParentModule()->getName() << endl;
     emit(logicTerminated_, getParentModule()->getName());
+
+//    deallocatePingApp();
 }
 
 /*

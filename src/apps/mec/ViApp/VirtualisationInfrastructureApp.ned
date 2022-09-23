@@ -25,6 +25,8 @@ simple VirtualisationInfrastructureApp like IApp
     parameters:
     	@display("i=block/control");
     	@signal[parkingReleased](type=string);
+    	@signal[numApp](type=int);
+    	@statistic[maxNumApp](source=numApp; record=max);
     	
     	string localAddress = default("") @mutable;
     	int localPort = default(2222);

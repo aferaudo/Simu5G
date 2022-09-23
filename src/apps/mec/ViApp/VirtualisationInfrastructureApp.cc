@@ -21,6 +21,7 @@
 Define_Module(VirtualisationInfrastructureApp);
 
 simsignal_t VirtualisationInfrastructureApp::parkingReleased_ = registerSignal("parkingReleased");
+simsignal_t VirtualisationInfrastructureApp::numApp_ = registerSignal("numApp");
 
 VirtualisationInfrastructureApp::VirtualisationInfrastructureApp()
 {
@@ -66,6 +67,7 @@ void VirtualisationInfrastructureApp::initialize(int stage)
     EV << "VirtualisationInfrastructureApp::initialize - binding to port: local:" << localPort << " , dest: " << vimAddress.str() << ":" << vimPort << endl;
 
     appcounter = 0;
+    maxappcounter = 0;
     std::string schedulingMode = par("scheduling").stringValue();
     if(std::strcmp(schedulingMode.c_str(), "segregation") == 0)
     {
@@ -204,6 +206,7 @@ bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicati
     EV << "VirtualisationInfrastructureApp::handleInstantiation - " << data << endl;
     std::cout << "viapp with id " << getId() << " " << data->getContextId() << endl;
     appcounter++;
+    maxappcounter++;
     portCounter++;
 
     // Creation of requested app
@@ -387,6 +390,11 @@ void VirtualisationInfrastructureApp::handleModuleRemoval(cMessage*)
             scheduleAt(simTime()+0.1, deleteModuleMessage);
     }
 
+}
+
+void VirtualisationInfrastructureApp::finish(){
+    std::cout << "finish called" << endl;
+    emit(numApp_, maxappcounter);
 }
 
 

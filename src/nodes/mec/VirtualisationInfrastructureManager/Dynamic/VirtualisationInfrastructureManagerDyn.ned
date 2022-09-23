@@ -57,7 +57,7 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
     	
 //    	string searchType = default("BEST_FIRST");
     	string searchType @enum("BEST_FIRST", "ROUND_ROBIN") = default("BEST_FIRST");
-    	bool skipLocalResources = default(true);
+    	bool skipLocalResources = default(true) @mutable;
     	
     
     gates:

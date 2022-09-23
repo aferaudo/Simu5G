@@ -685,7 +685,7 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDynBestFirst(double ram,
         int key = it->first;
         HostDescriptor descriptor = (it->second);
 
-        if (skipLocalResources && it->first == getParentModule()->getId()){
+        if (par("skipLocalResources").boolValue() && it->first == getParentModule()->getId()){
             continue;
         }
 
@@ -713,7 +713,7 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDynRoundRobin(double ram
         int key = it->first;
         HostDescriptor descriptor = (it->second);
 
-        if (skipLocalResources && it->first == getParentModule()->getId()){
+        if (par("skipLocalResources").boolValue() && it->first == getParentModule()->getId()){
             continue;
         }
 
