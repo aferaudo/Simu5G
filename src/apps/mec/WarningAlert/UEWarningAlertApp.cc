@@ -70,6 +70,10 @@ void UEWarningAlertApp::initialize(int stage)
     amsAddress = inet::L3AddressResolver().resolve(par("amsAddress").stringValue());
     amsPort = par("amsPort").intValue();
 
+    // testing Core delays
+    coreAddress = inet::L3AddressResolver().resolve(par("coreAddress").stringValue());
+    coreTesting_ = par("coreTesting").boolValue();
+
     //binding socket
     socket.setOutputGate(gate("socketOut"));
     socket.bind(localPort_);
@@ -114,6 +118,10 @@ void UEWarningAlertApp::initialize(int stage)
     EV << "UEWarningAlertApp::initialize - sourceAddress: " << sourceSimbolicAddress << " [" << inet::L3AddressResolver().resolve(sourceSimbolicAddress).str()  <<"]"<< endl;
     EV << "UEWarningAlertApp::initialize - destAddress: " << deviceSimbolicAppAddress_ << " [" << deviceAppAddress_.str()  <<"]"<< endl;
     EV << "UEWarningAlertApp::initialize - binding to port: local:" << localPort_ << " , dest:" << deviceAppPort_ << endl;
+
+    if(coreTesting_)
+        allocatePingApp(coreAddress, false, true);
+
 }
 
 void UEWarningAlertApp::handleMessage(cMessage *msg)
@@ -522,10 +530,15 @@ void UEWarningAlertApp::socketClosed(TcpSocket *socket)
 
 
 //  PING APP TEST
-void UEWarningAlertApp::allocatePingApp(inet::L3Address mecAppAddress, bool pingMigrated){
+void UEWarningAlertApp::allocatePingApp(inet::L3Address mecAppAddress, bool pingMigrated, bool pingCore){
 //    MECWarningAlertApp simu5g.apps.mec.WarningAlert.MECWarningAlertApp
     char* label;
-    if(pingMigrated){
+
+    if(pingCore)
+    {
+        label = "core";
+    }
+    else if(pingMigrated){
         label = "migrated";
     }else{
         label = "initial";

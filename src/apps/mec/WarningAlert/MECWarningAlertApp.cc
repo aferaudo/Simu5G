@@ -267,6 +267,7 @@ void MECWarningAlertApp::sendDeleteSubscription()
     std::cout << "MECWarningAlertApp: WhoAmI: " << localAddress << " subId: " << subId <<  " " << this->getName() << endl;
     subId = "";
     std::string host = serviceSocket_.getRemoteAddress().str()+":"+std::to_string(serviceSocket_.getRemotePort());
+//    std::cout << "SENDING DELETE SUBSCRIPTION CIRCLE" << endl;
     Http::sendDeleteRequest(&serviceSocket_, host.c_str(), uri.c_str());
     responsecounter++;
 }
@@ -621,8 +622,10 @@ void MECWarningAlertApp::handleServiceMessage()
              getSimulation()->getSystemModule()->getCanvas()->removeFigure(circle);
 
              // emit unsub time
+//             std::cout << "DELETE DONE WITH migrating status " << isMigrating<<endl;
              if(!isMigrating)
              {
+                 std::cout << "UNSUBSCRIBING MEC APP " << this->getName() <<" BUT NO MIGRATING "<< endl;
                  emit(migrationTime_, simTime());
              }
         }
@@ -631,6 +634,7 @@ void MECWarningAlertApp::handleServiceMessage()
 
             if(isMigrating)
             {
+                std::cout << "SUBSCRIBING MEC APP " << this->getName() <<" IN MIGRATION "<< endl;
                 emit(migrationTime_, simTime());
             }
             nlohmann::json jsonBody;

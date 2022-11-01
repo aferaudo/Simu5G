@@ -62,7 +62,10 @@ simple UEWarningAlertApp like IApp
         bool logger = default(false);
         string interfaceTableModule;
         
+        bool coreTesting = default(false);
+        
         string amsAddress;
+        string coreAddress = default("");
         int amsPort;
                     
     gates:
