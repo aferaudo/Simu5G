@@ -131,6 +131,23 @@ Simu5G supports real-time network emulation capabilities. Navigate to
 one of the examples included in the "emulation" folder and take a look
 at the README file included therein.
 
+Fork features - ETSI MEC Extension for Far-Edge resources
+---------------
+This fork of Simu5G seeks to extend the ETSI MEC specification to increase the computational resources available to the Mec Host by allowing it to leverage those granted by external fixed or mobile nodes present within a certain area.
+
+<p align="center">
+  <img width=700px src="https://github.com/aferaudo/Simu5G/blob/feat/vim-extension/MECExtendedArchitecture.png">
+</p>
+
+ - VIM enhancement to handle multiple Virtualisation Infrastructure with a scheduling policy
+ - Implementation and extension of AMS service to support both intra- and extra-host app migrations
+
+Fork core contributors
+-----------------
+
+- Angelo Feraudo (angelo.feraudo@unibo.it)
+- Alessandro Calvio (alessandro.calvio@unibo.it)
+
 
 Limitations
 -----------
