@@ -21,6 +21,7 @@
 
 Define_Module(ClientResourceApp);
 
+simsignal_t ClientResourceApp::parkingReleased_ = registerSignal("parkingReleased");
 ClientResourceApp::ClientResourceApp()
 {
     // Messages initialisation
@@ -58,7 +59,7 @@ void ClientResourceApp::initialize(int stage)
     minReward = par("minReward");
     host = getParentModule();
 
-
+    viApp = check_and_cast<VirtualisationInfrastructureApp*>(getParentModule()->getSubmodule("viApp"));
 
     // Available resources
     localResources.ram = host->par("localRam").doubleValue();
@@ -145,11 +146,12 @@ void ClientResourceApp::handleResponse(HttpResponseMessage* response)
         }
         case RELEASING:
         {
-
+            bool released = false;
             if(code == 200 || code == 204)
             {
                 EV << "ClientResourceApp::handleResponse - resource release status: SUCCESS" << endl;
                 // TODO should we do something else?
+                released = true;
             }
             else
             {
@@ -160,6 +162,9 @@ void ClientResourceApp::handleResponse(HttpResponseMessage* response)
             EV << "ClientResourceApp::handleResponse - closing socket..bye" << endl;
             close();
 
+            if(released && viApp->getHostedAppNum() == 0){
+                emit(parkingReleased_, getParentModule()->getName());
+            }
             break;
         }
     }
@@ -190,6 +195,10 @@ void ClientResourceApp::handleSelfMessage(cMessage *msg){
 //
 //    }
     delete msg;
+}
+
+State ClientResourceApp::getState(){
+    return appState;
 }
 
 // This method opens a tcp socket with the Server Resource Register

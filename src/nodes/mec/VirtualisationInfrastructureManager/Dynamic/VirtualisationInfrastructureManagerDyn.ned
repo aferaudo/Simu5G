@@ -25,8 +25,8 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
 {
     parameters:
     	@class(VirtualisationInfrastructureManagerDyn);
-    	@signal[allocationTime];
-    	@statistic[remoteAllocationTime](source=allocationTime; record=mean,max,vector);
+    	@signal[allocationTime](type=long);
+    	@statistic[remoteAllocationTime](source=allocationTime; unit=s; record=histogram,vector; interpolationmode=none);
     	int localPort = default(3333); // port for UDP communications VIM <--> VI
     	
 //    	string destAddress;
@@ -57,6 +57,7 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
     	
 //    	string searchType = default("BEST_FIRST");
     	string searchType @enum("BEST_FIRST", "ROUND_ROBIN") = default("BEST_FIRST");
+    	bool skipLocalResources = default(true) @mutable;
     	
     
     gates:

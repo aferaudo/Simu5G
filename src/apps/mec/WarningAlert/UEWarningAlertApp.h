@@ -87,6 +87,8 @@ class UEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallback
     inet::L3Address amsAddress;
     int amsPort;
 
+    inet::L3Address coreAddress;
+
     std::string amsSubscriptionId;
     std::string webHook;
 
@@ -94,9 +96,15 @@ class UEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallback
     HttpBaseMessage* amsHttpMessage;
     HttpBaseMessage* amsHttpCompleteMessage;
 
+    cModule* pingAppModule;
+
+    static simsignal_t logicTerminated_;
+
     // uses to write in a log a file
     bool log;
 
+    //core testing
+    bool coreTesting_;
     public:
         ~UEWarningAlertApp();
         UEWarningAlertApp();
@@ -127,6 +135,8 @@ class UEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallback
         virtual void socketFailure(inet::TcpSocket *socket, int code) override {}
         virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
         virtual void socketDeleted(inet::TcpSocket *socket) override {}
+        virtual void allocatePingApp(inet::L3Address mecAppAddress, bool pingMigrated, bool pingCore = false);
+        virtual void deallocatePingApp();
 };
 
 #endif

@@ -20,6 +20,9 @@
 
 Define_Module(VirtualisationInfrastructureApp);
 
+simsignal_t VirtualisationInfrastructureApp::parkingReleased_ = registerSignal("parkingReleased");
+simsignal_t VirtualisationInfrastructureApp::numApp_ = registerSignal("numApp");
+
 VirtualisationInfrastructureApp::VirtualisationInfrastructureApp()
 {
 
@@ -64,6 +67,7 @@ void VirtualisationInfrastructureApp::initialize(int stage)
     EV << "VirtualisationInfrastructureApp::initialize - binding to port: local:" << localPort << " , dest: " << vimAddress.str() << ":" << vimPort << endl;
 
     appcounter = 0;
+    maxappcounter = 0;
     std::string schedulingMode = par("scheduling").stringValue();
     if(std::strcmp(schedulingMode.c_str(), "segregation") == 0)
     {
@@ -79,6 +83,10 @@ void VirtualisationInfrastructureApp::initialize(int stage)
     {
         EV << "VirtualisationInfrastructureManager::initialize - scheduling mode: " << schedulingMode<< " not recognized. Using default mode: segregation" << endl;
         scheduling = SEGREGATION;
+    }
+
+    if(strcmp(getParentModule()->getName(), "vim") != 0){
+        resourceApp = check_and_cast<ClientResourceApp*>(getParentModule()->getSubmodule("app",0));
     }
 
 
@@ -102,6 +110,7 @@ void VirtualisationInfrastructureApp::initialize(int stage)
 
     EV << "VirtualisationInfrastructureApp::initialize - reference position: " << posx << " , " << posy << endl;
     deleteModuleMessage = new cMessage("deleteModule");
+
 }
 
 void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
@@ -137,6 +146,7 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
                 responsepck->setAllocatedPort(portCounter);
                 responsepck->setUeAppID(data->getUeAppID());
                 responsepck->setChunkLength(inet::B(100));
+                responsepck->setStartAllocationTime(data->getStartAllocationTime());
                 packet->insertAtBack(responsepck);
                 socket.sendTo(packet, vimAddress, vimPort);
 
@@ -175,6 +185,10 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
         else if(strcmp(msg->getName(), "endTerminationProcedure") == 0)
         {
            handleEndTerminationProcedure(msg);
+           std::cout << "here " << simTime() << endl;
+           if(strcmp(getParentModule()->getName(), "vim") != 0 && appcounter == 0 && resourceApp->getState() == RELEASING){
+               emit(parkingReleased_, getParentModule()->getName());
+           }
         }
         delete msg;
     }
@@ -182,11 +196,17 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
 
 }
 
+int VirtualisationInfrastructureApp::getHostedAppNum(){
+    return appcounter;
+}
+
+
 bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicationRequest* data)
 {
     EV << "VirtualisationInfrastructureApp::handleInstantiation - " << data << endl;
     std::cout << "viapp with id " << getId() << " " << data->getContextId() << endl;
     appcounter++;
+    maxappcounter++;
     portCounter++;
 
     // Creation of requested app
@@ -370,6 +390,11 @@ void VirtualisationInfrastructureApp::handleModuleRemoval(cMessage*)
             scheduleAt(simTime()+0.1, deleteModuleMessage);
     }
 
+}
+
+void VirtualisationInfrastructureApp::finish(){
+    std::cout << "finish called" << endl;
+    emit(numApp_, maxappcounter);
 }
 
 

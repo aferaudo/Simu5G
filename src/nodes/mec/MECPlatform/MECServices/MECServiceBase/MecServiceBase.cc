@@ -437,7 +437,7 @@ void MecServiceBase::newRequest(HttpRequestMessage *msg)
 
         msg->setResponseTime(sunOfresponseTimes);
         lastFGRequestArrived_ = simTime();
-        emit(requestQueueSizeSignal_, numOfBGReqs+1);
+//        emit(requestQueueSizeSignal_, numOfBGReqs+1);
     }
 
     requests_.insert(msg);

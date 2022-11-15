@@ -24,12 +24,15 @@ simple VirtualisationInfrastructureApp like IApp
 {
     parameters:
     	@display("i=block/control");
+    	@signal[parkingReleased](type=string);
+    	@signal[numApp](type=int);
+    	@statistic[maxNumApp](source=numApp; record=max);
     	
-    	string localAddress;
+    	string localAddress = default("") @mutable;
     	int localPort = default(2222);
     	
-    	string vimAddress;
-    	int vimPort;
+    	string vimAddress = default("") @mutable;
+    	int vimPort = default(3333);
     	
     	string scheduling = default("segregation");
     	

@@ -31,6 +31,8 @@ Define_Module(MECWarningAlertApp);
 using namespace inet;
 using namespace omnetpp;
 
+simsignal_t MECWarningAlertApp::migrationTime_ = registerSignal("migrationTime");
+
 MECWarningAlertApp::MECWarningAlertApp(): MecAppBaseDyn()
 {
     circle = nullptr; // circle danger zone
@@ -38,6 +40,9 @@ MECWarningAlertApp::MECWarningAlertApp(): MecAppBaseDyn()
 }
 MECWarningAlertApp::~MECWarningAlertApp()
 {
+//    if(tryDeletion_ != nullptr)
+//        delete tryDeletion_;
+
     if(circle != nullptr)
     {
         if(getSimulation()->getSystemModule()->getCanvas()->findFigure(circle) != -1)
@@ -90,6 +95,7 @@ void MECWarningAlertApp::initialize(int stage)
 
     //testing
     EV << "MECWarningAlertApp::initialize - Mec application "<< getClassName() << " with mecAppId["<< mecAppId << "] has started!" << endl;
+
 
     // connect with the service registry
     cMessage *msg = new cMessage("connectMp1");
@@ -261,6 +267,7 @@ void MECWarningAlertApp::sendDeleteSubscription()
     std::cout << "MECWarningAlertApp: WhoAmI: " << localAddress << " subId: " << subId <<  " " << this->getName() << endl;
     subId = "";
     std::string host = serviceSocket_.getRemoteAddress().str()+":"+std::to_string(serviceSocket_.getRemotePort());
+//    std::cout << "SENDING DELETE SUBSCRIPTION CIRCLE" << endl;
     Http::sendDeleteRequest(&serviceSocket_, host.c_str(), uri.c_str());
     responsecounter++;
 }
@@ -397,6 +404,7 @@ void MECWarningAlertApp::handleMp1Message()
                     serviceAddress = L3AddressResolver().resolve(address.c_str());;
                     servicePort = endPoint["port"];
                 }
+
             }
             else if(serName.compare("ApplicationMobilityService") == 0){
                 if(jsonBody.contains("transportInfo"))
@@ -610,12 +618,25 @@ void MECWarningAlertApp::handleServiceMessage()
         if(rspMsg->getCode() == 204) // in response to a DELETE
         {
             EV << "MEClusterizeService::handleTcpMsg - response 204, removing circle" << rspMsg->getBody()<< endl;
-             serviceSocket_.close();
+//             serviceSocket_.close();
              getSimulation()->getSystemModule()->getCanvas()->removeFigure(circle);
 
+             // emit unsub time
+//             std::cout << "DELETE DONE WITH migrating status " << isMigrating<<endl;
+             if(!isMigrating)
+             {
+                 std::cout << "UNSUBSCRIBING MEC APP " << this->getName() <<" BUT NO MIGRATING "<< endl;
+                 emit(migrationTime_, simTime());
+             }
         }
         else if(rspMsg->getCode() == 201) // in response to a POST
         {
+
+            if(isMigrating)
+            {
+                std::cout << "SUBSCRIBING MEC APP " << this->getName() <<" IN MIGRATION "<< endl;
+                emit(migrationTime_, simTime());
+            }
             nlohmann::json jsonBody;
             EV << "MEClusterizeService::handleTcpMsg - response 201 " << rspMsg->getBody()<< endl;
             try

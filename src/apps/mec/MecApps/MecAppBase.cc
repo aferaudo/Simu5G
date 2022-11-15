@@ -323,14 +323,22 @@ void MecAppBase::socketFailure(TcpSocket *sock, int code)
 void MecAppBase::finish()
 {
     EV << "MecAppBase::finish()" << endl;
-    if(serviceSocket_.getState() == inet::TcpSocket::CONNECTED)
+    if(serviceSocket_.getState() == inet::TcpSocket::CONNECTED){
         serviceSocket_.close();
-    if(mp1Socket_.getState() == inet::TcpSocket::CONNECTED)
+//        serviceSocket_.setState(inet::TcpSocket::CLOSED);
+    }
+    if(mp1Socket_.getState() == inet::TcpSocket::CONNECTED){
         mp1Socket_.close();
-    if(amsSocket_.getState() == inet::TcpSocket::CONNECTED)
+//        mp1Socket_.setState(inet::TcpSocket::CLOSED);
+    }
+    if(amsSocket_.getState() == inet::TcpSocket::CONNECTED){
         amsSocket_.close();
-    if(stateSocket_->getState() == inet::TcpSocket::CONNECTED)
+//        amsSocket_.setState(inet::TcpSocket::CLOSED);
+    }
+    if(stateSocket_->getState() == inet::TcpSocket::CONNECTED){
         stateSocket_->close();
+//        stateSocket_->setState(inet::TcpSocket::CLOSED);
+    }
 
 }
 

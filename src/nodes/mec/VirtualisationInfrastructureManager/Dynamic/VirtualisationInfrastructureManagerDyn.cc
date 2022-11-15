@@ -51,6 +51,8 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         // Mep settings
         mp1Port = par("mp1Port").intValue();
 
+        skipLocalResources = par("skipLocalResources").boolValue();
+
         std::cout << getParentModule()->getSubmodule("interfaceTable") << endl;
         //ifacetable = check_and_cast<inet::InterfaceTable*>(getParentModule()->getSubmodule("interfaceTable"));
 
@@ -62,6 +64,9 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         dispStr.setTagArg("b", 2, "rect");
         dispStr.setTagArg("b", 3, color.c_str());
         dispStr.setTagArg("b", 4, "black");
+
+        // statistics collection initialization
+        allocationTimeSignal_ = registerSignal("allocationTime");
     }
 
     inet::ApplicationBase::initialize(stage);
@@ -680,7 +685,7 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDynBestFirst(double ram,
         int key = it->first;
         HostDescriptor descriptor = (it->second);
 
-        if (it->first == getParentModule()->getId()){
+        if (par("skipLocalResources").boolValue() && it->first == getParentModule()->getId()){
             continue;
         }
 
@@ -708,9 +713,9 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDynRoundRobin(double ram
         int key = it->first;
         HostDescriptor descriptor = (it->second);
 
-//        if (it->first == getParentModule()->getId()){
-//            continue;
-//        }
+        if (par("skipLocalResources").boolValue() && it->first == getParentModule()->getId()){
+            continue;
+        }
 
         bool available = ram < descriptor.totalAmount.ram - descriptor.usedAmount.ram - descriptor.reservedAmount.ram
                     && disk < descriptor.totalAmount.disk - descriptor.usedAmount.disk - descriptor.reservedAmount.disk
@@ -1018,6 +1023,7 @@ inet::Packet* VirtualisationInfrastructureManagerDyn::createInstantiationRequest
     registrationpck->setMp1Port(mp1Port);
     registrationpck->setContextId(meapp.contextID);
     registrationpck->setIsMigrating(migration);
+    registrationpck->setStartAllocationTime(simTime());
     registrationpck->setChunkLength(inet::B(sizeof(meapp) + mp1Address.str().size() + 16));
     packet->insertAtBack(registrationpck);
 
@@ -1123,6 +1129,12 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
         host->numRunningApp -= 1;
         return;
     }
+
+    // signals are emitted only for allocation time related to ue requests (not migration)
+//    std::cout << "This is the simtime " << simTime() << endl;
+//    std::cout << "This is the start allocationTime" <<  data->getStartAllocationTime() << endl;
+    simtime_t totalAllocationTime = simTime() - data->getStartAllocationTime();
+    emit(allocationTimeSignal_, totalAllocationTime);
 
     releaseResources(entry->usedResources.ram, entry->usedResources.disk, entry->usedResources.cpu, host_key);
     allocateResources(entry->usedResources.ram, entry->usedResources.disk, entry->usedResources.cpu, host_key);

@@ -38,6 +38,7 @@ module NRUe extends Ue
 //        }
 
     connections allowunconnected:
-
+		at.out++ --> tn.in++;
+		at.in++ <-- tn.out++;
         cellularNic.nrRadioIn <-- nrRadioIn;
 }

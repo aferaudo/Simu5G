@@ -23,6 +23,8 @@
 #include "inet/networklayer/common/L3AddressResolver.h"
 #include "nodes/mec/utils/httpUtils/httpUtils.h"
 
+#include "apps/mec/ViApp/VirtualisationInfrastructureApp.h"
+
 // simu5g httputils
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpRequestMessage/HttpRequestMessage.h"
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpResponseMessage/HttpResponseMessage.h"
@@ -31,12 +33,17 @@
 
 #include "nodes/mec/utils/MecCommon.h"
 
+
 using namespace omnetpp;
 
 enum State {INIT, RELEASING};
+class VirtualisationInfrastructureApp;
 
 class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallback
 {
+
+    VirtualisationInfrastructureApp* viApp;
+    static simsignal_t parkingReleased_;
 
   public:
     ClientResourceApp();
@@ -74,7 +81,6 @@ class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallbac
       ResourceDescriptor localResources;
 
 
-
       virtual void initialize(int stage) override;
       virtual void handleMessage(cMessage *msg) override;
       virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
@@ -100,6 +106,9 @@ class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallbac
       virtual void socketFailure(inet::TcpSocket *socket, int code) override {}
       virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
       virtual void socketDeleted(inet::TcpSocket *socket) override {}
+
+  public:
+      State getState();
 };
 
 #endif

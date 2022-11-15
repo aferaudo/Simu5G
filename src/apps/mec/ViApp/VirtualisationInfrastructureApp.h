@@ -35,6 +35,7 @@
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
 #include "nodes/mec/Dynamic/MEO/Messages/MeoPackets_m.h" // new messages
 #include "nodes/mec/VirtualisationInfrastructureManager/VirtualisationInfrastructureManager.h"
+#include "apps/mec/ResourceSharingApps/Client/ClientResourceApp.h"
 #include "apps/mec/ViApp/msg/InstantiationResponse_m.h"
 #include "apps/mec/ViApp/msg/TerminationResponse_m.h"
 #include "inet/common/packet/printer/PacketPrinter.h"
@@ -55,6 +56,8 @@ struct RunningAppEntry
     cGate* outputGate;
 };
 
+class ClientResourceApp;
+
 class VirtualisationInfrastructureApp : public cSimpleModule
 {
 
@@ -68,6 +71,7 @@ class VirtualisationInfrastructureApp : public cSimpleModule
 
     // Business logic parameters
     int appcounter;
+    int maxappcounter;
     int portCounter = 10000;    // counter to assign port to app
     std::list<std::string> managedApp;
     std::map<int, RunningAppEntry> runningApp;
@@ -89,11 +93,17 @@ class VirtualisationInfrastructureApp : public cSimpleModule
     float posx;
     float posy;
 
+    static simsignal_t parkingReleased_;
+    static simsignal_t numApp_;
+
+    ClientResourceApp* resourceApp;
+
     public:
         VirtualisationInfrastructureApp();
         ~VirtualisationInfrastructureApp();
 
         double calculateProcessingTime(int ueAppID, int numOfInstructions);
+        int getHostedAppNum();
 
     protected:
 
@@ -102,6 +112,8 @@ class VirtualisationInfrastructureApp : public cSimpleModule
         void initialize(int stage);
 
         virtual void handleMessage(cMessage *msg);
+
+        virtual void finish() override;
 
     private:
 

@@ -81,6 +81,9 @@ class MECWarningAlertApp : public MecAppBaseDyn
     double centerPositionY;
     double radius;
 
+    // statistics
+    static simsignal_t migrationTime_;
+
     // response counter
     int responsecounter;
 
