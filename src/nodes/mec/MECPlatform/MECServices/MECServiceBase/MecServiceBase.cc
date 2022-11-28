@@ -103,12 +103,11 @@ void MecServiceBase::initialize(int stage)
             throw cRuntimeError("MecServiceBase::initialize - ServiceRegistry not present!");
         servRegistry_ = check_and_cast<ServiceRegistry*>(getParentModule()->getSubmodule("serviceRegistry"));
 
-        cModule* module = meHost_->getSubmodule("mecPlatformManager")->getSubmodule("app",0);
+        cModule* module = meHost_->getSubmodule("mecPlatformManager"); //->getSubmodule("app",0);
         if(module != nullptr)
         {
             EV << "MecServiceBase::initialize - MecPlatformManager found" << endl;
-            mecPlatformManager_ = check_and_cast<MecPlatformManagerDyn*>(module);
-//            mecPlatformManager_ = nullptr;
+            mecPlatformManager_ = check_and_cast<MecPlatformManager*>(module);
         }
 
         // get the gnb connected to the mehost
@@ -285,6 +284,7 @@ bool MecServiceBase::manageRequest()
         /*
          * Manage backgroundRequest
          */
+
         if(currentRequestMessageServed_->isBackgroundRequest())
         {
             if(currentRequestMessageServed_->isLastBackgroundRequest())
@@ -297,7 +297,7 @@ bool MecServiceBase::manageRequest()
             handleRequest(socket);
             simtime_t responseTime = simTime() - currentRequestMessageServed_->getArrivalTime();
             EV_INFO <<" MecServiceBase::manageRequest - Response time - " << responseTime << endl;
-//            emit(responseTimeSignal_, responseTime);
+            emit(responseTimeSignal_, responseTime);
         }
 
         if(currentRequestMessageServed_ != nullptr)
@@ -342,15 +342,12 @@ void MecServiceBase::scheduleNextEvent(bool now)
         EV <<"MecServiceBase::scheduleNextEvent - request branch"<< endl;
         currentRequestMessageServed_ = check_and_cast<HttpRequestMessage*>(requests_.pop());
 
-        std::cout << "request pop" << endl;
-
         if(loadGenerator_ && !currentRequestMessageServed_->isBackgroundRequest())
         {
             EV <<"MecServiceBase::scheduleNextEvent - load generator is on, use the response time in the packet"<< endl;
             /*
              * If the loadGenerator flag is active, use the responseTime calculated at arriving time
              */
-            std::cout << "scheduling request message" << endl;
             scheduleAt(simTime() + currentRequestMessageServed_->getResponseTime() , requestService_);
             return;
         }
@@ -359,7 +356,6 @@ void MecServiceBase::scheduleNextEvent(bool now)
             scheduleAt(simTime() + 0 , subscriptionService_);
         else
         {
-            std::cout << "scheduling request message 2" << endl;
             //calculate the serviceTime base on the type | parameters
             double serviceTime = calculateRequestServiceTime(); //must be >0
             EV <<"MecServiceBase::scheduleNextEvent- request service time: "<< serviceTime << endl;
@@ -437,7 +433,7 @@ void MecServiceBase::newRequest(HttpRequestMessage *msg)
 
         msg->setResponseTime(sunOfresponseTimes);
         lastFGRequestArrived_ = simTime();
-//        emit(requestQueueSizeSignal_, numOfBGReqs+1);
+        emit(requestQueueSizeSignal_, numOfBGReqs+1);
     }
 
     requests_.insert(msg);

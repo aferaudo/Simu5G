@@ -70,7 +70,7 @@ module MECHostDyn
             @display("p=232.81201,100.350006");
         }
 
-        mecPlatformManager: MecPlatformManagerHost {
+        mecPlatformManagerHost: MecPlatformManagerHost {
 			// MecPlatform manager host
 			// It runs an app that manages available services
             @display("p=737.23804,100.350006");
@@ -94,7 +94,7 @@ module MECHostDyn
 
     connections allowunconnected:
         vim.pppUPFg++ <--> Eth10G <--> router.pppg++;
-        mecPlatformManager.pppUPFg++ <--> Eth10G <--> router.pppg++;
+        mecPlatformManagerHost.pppUPFg++ <--> Eth10G <--> router.pppg++;
         mecPlatform.virtInfr <--> Eth10G <--> router.pppg++; // this may be changed with a customised version
 
         router.pppg++ <--> Eth10G <--> upf_mec.pppg++;

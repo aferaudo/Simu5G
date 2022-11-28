@@ -29,6 +29,10 @@
 #include "apps/mec/MecApps/Dynamic/MecAppBaseDyn.h"
 
 
+#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/resources/MobilityProcedureNotification.h"
+
+
+
 using namespace std;
 using namespace omnetpp;
 

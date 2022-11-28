@@ -24,7 +24,7 @@
 #include "inet/applications/base/ApplicationBase.h"
 
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpRequestMessage/HttpRequestMessage.h"
-#include "nodes/mec/MECPlatformManager/Dynamic/MecPlatformManagerDyn.h"
+//#include "nodes/mec/MECPlatformManager/Dynamic/MecPlatformManagerDyn.h"
 #include "nodes/mec/utils/httpUtils/httpUtils.h"
 #include "nodes/mec/utils/MecCommon.h"
 
@@ -58,7 +58,7 @@ class SocketManager;
 class SubscriptionBase;
 class HttpRequestMessage;
 class ServiceRegistry;
-class MecPlatformManagerDyn;
+class MecPlatformManager;
 class EventNotification;
 
 class MecServiceBase: public inet::ApplicationBase, public inet::TcpSocket::ICallback
@@ -76,8 +76,8 @@ class MecServiceBase: public inet::ApplicationBase, public inet::TcpSocket::ICal
         Binder* binder_;
         omnetpp::cModule* meHost_;
 
-//        MecPlatformManager* mecPlatformManager_;
-        MecPlatformManagerDyn* mecPlatformManager_;
+        MecPlatformManager* mecPlatformManager_;
+//        MecPlatformManagerDyn* mecPlatformManager_;
         ServiceRegistry* servRegistry_;
 
         std::string baseUriQueries_;
