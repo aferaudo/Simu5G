@@ -346,7 +346,7 @@ namespace Http {
         return false;
     }
 
-    void parseReceivedMsg(int socketId, std::string& packet, omnetpp::cQueue& messageQueue, std::string* storedData, HttpBaseMessage** currentHttpMessage)
+    void parseReceivedMsgDynamic(int socketId, std::string& packet, omnetpp::cQueue& messageQueue, std::string* storedData, HttpBaseMessage** currentHttpMessage)
     {
         // std::cout <<"entrato"<<endl;
         // std::cout << "httpUtils::parseReceivedMsg" << endl;

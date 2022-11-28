@@ -475,7 +475,7 @@ void UEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet 
 
     if(amsSocket.belongsToSocket(msg))
     {
-        Http::parseReceivedMsg(amsSocket.getSocketId(), packet, completedMessageQueue, &bufferedData, &amsHttpMessage);
+        Http::parseReceivedMsgDynamic(amsSocket.getSocketId(), packet, completedMessageQueue, &bufferedData, &amsHttpMessage);
         while(completedMessageQueue.getLength() > 0)
         {
             amsHttpCompleteMessage = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());

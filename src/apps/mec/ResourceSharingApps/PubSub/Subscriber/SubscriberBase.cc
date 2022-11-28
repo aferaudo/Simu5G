@@ -198,7 +198,7 @@ void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *pa
     delete packet;
 
     std::string msg(bytes.begin(), bytes.end());
-    Http::parseReceivedMsg(tcpSocket.getSocketId(), msg, completedMessageQueue, &buffer, &currentHttpMessageBuffer_);
+    Http::parseReceivedMsgDynamic(tcpSocket.getSocketId(), msg, completedMessageQueue, &buffer, &currentHttpMessageBuffer_);
 
 
     while(completedMessageQueue.getLength() > 0)

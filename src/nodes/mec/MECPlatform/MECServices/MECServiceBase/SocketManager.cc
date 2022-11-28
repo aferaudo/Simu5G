@@ -28,7 +28,6 @@ void SocketManager::dataArrived(inet::Packet *msg, bool urgent){
     msg->removeControlInfo();
 
     std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
-
     EV << "SocketManager::dataArrived - payload length: " << bytes.size() << endl;
     std::string packet(bytes.begin(), bytes.end());
     EV << "SocketManager::dataArrived - payload : " << packet << endl;
@@ -78,16 +77,26 @@ void SocketManager::dataArrived(inet::Packet *msg, bool urgent){
 
     EV_INFO << "SocketManager::there are " << completedMessageQueue.getLength() << " messages" << endl;
 
-    Http::parseReceivedMsg(sock->getSocketId(), packet, completedMessageQueue, &bufferedData, &currentHttpMessage);
+    httpRequestProcessing(packet);
 
-    // debug
-//    if(currentHttpMessage == nullptr){
-//        std::cout << "nullptr message" << endl;
-//    }else{
-//        std::cout << (*currentHttpMessage).getBody() << endl;
-//    }
-//    EV_INFO << "found " << completedMessageQueue.getLength() << " messages" << endl;
-//    std::cout << "found " << completedMessageQueue.getLength() << " messages" << endl;
+
+    delete msg;
+    return;
+}
+
+void SocketManager::httpRequestProcessing(std::string &packet)
+{
+
+    Http::parseReceivedMsgDynamic(sock->getSocketId(), packet, completedMessageQueue, &bufferedData, &currentHttpMessage);
+
+        // debug
+    //    if(currentHttpMessage == nullptr){
+    //        std::cout << "nullptr message" << endl;
+    //    }else{
+    //        std::cout << (*currentHttpMessage).getBody() << endl;
+    //    }
+    //    EV_INFO << "found " << completedMessageQueue.getLength() << " messages" << endl;
+    //    std::cout << "found " << completedMessageQueue.getLength() << " messages" << endl;
 
     // Processing completed messages
     while(completedMessageQueue.getLength() > 0){
@@ -105,10 +114,6 @@ void SocketManager::dataArrived(inet::Packet *msg, bool urgent){
             delete message;
         }
     }
-
-
-    delete msg;
-    return;
 }
 
 void SocketManager::established(){

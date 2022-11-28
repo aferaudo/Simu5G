@@ -50,6 +50,7 @@ class SocketManager : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
     virtual void socketDeleted(inet::TcpSocket *socket) override { if (socket == sock) sock = nullptr; }
 
 //    virtual void socketStatusArrived(int, void *, inet::TCPStatusInfo *status) override { statusArrived(status); }
+    virtual void httpRequestProcessing(std::string &packet);
 
   public:
 

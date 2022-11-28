@@ -107,7 +107,7 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
     {
         std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
         std::string packet(bytes.begin(), bytes.end());
-        Http::parseReceivedMsg(serviceSocket_.getSocketId(), packet, serviceHttpMessages_, &bufferedDataService, &bufferHttpMessageService);
+        Http::parseReceivedMsgDynamic(serviceSocket_.getSocketId(), packet, serviceHttpMessages_, &bufferedDataService, &bufferHttpMessageService);
 
         if(serviceHttpMessages_.getLength() > 0)
         {
@@ -141,7 +141,7 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
         }
         std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
         std::string packet(bytes.begin(), bytes.end());
-        Http::parseReceivedMsg(amsSocket_.getSocketId(), packet, amsHttpMessages_, &bufferedDataAms, &bufferHttpMessageAms);
+        Http::parseReceivedMsgDynamic(amsSocket_.getSocketId(), packet, amsHttpMessages_, &bufferedDataAms, &bufferHttpMessageAms);
         if(amsHttpMessages_.getLength() > 0)
         {
             if(vi == nullptr)

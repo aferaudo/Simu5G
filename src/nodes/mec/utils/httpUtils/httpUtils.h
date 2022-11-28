@@ -129,10 +129,14 @@ namespace Http {
      * @param currentHttpMessage variable for storing the current HTTP message
      * @param messageQueue queue where to insert completed Http Messages
      */
-    void parseReceivedMsg(int socketId, std::string& packet, omnetpp::cQueue& messageQueue, std::string* storedData, HttpBaseMessage** currentHttpMessage = nullptr );
+//    void parseReceivedMsg(int socketId, std::string& packet, omnetpp::cQueue& messageQueue, std::string* storedData, HttpBaseMessage** currentHttpMessage = nullptr );
 
     /*************************************************************************************/
-
+    // Same parameters as the previous one - TODO this method is temporary defined to solve conflicts
+    // Authors:
+    // Angelo Feraudo
+    // Alessandro Calvio
+    void parseReceivedMsgDynamic(int socketId, std::string& packet, omnetpp::cQueue& messageQueue, std::string* storedData, HttpBaseMessage** currentHttpMessage = nullptr );
 
     void sendPacket(const char* pck, inet::TcpSocket *socket);
 
