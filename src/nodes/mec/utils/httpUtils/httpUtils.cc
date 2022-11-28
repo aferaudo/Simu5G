@@ -346,6 +346,102 @@ namespace Http {
         return false;
     }
 
+    void parseReceivedMsg(int socketId, std::string& packet, omnetpp::cQueue& messageQueue, std::string* storedData, HttpBaseMessage** currentHttpMessage)
+    {
+        EV_INFO << "httpUtils::parseReceivedMsg" << endl;
+        std::string delimiter = "\r\n\r\n";
+        size_t pos = 0;
+        std::string header;
+//        int remainingData;
+
+        if(*currentHttpMessage != nullptr && (*currentHttpMessage)->isReceivingMsg())
+        {
+            EV << "MecAppBase::parseReceivedMsg - Continue receiving data for the current HttpMessage" << endl;
+            Http::HttpMsgState res = Http::parseTcpData(&packet, *currentHttpMessage);
+//            double time;
+            switch (res)
+            {
+            case (Http::COMPLETE_NO_DATA):
+                EV << "MecAppBase::parseReceivedMsg - passing HttpMessage to application: " << res << endl;
+                (*currentHttpMessage)->setSockId(socketId);
+                messageQueue.insert(*currentHttpMessage);
+                *currentHttpMessage = nullptr;
+                return;
+                break;
+            case (Http::COMPLETE_DATA):
+                EV << "MecAppBase::parseReceivedMsg - passing HttpMessage to application: " << res << endl;
+                (*currentHttpMessage)->setSockId(socketId);
+                messageQueue.insert(*currentHttpMessage);
+                *currentHttpMessage = nullptr;
+                break;
+            case (Http::INCOMPLETE_DATA):
+                    throw cRuntimeError("httpUtils parseReceivedMsg - current Http Message is incomplete, but there is still data to read");
+            case (Http::INCOMPLETE_NO_DATA):
+                    return;
+
+            }
+        }
+
+        /*
+         * If I get here OR:
+         *  - I am not receiving an http message
+         *  - I was receiving an http message but I still have data (i.e a new HttpMessage) to manage.
+         *    Start reading the header
+         */
+
+        std::string temp;
+        if(storedData->length() > 0)
+        {
+            EV << "MecAppBase::parseReceivedMsg - buffered data" << endl;
+            temp = packet;
+            packet = *storedData + temp;
+
+        }
+
+        while ((pos = packet.find(delimiter)) != std::string::npos) {
+            header = packet.substr(0, pos);
+            packet.erase(0, pos+delimiter.length()); //remove header
+//            HttpBaseMessage* newHttpMessage = Http::parseHeader(header);
+            *currentHttpMessage = Http::parseHeader(header);
+
+            Http::HttpMsgState res = Http::parseTcpData(&packet, *currentHttpMessage);
+            // double time;
+            switch (res)
+            {
+            case (Http::COMPLETE_NO_DATA):
+                EV << "MecAppBase::parseReceivedMsg - passing HttpMessage to application: " << res << endl;
+                (*currentHttpMessage)->setSockId(socketId);
+                messageQueue.insert( *currentHttpMessage);
+                *currentHttpMessage = nullptr;
+                return;
+                break;
+            case (Http::COMPLETE_DATA):
+                EV << "MecAppBase::parseReceivedMsg - passing HttpMessage to application: " << res << endl;
+                (*currentHttpMessage)->setSockId(socketId);
+                messageQueue.insert( *currentHttpMessage);
+                *currentHttpMessage = nullptr;
+                break;
+            case (Http::INCOMPLETE_DATA):
+                    throw cRuntimeError("httpUtils parseReceivedMsg - current Http Message is incomplete, but there is still data to read");
+            case (Http::INCOMPLETE_NO_DATA):
+                    return;
+            }
+        }
+
+
+        /*
+        * If I did not find the  delimiter ("\r\n\r\n")
+        * it could mean that the HTTP message is fragmented at the header, so the data
+        * should be saved and aggregated with the subsequent fragmented
+        */
+        if(packet.length() != 0)
+        {
+            *storedData = packet;
+           return;
+        }
+        return;
+    }
+
     void parseReceivedMsgDynamic(int socketId, std::string& packet, omnetpp::cQueue& messageQueue, std::string* storedData, HttpBaseMessage** currentHttpMessage)
     {
         // std::cout <<"entrato"<<endl;
