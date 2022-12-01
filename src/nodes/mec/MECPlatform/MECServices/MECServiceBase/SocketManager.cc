@@ -136,34 +136,3 @@ void SocketManager::failure(int code)
     service->removeConnection(this);
 }
 
-void SocketManager::httpRequestProcessing(std::string &packet)
-{
-
-    Http::parseReceivedMsgDynamic(sock->getSocketId(), packet, completedMessageQueue, &bufferedData, &currentHttpMessage);
-
-        // debug
-    //    if(currentHttpMessage == nullptr){
-    //        std::cout << "nullptr message" << endl;
-    //    }else{
-    //        std::cout << (*currentHttpMessage).getBody() << endl;
-    //    }
-    //    EV_INFO << "found " << completedMessageQueue.getLength() << " messages" << endl;
-    //    std::cout << "found " << completedMessageQueue.getLength() << " messages" << endl;
-
-    // Processing completed messages
-    while(completedMessageQueue.getLength() > 0){
-        HttpBaseMessage* message = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
-
-        message->setSockId(sock->getSocketId());
-        if(message->getType() == REQUEST)
-        {
-            service->emitRequestQueueLength();
-            message->setArrivalTime(simTime());
-            service->newRequest(check_and_cast<HttpRequestMessage*>(message));
-        }
-        else
-        {
-            delete message;
-        }
-    }
-}

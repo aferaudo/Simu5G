@@ -198,54 +198,56 @@ void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *pa
     delete packet;
 
     std::string msg(bytes.begin(), bytes.end());
-    Http::parseReceivedMsgDynamic(tcpSocket.getSocketId(), msg, completedMessageQueue, &buffer, &currentHttpMessageBuffer_);
+    bool res = Http::parseReceivedMsg(tcpSocket.getSocketId(), msg, completedMessageQueue, &buffer, &currentHttpMessageBuffer_);
 
-
-    while(completedMessageQueue.getLength() > 0)
+    if(res)
     {
-        HttpBaseMessage* currentHttpMessage = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
-        switch(appState)
+        while(completedMessageQueue.getLength() > 0)
         {
-            case SUB:
+            HttpBaseMessage* currentHttpMessage = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
+            switch(appState)
             {
-
-                currentHttpMessage->setSockId(tcpSocket.getSocketId());
-                if(currentHttpMessage->getType() == RESPONSE || currentHttpMessage->getType() == REQUEST)
+                case SUB:
                 {
-                    EV << "SubscriberBase::Put notification in queue " << endl;
-                    // In case of multiple notification a queue may be needed (AMS scenario)
-                    httpMessageQueue_.push(currentHttpMessage);
 
-                    if(!nextEvent->isScheduled())
+                    currentHttpMessage->setSockId(tcpSocket.getSocketId());
+                    if(currentHttpMessage->getType() == RESPONSE || currentHttpMessage->getType() == REQUEST)
                     {
-                       std::cout<<"Scheduling nextEvent " << httpMessageQueue_.size() << endl;
+                        EV << "SubscriberBase::Put notification in queue " << endl;
+                        // In case of multiple notification a queue may be needed (AMS scenario)
+                        httpMessageQueue_.push(currentHttpMessage);
 
-                       // so far no computation time has been added
-                       scheduleAt(simTime(), nextEvent);
+                        if(!nextEvent->isScheduled())
+                        {
+                           std::cout<<"Scheduling nextEvent " << httpMessageQueue_.size() << endl;
+
+                           // so far no computation time has been added
+                           scheduleAt(simTime(), nextEvent);
+                        }
+
                     }
+                    else
+                    {
+                        EV << "SubscriberBase::Not recognised message (state = SUB)..."<<endl;
+                    }
+                    break;
+                }
+                case UNSUB:
+                {
+
+                    if(currentHttpMessage->getType() == RESPONSE)
+                    {
+                        HttpResponseMessage *response = dynamic_cast<HttpResponseMessage*> (currentHttpMessage);
+                        EV << "SubscriberBase::Results unsubscription: " << std::to_string(response->getCode()) << endl;
+                    }
+                    else
+                    {
+                        EV << "SubscriberBase::Not Recognised message (state = UNSUB)..." << endl;
+                    }
+                    EV << "SubscriberBase::Closing socket with the broker after unsubscription.. bye" << endl;
+                    tcpSocket.close();
 
                 }
-                else
-                {
-                    EV << "SubscriberBase::Not recognised message (state = SUB)..."<<endl;
-                }
-                break;
-            }
-            case UNSUB:
-            {
-
-                if(currentHttpMessage->getType() == RESPONSE)
-                {
-                    HttpResponseMessage *response = dynamic_cast<HttpResponseMessage*> (currentHttpMessage);
-                    EV << "SubscriberBase::Results unsubscription: " << std::to_string(response->getCode()) << endl;
-                }
-                else
-                {
-                    EV << "SubscriberBase::Not Recognised message (state = UNSUB)..." << endl;
-                }
-                EV << "SubscriberBase::Closing socket with the broker after unsubscription.. bye" << endl;
-                tcpSocket.close();
-
             }
         }
     }

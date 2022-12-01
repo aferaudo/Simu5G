@@ -107,16 +107,19 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
     {
         std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
         std::string packet(bytes.begin(), bytes.end());
-        Http::parseReceivedMsgDynamic(serviceSocket_.getSocketId(), packet, serviceHttpMessages_, &bufferedDataService, &bufferHttpMessageService);
+        bool res = Http::parseReceivedMsg(serviceSocket_.getSocketId(), packet, serviceHttpMessages_, &bufferedDataService, &bufferHttpMessageService);
 
-        if(serviceHttpMessages_.getLength() > 0)
+        if(res)
         {
-            if(vi == nullptr)
-                throw cRuntimeError("MecAppBase::socketDataArrived - vi is null (service)!");
-            double time = vi->calculateProcessingTime(mecAppId, 150);
+            if(serviceHttpMessages_.getLength() > 0)
+            {
+                if(vi == nullptr)
+                    throw cRuntimeError("MecAppBase::socketDataArrived - vi is null (service)!");
+                double time = vi->calculateProcessingTime(mecAppId, 150);
 
-            if(!processedServiceResponse->isScheduled())
-                scheduleAt(simTime()+time, processedServiceResponse);
+                if(!processedServiceResponse->isScheduled())
+                    scheduleAt(simTime()+time, processedServiceResponse);
+            }
         }
     }
     else if (mp1Socket_.belongsToSocket(msg))
@@ -141,14 +144,17 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
         }
         std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
         std::string packet(bytes.begin(), bytes.end());
-        Http::parseReceivedMsgDynamic(amsSocket_.getSocketId(), packet, amsHttpMessages_, &bufferedDataAms, &bufferHttpMessageAms);
-        if(amsHttpMessages_.getLength() > 0)
+        bool res = Http::parseReceivedMsg(amsSocket_.getSocketId(), packet, amsHttpMessages_, &bufferedDataAms, &bufferHttpMessageAms);
+        if(res)
         {
-            if(vi == nullptr)
-                throw cRuntimeError("MecAppBase::socketDataArrived - vi is null! (ams)");
-            double time = vi->calculateProcessingTime(mecAppId, 150);
-            if(!processedAmsResponse->isScheduled()){
-                scheduleAt(simTime()+time, processedAmsResponse);
+            if(amsHttpMessages_.getLength() > 0)
+            {
+                if(vi == nullptr)
+                    throw cRuntimeError("MecAppBase::socketDataArrived - vi is null! (ams)");
+                double time = vi->calculateProcessingTime(mecAppId, 150);
+                if(!processedAmsResponse->isScheduled()){
+                    scheduleAt(simTime()+time, processedAmsResponse);
+                }
             }
         }
 

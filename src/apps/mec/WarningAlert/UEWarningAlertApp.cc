@@ -475,38 +475,42 @@ void UEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet 
 
     if(amsSocket.belongsToSocket(msg))
     {
-        Http::parseReceivedMsgDynamic(amsSocket.getSocketId(), packet, completedMessageQueue, &bufferedData, &amsHttpMessage);
-        while(completedMessageQueue.getLength() > 0)
+        bool res = Http::parseReceivedMsg(amsSocket.getSocketId(), packet, completedMessageQueue, &bufferedData, &amsHttpMessage);
+
+        if(res)
         {
-            amsHttpCompleteMessage = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
-            if(amsHttpCompleteMessage->getType() == REQUEST){
-                EV << "UEWarningAlertApp::socketDataArrived - Received notification - payload: " << " " << amsHttpCompleteMessage->getBody() << endl;
-                HttpRequestMessage* amsNot = check_and_cast<HttpRequestMessage*>(amsHttpCompleteMessage);
-                nlohmann::json jsonBody = nlohmann::json::parse(amsNot->getBody());
-                if(!jsonBody.empty())
-                {
-                    nlohmann::json interfaces = nlohmann::json::array();
-                    interfaces = jsonBody["targetAppInfo"]["commInterface"]["ipAddresses"];
-                    mecAppAddress_ = L3AddressResolver().resolve(std::string(interfaces.at(0)["host"]).c_str()); // take first interface
-                    mecAppPort_ = interfaces.at(0)["port"];
-//                    deallocatePingApp();
-//                    allocatePingApp(mecAppAddress_, true);
-                    EV << "UEWarningAlertApp::received new mecapp address: " <<  mecAppAddress_.str() << ":" << mecAppPort_ << endl;
-                }
-            }else if(amsHttpCompleteMessage->getType() == RESPONSE){
-                EV << "UEWarningAlertApp::socketDataArrived - Received response - payload: " << " " << amsHttpCompleteMessage->getBody() << endl;
-
-                HttpResponseMessage* amsResponse = check_and_cast<HttpResponseMessage*>(amsHttpCompleteMessage);
-                nlohmann::json jsonBody = nlohmann::json::parse(amsResponse->getBody());
-                if(!jsonBody.empty()){
-                    if(jsonBody.contains("callbackReference")){
-                        std::stringstream stream;
-                        stream << "sub" << jsonBody["subscriptionId"];
-                        amsSubscriptionId = stream.str();
-                        EV << "UEWarningAlertApp::socketDataArrived - subscription ID: " << amsSubscriptionId << endl;
+            while(!completedMessageQueue.isEmpty())
+            {
+                amsHttpCompleteMessage = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
+                if(amsHttpCompleteMessage->getType() == REQUEST){
+                    EV << "UEWarningAlertApp::socketDataArrived - Received notification - payload: " << " " << amsHttpCompleteMessage->getBody() << endl;
+                    HttpRequestMessage* amsNot = check_and_cast<HttpRequestMessage*>(amsHttpCompleteMessage);
+                    nlohmann::json jsonBody = nlohmann::json::parse(amsNot->getBody());
+                    if(!jsonBody.empty())
+                    {
+                        nlohmann::json interfaces = nlohmann::json::array();
+                        interfaces = jsonBody["targetAppInfo"]["commInterface"]["ipAddresses"];
+                        mecAppAddress_ = L3AddressResolver().resolve(std::string(interfaces.at(0)["host"]).c_str()); // take first interface
+                        mecAppPort_ = interfaces.at(0)["port"];
+    //                    deallocatePingApp();
+    //                    allocatePingApp(mecAppAddress_, true);
+                        EV << "UEWarningAlertApp::received new mecapp address: " <<  mecAppAddress_.str() << ":" << mecAppPort_ << endl;
                     }
-                }
+                }else if(amsHttpCompleteMessage->getType() == RESPONSE){
+                    EV << "UEWarningAlertApp::socketDataArrived - Received response - payload: " << " " << amsHttpCompleteMessage->getBody() << endl;
 
+                    HttpResponseMessage* amsResponse = check_and_cast<HttpResponseMessage*>(amsHttpCompleteMessage);
+                    nlohmann::json jsonBody = nlohmann::json::parse(amsResponse->getBody());
+                    if(!jsonBody.empty()){
+                        if(jsonBody.contains("callbackReference")){
+                            std::stringstream stream;
+                            stream << "sub" << jsonBody["subscriptionId"];
+                            amsSubscriptionId = stream.str();
+                            EV << "UEWarningAlertApp::socketDataArrived - subscription ID: " << amsSubscriptionId << endl;
+                        }
+                    }
+
+                }
             }
         }
     }
