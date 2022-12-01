@@ -74,47 +74,27 @@ void SocketManager::dataArrived(inet::Packet *msg, bool urgent){
     }
     // ########################
 
+    bool res = Http::parseReceivedMsg(sock->getSocketId(), packet, httpMessageQueue, &bufferedData, &currentHttpMessage);
 
-    EV_INFO << "SocketManager::there are " << completedMessageQueue.getLength() << " messages" << endl;
-
-    httpRequestProcessing(packet);
-
-
+    if(res)
+    {
+//        currentHttpMessage->setSockId(sock->getSocketId());
+        while(!httpMessageQueue.isEmpty())
+        {
+            // TODO handle response in service!!
+            service->emitRequestQueueLength();
+            HttpBaseMessage* msg =  (HttpBaseMessage*)httpMessageQueue.pop();
+            msg->setArrivalTime(simTime());
+            if(msg->getType() == REQUEST)
+                service->newRequest(check_and_cast<HttpRequestMessage*>(msg));
+            else
+                delete msg;
+        }
+    }
     delete msg;
     return;
 }
 
-void SocketManager::httpRequestProcessing(std::string &packet)
-{
-
-    Http::parseReceivedMsgDynamic(sock->getSocketId(), packet, completedMessageQueue, &bufferedData, &currentHttpMessage);
-
-        // debug
-    //    if(currentHttpMessage == nullptr){
-    //        std::cout << "nullptr message" << endl;
-    //    }else{
-    //        std::cout << (*currentHttpMessage).getBody() << endl;
-    //    }
-    //    EV_INFO << "found " << completedMessageQueue.getLength() << " messages" << endl;
-    //    std::cout << "found " << completedMessageQueue.getLength() << " messages" << endl;
-
-    // Processing completed messages
-    while(completedMessageQueue.getLength() > 0){
-        HttpBaseMessage* message = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
-
-        message->setSockId(sock->getSocketId());
-        if(message->getType() == REQUEST)
-        {
-            service->emitRequestQueueLength();
-            message->setArrivalTime(simTime());
-            service->newRequest(check_and_cast<HttpRequestMessage*>(message));
-        }
-        else
-        {
-            delete message;
-        }
-    }
-}
 
 void SocketManager::established(){
     EV_INFO << "New connection established " << endl;
@@ -154,4 +134,36 @@ void SocketManager::failure(int code)
     EV <<"Socket of: " << sock->getRemoteAddress() << " failed. Code: " << code << std::endl;
     service->removeSubscritions(sock->getSocketId());
     service->removeConnection(this);
+}
+
+void SocketManager::httpRequestProcessing(std::string &packet)
+{
+
+    Http::parseReceivedMsgDynamic(sock->getSocketId(), packet, completedMessageQueue, &bufferedData, &currentHttpMessage);
+
+        // debug
+    //    if(currentHttpMessage == nullptr){
+    //        std::cout << "nullptr message" << endl;
+    //    }else{
+    //        std::cout << (*currentHttpMessage).getBody() << endl;
+    //    }
+    //    EV_INFO << "found " << completedMessageQueue.getLength() << " messages" << endl;
+    //    std::cout << "found " << completedMessageQueue.getLength() << " messages" << endl;
+
+    // Processing completed messages
+    while(completedMessageQueue.getLength() > 0){
+        HttpBaseMessage* message = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
+
+        message->setSockId(sock->getSocketId());
+        if(message->getType() == REQUEST)
+        {
+            service->emitRequestQueueLength();
+            message->setArrivalTime(simTime());
+            service->newRequest(check_and_cast<HttpRequestMessage*>(message));
+        }
+        else
+        {
+            delete message;
+        }
+    }
 }
