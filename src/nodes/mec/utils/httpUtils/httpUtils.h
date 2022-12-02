@@ -131,6 +131,8 @@ namespace Http {
      */
     bool parseReceivedMsg(int socketId, std::string& packet, omnetpp::cQueue& messageQueue, std::string* storedData, HttpBaseMessage** currentHttpMessage = nullptr );
 
+    /*************************************************************************************/
+
 
     void sendPacket(const char* pck, inet::TcpSocket *socket);
 

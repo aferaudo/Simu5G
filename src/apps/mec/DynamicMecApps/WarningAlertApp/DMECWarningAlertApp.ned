@@ -9,7 +9,7 @@
 // and cannot be removed from it.
 //
 
-package simu5g.apps.mec.WarningAlert;
+package simu5g.apps.mec.DynamicMecApps.WarningAlertApp;
 
 import inet.applications.contract.IApp;
 import simu5g.nodes.mec.MECPlatform.IMECApp;
@@ -30,10 +30,12 @@ import simu5g.nodes.mec.MECPlatform.IMECApp;
 //
 
 
-simple MECWarningAlertApp like IMECApp, IApp
+simple DMECWarningAlertApp like IMECApp, IApp
 {
     parameters:
         @display("i=block/app;is=s");
+        @signal[migrationTime];
+        @statistic[migration](source=migrationTime; record=vector);
   			
         int packetSize = default(10);
         string interfaceTableModule = default("");
@@ -48,6 +50,8 @@ simple MECWarningAlertApp like IMECApp, IApp
         double requiredRam @unit("B");
         double requiredDisk @unit("B");
         double requiredCpu;
+        
+        bool isMigrating = default(false);
 
 		// IApp parameters
 		int timeToLive = default(-1); // if not -1, set the TTL (IPv4) or Hop Limit (IPv6) field of sent packets to this value
@@ -59,6 +63,8 @@ simple MECWarningAlertApp like IMECApp, IApp
     gates:
 	  input mePlatformIn;
 	  output mePlatformOut;
+	  
+	  inout viAppGate;
 	  
 	  input socketIn;
 	  output socketOut;

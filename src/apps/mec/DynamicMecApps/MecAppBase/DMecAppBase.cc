@@ -9,7 +9,7 @@
 // and cannot be removed from it.
 //
 
-#include "apps/mec/MecApps/MecAppBase.h"
+#include "apps/mec/DynamicMecApps/MecAppBase/DMecAppBase.h"
 #include "nodes/mec/utils/httpUtils/httpUtils.h"
 #include "nodes/mec/utils/MecCommon.h"
 #include "common/utils/utils.h"
@@ -18,7 +18,7 @@ using namespace omnetpp;
 using namespace inet;
 
 
-MecAppBase::MecAppBase()
+DMecAppBase::DMecAppBase()
 {
     mecHost = nullptr;
     mecPlatform = nullptr;;
@@ -29,7 +29,7 @@ MecAppBase::MecAppBase()
     vim = nullptr;
 }
 
-MecAppBase::~MecAppBase()
+DMecAppBase::~DMecAppBase()
 {
     if(sendTimer != nullptr)
     {
@@ -50,12 +50,24 @@ MecAppBase::~MecAppBase()
     }
 
 
-   cancelAndDelete(processedServiceResponse);
-   cancelAndDelete(processedMp1Response);
+    // TODO: Segmentation fault if these line are not commented. Why?
+//    if(processedServiceResponse->isScheduled())
+//    {
+//        cancelAndDelete(processedServiceResponse);
+//    }
 
+//    if(processedMp1Response->isScheduled())
+//    {
+//        cancelAndDelete(processedMp1Response);
+//    }
+
+//    if(processedAmsResponse->isScheduled())
+//    {
+//        cancelAndDelete(processedAmsResponse);
+//    }
 }
 
-void MecAppBase::initialize(int stage)
+void DMecAppBase::initialize(int stage)
 {
 
     if(stage != inet::INITSTAGE_APPLICATION_LAYER)
@@ -87,7 +99,7 @@ void MecAppBase::initialize(int stage)
 
 }
 
-void MecAppBase::connect(inet::TcpSocket* socket, const inet::L3Address& address, const int port)
+void DMecAppBase::connect(inet::TcpSocket* socket, const inet::L3Address& address, const int port)
 {
     // we need a new connId if this is not the first connection
     socket->renewSocket();
@@ -114,11 +126,11 @@ void MecAppBase::connect(inet::TcpSocket* socket, const inet::L3Address& address
     }
 }
 
-void MecAppBase::handleMessage(cMessage *msg)
+void DMecAppBase::handleMessage(cMessage *msg)
 {
     if (msg->isSelfMessage())
     {
-        EV << "MecAppBase::handleMessage" << endl;
+        EV << "DMecAppBase::handleMessage" << endl;
         if(strcmp(msg->getName(), "processedServiceResponse") == 0)
         {
             handleServiceMessage();
@@ -137,6 +149,25 @@ void MecAppBase::handleMessage(cMessage *msg)
                 mp1HttpMessage = nullptr;
             }
         }
+        else if (strcmp(msg->getName(), "processedAmsResponse") == 0)
+        {
+            handleAmsMessage();
+//            if(amsHttpMessage != nullptr)
+//            {
+//                delete amsHttpMessage;
+//                amsHttpMessage = nullptr;
+//            }
+        }
+        else if (strcmp(msg->getName(), "processedStateResponse") == 0)
+        {
+            handleStateMessage();
+
+            if(stateMessage != nullptr)
+            {
+                delete stateMessage;
+                stateMessage = nullptr;
+            }
+        }
         else
         {
             handleSelfMessage(msg);
@@ -153,18 +184,31 @@ void MecAppBase::handleMessage(cMessage *msg)
         {
             mp1Socket_.processMessage(msg);
         }
+        else if(amsSocket_.belongsToSocket(msg))
+        {
+            amsSocket_.processMessage(msg);
+        }
+        else if(stateSocket_->belongsToSocket(msg))
+        {
+            stateSocket_->processMessage(msg);
+        }
+        else if(serverSocket_.belongsToSocket(msg))
+        {
+            serverSocket_.processMessage(msg);
+        }
 
     }
 }
 
-void MecAppBase::socketEstablished(TcpSocket * socket)
+void DMecAppBase::socketEstablished(TcpSocket * socket)
 {
+    EV << "DMecAppBase::socketEstablished " << socket->getSocketId() << endl;
     established(socket->getSocketId());
 }
 
-void MecAppBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool)
+void DMecAppBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool)
 {
-    EV << "MecAppBase::socketDataArrived" << endl;
+    EV << "DMecAppBase::socketDataArrived" << endl;
 
 
 //  In progress. Trying to handle an app message coming from different tcp segments in a better way
@@ -180,11 +224,11 @@ void MecAppBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, b
 
 
 //
-//    EV << "MecAppBase::socketDataArrived - payload: " << endl;
+//    EV << "DMecAppBase::socketDataArrived - payload: " << endl;
 //
     std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
     std::string packet(bytes.begin(), bytes.end());
-//    EV << packet << endl;
+    EV << "data arrived" << endl;
 
     if(serviceSocket_.belongsToSocket(msg))
     {
@@ -193,7 +237,7 @@ void MecAppBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, b
         {
             serviceHttpMessage->setSockId(serviceSocket_.getSocketId());
             if(vim == nullptr)
-                throw cRuntimeError("MecAppBase::socketDataArrived - vim is null!");
+                throw cRuntimeError("DMecAppBase::socketDataArrived - vim is null (service)!");
             double time = vim->calculateProcessingTime(mecAppId, 150);
             scheduleAt(simTime()+time, processedServiceResponse);
         }
@@ -205,43 +249,97 @@ void MecAppBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, b
         {
             mp1HttpMessage->setSockId(mp1Socket_.getSocketId());
             if(vim == nullptr)
-                throw cRuntimeError("MecAppBase::socketDataArrived - vim is null!");
+                throw cRuntimeError("DMecAppBase::socketDataArrived - vim is null (mp1)!");
             double time = vim->calculateProcessingTime(mecAppId, 150);
             scheduleAt(simTime()+time, processedMp1Response);
         }
 
     }
+    else if (amsSocket_.belongsToSocket(msg))
+    {
+        std::cout << "AMS base " << endl;
+        bool res =  Http::parseReceivedMsg(packet, &bufferedData, &amsHttpMessage);
+        if(res)
+        {
+            amsHttpMessage->setSockId(amsSocket_.getSocketId());
+            if(vim == nullptr)
+                throw cRuntimeError("DMecAppBase::socketDataArrived - vim is null (ams)!");
+            double time = vim->calculateProcessingTime(mecAppId, 150);
+            scheduleAt(simTime()+time, processedAmsResponse);
+        }
+
+    }
+    else if (stateSocket_->belongsToSocket(msg))
+    {
+        EV << "it is a state message" << endl;
+        stateMessage = check_and_cast<inet::Packet*>(msg);
+        if(vim == nullptr)
+            throw cRuntimeError("DMecAppBase::socketDataArrived - vim is null (ams)!");
+        double time = vim->calculateProcessingTime(mecAppId, 150);
+        scheduleAt(simTime()+time, processedStateResponse);
+
+    }
     else
     {
-        throw cRuntimeError("MecAppBase::socketDataArrived - Socket %d not recognized", socket->getSocketId());
+        throw cRuntimeError("DMecAppBase::socketDataArrived - Socket %d not recognized", socket->getSocketId());
     }
     delete msg;
 
 }
 
-void MecAppBase::socketPeerClosed(TcpSocket *socket_)
+void DMecAppBase::socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo)
 {
-    EV << "MecAppBase::socketPeerClosed" << endl;
-    socket_->close();
+    EV << "DMecAppBase::socketAvailable - accepting " << availableInfo->getNewSocketId() << endl;
+
+    stateSocket_ = new TcpSocket(availableInfo);
+    stateSocket_->setOutputGate(gate("socketOut"));
+    stateSocket_->setCallback(this);
+
+    EV << "DMecAppBase::stateSocket created with id " << stateSocket_->getSocketId() << endl;
+
+
+    serverSocket_.accept(availableInfo->getNewSocketId());
+    EV << "DMecAppBase::only one open socket is supported: stop listening!" << endl;
 }
 
-void MecAppBase::socketClosed(TcpSocket *socket)
+void DMecAppBase::socketPeerClosed(TcpSocket *socket_)
 {
-    EV_INFO << "MecAppBase::socketClosed" << endl;
+    EV << "DMecAppBase::socketPeerClosed" << endl;
+    std::cout<<"Closing peer socket MECApp Base" << endl;
+//    socket_->close();
+    socket_->setState(inet::TcpSocket::PEER_CLOSED);
 }
 
-void MecAppBase::socketFailure(TcpSocket *sock, int code)
+void DMecAppBase::socketClosed(TcpSocket *socket)
+{
+    EV_INFO << "DMecAppBase::socketClosed" << endl;
+}
+
+void DMecAppBase::socketFailure(TcpSocket *sock, int code)
 {
     // subclasses may override this function, and add code try to reconnect after a delay.
 }
 
-void MecAppBase::finish()
+void DMecAppBase::finish()
 {
-    EV << "MecAppBase::finish()" << endl;
-    if(serviceSocket_.getState() == inet::TcpSocket::CONNECTED)
+    EV << "DMecAppBase::finish()" << endl;
+    if(serviceSocket_.getState() == inet::TcpSocket::CONNECTED){
         serviceSocket_.close();
-    if(mp1Socket_.getState() == inet::TcpSocket::CONNECTED)
+//        serviceSocket_.setState(inet::TcpSocket::CLOSED);
+    }
+    if(mp1Socket_.getState() == inet::TcpSocket::CONNECTED){
         mp1Socket_.close();
+//        mp1Socket_.setState(inet::TcpSocket::CLOSED);
+    }
+    if(amsSocket_.getState() == inet::TcpSocket::CONNECTED){
+        amsSocket_.close();
+//        amsSocket_.setState(inet::TcpSocket::CLOSED);
+    }
+    if(stateSocket_->getState() == inet::TcpSocket::CONNECTED){
+        stateSocket_->close();
+//        stateSocket_->setState(inet::TcpSocket::CLOSED);
+    }
+
 }
 
 

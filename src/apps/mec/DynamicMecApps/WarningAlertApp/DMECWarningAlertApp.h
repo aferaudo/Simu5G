@@ -9,8 +9,8 @@
 // and cannot be removed from it.
 //
 
-#ifndef __MECWARNINGALERTAPP_H_
-#define __MECWARNINGALERTAPP_H_
+#ifndef __DMECWarningAlertApp_H_
+#define __DMECWarningAlertApp_H_
 
 #include "omnetpp.h"
 
@@ -20,10 +20,17 @@
 //MEWarningAlertPacket
 //#include "nodes/mec/MECPlatform/MECAppPacket_Types.h"
 #include "apps/mec/WarningAlert/packets/WarningAlertPacket_m.h"
+#include "apps/mec/WarningAlert/packets/MecWarningAppSyncMessage_m.h"
 
 #include "nodes/mec/MECPlatform/ServiceRegistry/ServiceRegistry.h"
+#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/resources/TargetAppInfo.h"
 
-#include "apps/mec/MecApps/MecAppBase.h"
+//#include "apps/mec/DynamicMecApps/MecAppBase/DMecAppBase.h"
+#include "apps/mec/DynamicMecApps/MecAppBase/DMecAppBaseDyn.h"
+
+
+#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/resources/MobilityProcedureNotification.h"
+
 
 
 using namespace std;
@@ -49,16 +56,25 @@ using namespace omnetpp;
 
 //
 
-class MECWarningAlertApp : public MecAppBase
+class DMECWarningAlertApp : public DMecAppBaseDyn
 {
 
+    inet::UdpSocket stateSocket;
     //UDP socket to communicate with the UeApp
     inet::UdpSocket ueSocket;
     int localUePort;
 
     inet::L3Address ueAppAddress;
     int ueAppPort;
+    bool ueRegistered;
 
+    std::string webHook;
+
+    bool isMigrating;
+    bool isMigrated;
+    inet::L3Address migrationAddress;
+    int migrationPort;
+    std::string status; // keeps trace of ue position
 
     int size_;
     std::string subId;
@@ -69,6 +85,14 @@ class MECWarningAlertApp : public MecAppBase
     double centerPositionY;
     double radius;
 
+    // statistics
+    static simsignal_t migrationTime_;
+
+    // response counter
+    int responsecounter;
+
+    omnetpp::cMessage* tryDeletion_;
+
     protected:
         virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
         virtual void initialize(int stage) override;
@@ -76,13 +100,15 @@ class MECWarningAlertApp : public MecAppBase
 
         virtual void finish() override;
 
-        virtual void handleServiceMessage() override;
-        virtual void handleMp1Message() override;
+        virtual void handleServiceMessage() override; // This method must be always redefined
+        virtual void handleMp1Message() override; // This method must be always redefined
+        virtual void handleAmsMessage() override; // This method must be always redefined when ams is supported, otherwise {}
+        virtual void handleStateMessage() override;  // This method must be always redefined when ams is supported, otherwise {}
 
         virtual void handleUeMessage(omnetpp::cMessage *msg) override;
 
-        virtual void modifySubscription();
-        virtual void sendSubscription();
+        virtual void modifySubscription(std::string criteria);
+        virtual void sendSubscription(std::string criteria);
         virtual void sendDeleteSubscription();
 
         virtual void handleSelfMessage(cMessage *msg) override;
@@ -92,8 +118,11 @@ class MECWarningAlertApp : public MecAppBase
        virtual void established(int connId) override;
 
     public:
-       MECWarningAlertApp();
-       virtual ~MECWarningAlertApp();
+       DMECWarningAlertApp();
+       virtual ~DMECWarningAlertApp();
+
+    private:
+       void getServiceData(const char* uri);
 
 };
 

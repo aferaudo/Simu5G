@@ -5,13 +5,13 @@
  *      Author: simu5g
  */
 
-#ifndef APPS_MEC_MECAPPS_DYNAMIC_MECAPPBASEDYN_H_
-#define APPS_MEC_MECAPPS_DYNAMIC_MECAPPBASEDYN_H_
+#ifndef APPS_MEC_MECAPPS_DYNAMIC_DMecAppBaseDYN_H_
+#define APPS_MEC_MECAPPS_DYNAMIC_DMecAppBaseDYN_H_
 
-#include "apps/mec/MecApps/MecAppBase.h"
+#include "apps/mec/DynamicMecApps/MecAppBase/DMecAppBase.h"
 #include "apps/mec/ViApp/VirtualisationInfrastructureApp.h"
 
-class  MecAppBaseDyn : public MecAppBase
+class  DMecAppBaseDyn : public DMecAppBase
 {
     protected:
         VirtualisationInfrastructureApp* vi;
@@ -20,8 +20,8 @@ class  MecAppBaseDyn : public MecAppBase
 
 
     public:
-        MecAppBaseDyn();
-        virtual ~MecAppBaseDyn();
+        DMecAppBaseDyn();
+        virtual ~DMecAppBaseDyn();
 
     protected:
         virtual void initialize(int stage) override;
@@ -46,4 +46,4 @@ class  MecAppBaseDyn : public MecAppBase
 };
 
 
-#endif /* APPS_MEC_MECAPPS_DYNAMIC_MECAPPBASEDYN_H_ */
+#endif /* APPS_MEC_MECAPPS_DYNAMIC_DMecAppBaseDYN_H_ */

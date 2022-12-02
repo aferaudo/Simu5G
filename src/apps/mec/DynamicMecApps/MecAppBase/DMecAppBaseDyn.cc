@@ -1,11 +1,11 @@
 
 
-#include "apps/mec/MecApps/Dynamic/MecAppBaseDyn.h"
+#include "apps/mec/DynamicMecApps/MecAppBase/DMecAppBaseDyn.h"
 
 using namespace omnetpp;
 using namespace inet;
 
-MecAppBaseDyn::MecAppBaseDyn()
+DMecAppBaseDyn::DMecAppBaseDyn()
 {
     mecHost = nullptr;
     serviceHttpMessage = nullptr;
@@ -17,7 +17,7 @@ MecAppBaseDyn::MecAppBaseDyn()
     stateSocket_ = nullptr;
 }
 
-MecAppBaseDyn::~MecAppBaseDyn()
+DMecAppBaseDyn::~DMecAppBaseDyn()
 {
 //    if(serviceHttpMessage != nullptr)
 //    {
@@ -52,7 +52,7 @@ MecAppBaseDyn::~MecAppBaseDyn()
 
 }
 
-void MecAppBaseDyn::initialize(int stage)
+void DMecAppBaseDyn::initialize(int stage)
 {
 
     if(stage != inet::INITSTAGE_APPLICATION_LAYER)
@@ -99,9 +99,9 @@ void MecAppBaseDyn::initialize(int stage)
 
 }
 
-void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool)
+void DMecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool)
 {
-    EV << "MecAppBaseDyn::socketDataArrived" << endl;
+    EV << "DMecAppBaseDyn::socketDataArrived" << endl;
 
     if(serviceSocket_.belongsToSocket(msg))
     {
@@ -114,7 +114,7 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
             if(serviceHttpMessages_.getLength() > 0)
             {
                 if(vi == nullptr)
-                    throw cRuntimeError("MecAppBase::socketDataArrived - vi is null (service)!");
+                    throw cRuntimeError("DMecAppBase::socketDataArrived - vi is null (service)!");
                 double time = vi->calculateProcessingTime(mecAppId, 150);
 
                 if(!processedServiceResponse->isScheduled())
@@ -131,7 +131,7 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
         {
             mp1HttpMessage->setSockId(mp1Socket_.getSocketId());
             if(vi == nullptr)
-                throw cRuntimeError("MecAppBase::socketDataArrived - vi is null! (mp1)");
+                throw cRuntimeError("DMecAppBase::socketDataArrived - vi is null! (mp1)");
             double time = vi->calculateProcessingTime(mecAppId, 150);
             scheduleAt(simTime()+time, processedMp1Response);
         }
@@ -150,7 +150,7 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
             if(amsHttpMessages_.getLength() > 0)
             {
                 if(vi == nullptr)
-                    throw cRuntimeError("MecAppBase::socketDataArrived - vi is null! (ams)");
+                    throw cRuntimeError("DMecAppBase::socketDataArrived - vi is null! (ams)");
                 double time = vi->calculateProcessingTime(mecAppId, 150);
                 if(!processedAmsResponse->isScheduled()){
                     scheduleAt(simTime()+time, processedAmsResponse);
@@ -164,7 +164,7 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
        EV << "MECAppNaseDyn::it is a state message" << endl;
        stateMessage = check_and_cast<inet::Packet*>(msg)->dup();
        if(vi == nullptr)
-           throw cRuntimeError("MecAppBase::socketDataArrived - vi is null (state)!");
+           throw cRuntimeError("DMecAppBase::socketDataArrived - vi is null (state)!");
        double time = vi->calculateProcessingTime(mecAppId, 150);
        if(!processedStateResponse->isScheduled())
            scheduleAt(simTime()+time, processedStateResponse);
@@ -172,19 +172,19 @@ void MecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg
     }
     else
     {
-        throw cRuntimeError("MecAppBase::socketDataArrived - Socket %d not recognized", socket->getSocketId());
+        throw cRuntimeError("DMecAppBase::socketDataArrived - Socket %d not recognized", socket->getSocketId());
     }
     delete msg;
 
 }
 
-void MecAppBaseDyn::closeAllSockets() {
+void DMecAppBaseDyn::closeAllSockets() {
 //    serviceSocket_.close();
 //    mp1Socket_.close();
 //    amsSocket_.close();
 }
 
-void MecAppBaseDyn::handleMessage(cMessage *msg)
+void DMecAppBaseDyn::handleMessage(cMessage *msg)
 {
     if(msg->isSelfMessage() && strcmp(msg->getName(), "processedAmsResponse") == 0)
     {
@@ -216,16 +216,16 @@ void MecAppBaseDyn::handleMessage(cMessage *msg)
     }
     else
     {
-        MecAppBase::handleMessage(msg);
+        DMecAppBase::handleMessage(msg);
     }
 }
 
-void MecAppBaseDyn::finish()
+void DMecAppBaseDyn::finish()
 {
-    EV << "MecAppBase::finish()" << endl;
+    EV << "DMecAppBase::finish()" << endl;
 //    cancelAndDelete(processedServiceResponse); // discarding queue messages (these are typically delete replies)
 
 //    cancelAndDelete(processedAmsResponse); // discarding queue messages (these are typically delete replies)
 
-    MecAppBase::finish();
+    DMecAppBase::finish();
 }

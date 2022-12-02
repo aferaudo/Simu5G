@@ -10,7 +10,7 @@
 //
 
 
-package simu5g.apps.mec.WarningAlert;
+package simu5g.apps.mec.DynamicMecApps.WarningAlertApp;
 
 import inet.applications.contract.IApp;
 
@@ -30,26 +30,29 @@ import inet.applications.contract.IApp;
  //
 
 
-simple UEWarningAlertApp like IApp
+simple DUEWarningAlertApp like IApp
 {
     parameters:       
-         @display("i=block/source");    
+         @display("i=block/source");
+         @signal[logicTerminated](type=string);   
         
         //connection infos
         int localPort = default(4000);
         int deviceAppPort = default(4000); // ipAddress of the DeviceApp
-        string deviceAppAddress; // port of the DeviceApp
+        string deviceAppAddress = default("") @mutable; // port of the DeviceApp
                 
         int packetSize = default(10);
         
         int tos = default(-1); // if not -1, set the Type Of Service (IPv4) / Traffic Class (IPv6) field of sent packets to this value
+        int dscp = default(-1); // if not -1, set the DSCP (IPv4/IPv6) field of sent packets to this value
+        int timeToLive = default(-1); // if not -1, set the TTL (IPv4) or Hop Limit (IPv6) field of sent packets to this value
         
         //autoscheduling infos
         double period @unit("s") = default(1s);
         double startTime @unit("s") = default(0s); 
         double stopTime @unit("s") = default(120s);
         
-        string mecAppName = default("MECWarningAlertApp"); // but could be MEWarningAlertApp_rest_External
+        string mecAppName = default("DMECWarningAlertApp"); // but could be MEWarningAlertApp_rest_External
         
         double positionX = default(210);
         double positionY = default(260);
@@ -58,6 +61,12 @@ simple UEWarningAlertApp like IApp
         
         bool logger = default(false);
         string interfaceTableModule;
+        
+        bool coreTesting = default(false);
+        
+        string amsAddress;
+        string coreAddress = default("");
+        int amsPort;
                     
     gates:
         output socketOut;
