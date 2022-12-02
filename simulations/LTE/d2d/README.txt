@@ -1,6 +1,3 @@
-***************
-* What's new? *
-***************
 Support for one-to-one device-to-device (D2D) communications has been added to SimuLTE.
 Detailed information on the modeling of D2D in SimuLTE can be found in the paper:
 A. Virdis, G. Nardini, G. Stea, "Modeling unicast device-to-device communications with SimuLTE", IWSLS2 2016, Vienna, July 1st, 2016

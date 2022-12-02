@@ -13,6 +13,7 @@ package simu5g.nodes.mec.VirtualisationInfrastructure;
 
 import inet.common.MessageDispatcher;
 import inet.linklayer.contract.IEthernetInterface;
+import inet.linklayer.contract.ILoopbackInterface;
 import inet.linklayer.ethernet.contract.IEthernetLayer;
 import inet.linklayer.ppp.PppInterface;
 import inet.networklayer.common.InterfaceTable;
@@ -23,9 +24,9 @@ import inet.applications.contract.IApp;
 import inet.transportlayer.udp.Udp;
 import inet.transportlayer.tcp.Tcp;
 
-// 
+//# 
 //# VirtualisationInfrastructure
-//
+//#
 module VirtualisationInfrastructure
 {
     parameters:
@@ -47,20 +48,20 @@ module VirtualisationInfrastructure
         *.interfaceTableModule = default(absPath(".interfaceTable"));
         *.routingTableModule = default("^.ipv4.routingTable");
 
-        int numBGMecApp = default(0);
+        int numIndependentMecApp = default(0);
         int numExtEthInterfaces = default(0);
 
     gates:
 
-        inout ppp[];				// connection with GtpEndpoint and local/externa networks
+        inout ppp[];				// connection with GtpEndpoint and local/external networks
 
-        output meBGAppOut[numBGMecApp];			// connection to the ME App input gate
-        input meBGAppIn[numBGMecApp];			// connection to the ME App output gate
+        output independentMecAppOut[numIndependentMecApp];			// connection to the ME App input gate
+        input independentMecAppIn[numIndependentMecApp];			// connection to the ME App output gate
 
         output meAppOut[];			// connection to the ME App input gate
         input meAppIn[];			// connection to the ME App output gate
 
-        inout mePlatform;			// connection to the ME Platform
+        inout mecPlatform[];			// connection to the MEC Platform
 
     submodules:
 
@@ -69,19 +70,13 @@ module VirtualisationInfrastructure
         }
 
         //#
-        //# ppp modules
+        //# link-layer modules
         //#
         pppIf[sizeof(ppp)]: PppInterface {
-            @display("p=548.37,660.075");
+            @display("p=736.2375,660.075");
         }
 
-        //# interface to the MEC services in the MEC platform
-        pppMecPlatform: PppInterface {
-            parameters:
-                @display("p=761.625,660.075,row,150");
-        }
-
-        //# ethernet interface used for communicating with external applications in emulation mode
+        // ethernet interface used for communicating with external applications in emulation mode
         extEth[numExtEthInterfaces]: <default("ExtLowerEthernetInterface")> like IEthernetInterface {
             parameters:
                 @display("p=326.6525,660.075,row,150;q=txQueue");
@@ -90,6 +85,11 @@ module VirtualisationInfrastructure
             parameters:
                 registerProtocol = true;
                 @display("p=326.6525,511.135");
+        }
+
+        lo: <default("LoopbackInterface")> like ILoopbackInterface {
+            parameters:
+                @display("p=548.37,660.075,row,150");
         }
 
         //#
@@ -134,9 +134,14 @@ module VirtualisationInfrastructure
     connections allowunconnected:
 
 
-        for i=0..numBGMecApp-1 {
-            at.out++ --> meBGAppOut++;
-            at.in++ <-- meBGAppIn++;
+        for i=0..numIndependentMecApp -1 {
+            at.out++ --> independentMecAppOut++;
+            at.in++ <-- independentMecAppIn++;
+        }
+
+        for i=0..sizeof(mecPlatform)-1 {
+            at.out++ --> mecPlatform$o[i];
+            at.in++ <-- mecPlatform$i[i];
         }
 
         //# 
@@ -187,7 +192,6 @@ module VirtualisationInfrastructure
         encap.upperLayerOut --> nl.in++ if numExtEthInterfaces != 0;
         encap.upperLayerIn <-- nl.out++ if numExtEthInterfaces != 0;
 
-        pppMecPlatform.upperLayerOut --> nl.in++;
-        pppMecPlatform.upperLayerIn <-- nl.out++;
-        pppMecPlatform.phys <--> mePlatform;
+        nl.out++ --> lo.upperLayerIn;
+        lo.upperLayerOut --> nl.in++;
 }

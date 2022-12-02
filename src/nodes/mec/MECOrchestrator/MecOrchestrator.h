@@ -59,6 +59,7 @@ struct mecAppMapEntry
 
 class UALCMPMessage;
 class MECOrchestratorMessage;
+class SelectionPolicyBase;
 
 //
 // This module implements the MEC orchestrator of a MEC system.
@@ -74,6 +75,15 @@ class MECOrchestratorMessage;
 
 class MecOrchestrator : public cSimpleModule, public IMecOrchestrator
 {
+    // Selection Policies modules access grants
+    friend class SelectionPolicyBase;
+    friend class MecServiceSelectionBased;
+    friend class AvailableResourcesSelectionBased;
+    friend class MecHostSelectionBased;
+
+
+    SelectionPolicyBase* mecHostSelectionPolicy_;
+
     //------------------------------------
     //Binder module
     Binder* binder_;

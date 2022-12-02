@@ -15,9 +15,11 @@ import simu5g.nodes.mec.VirtualisationInfrastructure.VirtualisationInfrastructur
 import simu5g.nodes.mec.MECPlatform.MECPlatform;
 import simu5g.nodes.mec.MECPlatformManager.MecPlatformManager;
 import simu5g.nodes.mec.VirtualisationInfrastructureManager.VirtualisationInfrastructureManager;
+import simu5g.nodes.mec.VirtualisationInfrastructureManager.BackgroundApp;
 import simu5g.nodes.Upf;
 import inet.node.ethernet.Eth10G;
 import inet.applications.contract.IApp;
+
 // 
 //# MEHost module
 //
@@ -37,16 +39,19 @@ module MECHost
         double maxCpuSpeed = default(300000); 	 // CPU's clock speed in Million Instruction per Seconds (MIPS)
 
         int numBGMecApp = default(0);
-        //#connections
-        string eNBList = default("");
+        int numIndependentMecApp = default(0);
+        
+        //# List of Base Stations associated to the MEC host
+        // This is a string of comma-separated values
+        string bsList = default("");
 
     gates:
 
 		//to local radio networks
-        inout pppENB[];
+        inout ppp[];
 
         //to external networks (internet)
-        inout ppp[];
+        inout pppIf[];
 
     submodules:
 
@@ -77,22 +82,25 @@ module MECHost
                 nodeType = "UPF_MEC";
         }
 
-
-        bgApp[numBGMecApp]: <> like IApp {
-            @display("p=362.69498,156.875,row,140");
+        bgApp[numBGMecApp]: BackgroundApp {
+            @display("p=865.94995,326.3,row,140");
+        }
+        
+        independentMecApp[numIndependentMecApp]: <> like IApp {
+            @display("p=371.47998,156.875,row,140");
         }
 
     connections allowunconnected:
 
-        for i=0..sizeof(pppENB)-1 {
-            pppENB++ <--> upf_mec.pppg++;
+        for i=0..sizeof(ppp)-1 {
+            ppp++ <--> upf_mec.pppg++;
         }
 
-        for i=0..sizeof(ppp)-1 {
+        for i=0..sizeof(pppIf)-1 {
             //#
             //# external connection to external networks
             //#
-            virtualisationInfrastructure.ppp++ <--> ppp++;
+            virtualisationInfrastructure.ppp++ <--> pppIf++;
         }
 
         //#
@@ -100,10 +108,12 @@ module MECHost
         //#
         virtualisationInfrastructure.ppp++ <--> Eth10G <--> upf_mec.filterGate;
 
-        for i=0..numBGMecApp-1 {
-            bgApp[i].socketIn <-- virtualisationInfrastructure.meBGAppOut[i];
-            bgApp[i].socketOut --> virtualisationInfrastructure.meBGAppIn[i];
+        for i=0..numIndependentMecApp-1 {
+            independentMecApp[i].socketIn <-- virtualisationInfrastructure.independentMecAppOut[i];
+            independentMecApp[i].socketOut --> virtualisationInfrastructure.independentMecAppIn[i];
         }
 
-        virtualisationInfrastructure.mePlatform <--> Eth10G <--> mecPlatform.virtInfr;
+        for i=0..mecPlatform.numMecServices {
+            virtualisationInfrastructure.mecPlatform++ <--> mecPlatform.virtInfr++;
+        }
 }
