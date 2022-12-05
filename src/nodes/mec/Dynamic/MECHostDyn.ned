@@ -17,7 +17,7 @@ package simu5g.nodes.mec.Dynamic;
 import simu5g.nodes.mec.VirtualisationInfrastructure.VirtualisationInfrastructure;
 import simu5g.nodes.mec.VirtualisationInfrastructureManager.Dynamic.VirtualisationInfrastructureManagerHost;
 import simu5g.nodes.mec.MECPlatformManager.Dynamic.MecPlatformManagerHost;
-import simu5g.nodes.mec.MECPlatform.MECPlatform;
+import simu5g.nodes.mec.MECPlatform.Dynamic.MECPlatformHost;
 import simu5g.nodes.mec.MECPlatformManager.MecPlatformManager;
 import simu5g.nodes.Upf;
 import inet.node.ethernet.Eth10G;
@@ -76,7 +76,7 @@ module MECHostDyn
             @display("p=737.23804,100.350006");
         }
 
-        mecPlatform: MECPlatform {
+        mecPlatform: MECPlatformHost {
 			// MecPlatform  host
 			// It runs available services
             @display("p=483.018,100.350006;i=device/device");

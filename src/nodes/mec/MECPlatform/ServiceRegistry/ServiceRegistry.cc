@@ -85,6 +85,11 @@ void ServiceRegistry::handleStartOperation(inet::LifecycleOperation *operation)
     int localPort = par("localPort");
     EV << "Local Address: " << localAddress << " port: " << localPort << endl;
 
+    // Dynamic MEC Host has three different ip addresses
+    // So we need to register those that communicate with UE devices, e.g. MECPlatform
+    inet::L3Address localAdd(inet::L3AddressResolver().resolve(localAddress));
+    EV << "Local Address resolved: "<< localAdd << endl;
+
     inet::L3Address gtpAddress = inet::L3AddressResolver().resolve(getParentModule()->getParentModule()->getSubmodule("upf_mec")->getFullPath().c_str());
     binder_->registerMecHostUpfAddress(localAdd, gtpAddress);
     binder_->registerMecHost(localAdd);

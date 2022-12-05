@@ -97,7 +97,6 @@ class MecPlatformManagerDyn : public SubscriberBase
         bool terminateEmulatedMEApp(DeleteAppMessage*);
 
         const std::vector<ServiceInfo>* getAvailableMecServices() const;
-        const std::set<std::string>* getAvailableOmnetServices() const;
 
         void registerMecService(ServiceDescriptor&) const;
 

@@ -38,8 +38,6 @@ class SocketManager : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
     cQueue httpMessageQueue;
     std::string bufferedData;
     std::map<int, std::string> buffers;
-    omnetpp::cQueue completedMessageQueue;
-    omnetpp::cQueue httpMessageQueue;
 
     // internal: inet::TcpSocket::CallbackInterface methods
     virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent) override { dataArrived(packet, urgent); }

@@ -28,61 +28,115 @@ import inet.linklayer.ppp.PppInterface;
 
 import simu5g.nodes.mec.MECPlatform.IMEService;
 import simu5g.nodes.mec.MECPlatform.ServiceRegistry.ServiceRegistry;
-import simu5g.nodes.NR.NRUe;
 
 // 
 //# MEC platform compuond module representing the MEC platform entity 
 // of the ETSI MEC architecture described in ETSI GS MEC 003
 //
 
-module MECPlatformHost extends NRUe
+module MECPlatformHost
 {
-    parameters:
-        @networkNode();
+    @networkNode();
         @display("bgb=1122.99,610.08;i=block/cogwheel");
 
         //# Network Layer specs
         string networkLayerType = default("IPv4NetworkLayer");
         *.interfaceTableModule = default(absPath(".interfaceTable"));
-        
         //# Num Services
         int numOmnetServices = default(0);
         int numMecServices = default(0);
 
+        //# Transport Layer specs
+        bool hasTcp = default(true);
+        bool hasUdp = default(true);
+
+        //# Network Layer specs
+        bool hasIpv4 = default(true);
+        bool hasIpv6 = default(false);
+
         //# External Ethernet interfaces
+
         int numExtEthInterfaces = default(0); 
+
+        //# Loopback interfaces
+        int numLoInterfaces = default(1);
 
     gates:
         inout virtInfr; // connection to the virtualization infrastructure to communicate with the MEapps
-        input meAppIn[];
-        output meAppOut[];
-        
-        inout ppp;
     submodules:
 
         serviceRegistry: ServiceRegistry {
             @display("p=767.0875,74.5975;");
         }
 
-		//# old mec services NO ETSI MEC compliant
-        omnetService[numOmnetServices]: <> like IMEService {
-            @display("p=237.25,81.9,row");
+        interfaceTable: InterfaceTable {
+            @display("p=61.344,74.976;is=s");
         }
 
+        //# layer submodules (must be ordered from lower to upper layers)
+        
+        //# link layer 
+        lo[numLoInterfaces]: <default("LoopbackInterface")> like ILoopbackInterface {
+            parameters:
+                @display("p=373.92,521.52,row,150");
+        }
+
+        // ethernet interface used for communicating with external applications in emulation mode
+        extEth[numExtEthInterfaces]: <default("ExtLowerEthernetInterface")> like IEthernetInterface {
+            parameters:
+                @display("p=549.81,530.13,row,150;q=txQueue");
+        }
+        
+        // interface to MEC applications in the virtualization infrastructure
+        mp1Ppp: PppInterface {
+            parameters:
+                @display("p=739.23,521.52,row,150");
+        }
+        
+        //# network layer
+        ipv4: <default("Ipv4NetworkLayer")> like INetworkLayer if hasIpv4 {
+            parameters:
+                @display("p=389.91,375.15;q=queue");
+        }
+        ipv6: <default("Ipv6NetworkLayer")> like INetworkLayer if hasIpv6 {
+            parameters:
+                @display("p=709.71,375.15;q=queue");
+        }
+
+        //# transport layer 
+        udp: <default(firstAvailableOrEmpty("Udp"))> like IUdp if hasUdp {
+            parameters:
+                @display("p=375,226");
+        }
+        tcp: <default(firstAvailableOrEmpty("Tcp", "TcpLwip", "TcpNsc"))> like ITcp if hasTcp {
+            parameters:
+                @display("p=676.5,225.09");
+        }
 
 		//# app layer 
         mecService[numMecServices]: <> like IApp {
             @display("p=551.04,73.8,row,140");
         }
-        
-        pppIf: PppInterface {
 
-            @display("p=274.216,521.856;i=device/card");
+        //# message dispatcher for SAP between application and transport layer
+        at: MessageDispatcher {
+            parameters:
+                @display("p=550,146;b=600,5,,,,1");
+        }
+        //# message dispatcher for SAP between transport and network layer
+        tn: MessageDispatcher {
+            parameters:
+                @display("p=550,296;b=600,5,,,,1");
+        }
+        //# message dispatcher for SAP to link layer
+        nl: MessageDispatcher {
+            parameters:
+                @display("p=550,446;b=600,5,,,,1");
         }
 
     connections allowunconnected:
 
-	  	//# 
+	  //# 
         //# Internal Tcp/Udp applications connections with transport layer
         //#
 
@@ -93,9 +147,55 @@ module MECPlatformHost extends NRUe
         
         serviceRegistry.socketOut --> at.in++;
         serviceRegistry.socketIn <-- at.out++;
+        
 
-		pppIf.upperLayerOut --> nl.in++;
-        pppIf.upperLayerIn <-- nl.out++;
-        pppIf.phys <--> ppp;
+        at.out++ --> udp.appIn if hasUdp;
+        at.in++ <-- udp.appOut if hasUdp;
+
+        at.out++ --> tcp.appIn if hasTcp;
+        at.in++ <-- tcp.appOut if hasTcp;
+
+        //# 
+		//# Internal transport layer connections to network layer
+		//# 
+
+        udp.ipOut --> tn.in++ if hasUdp;
+        udp.ipIn <-- tn.out++ if hasUdp;
+
+        tcp.ipOut --> tn.in++ if hasTcp;
+        tcp.ipIn <-- tn.out++ if hasTcp;
+
+        ipv4.ifIn <-- nl.out++ if hasIpv4;
+        ipv4.ifOut --> nl.in++ if hasIpv4;
+
+        ipv4.transportIn <-- tn.out++ if hasIpv4;
+        ipv4.transportOut --> tn.in++ if hasIpv4;
+
+        ipv6.ifIn <-- nl.out++ if hasIpv6;
+        ipv6.ifOut --> nl.in++ if hasIpv6;
+
+        ipv6.transportIn <-- tn.out++ if hasIpv6;
+        ipv6.transportOut --> tn.in++ if hasIpv6;
+
+        tn.out++ --> nl.in++;
+        tn.in++ <-- nl.out++;
+
+        //#
+        //# Internal link layer connections to network layer  
+        //#
+
+        for i=0..numExtEthInterfaces-1 {
+            extEth[i].upperLayerOut --> nl.in++;
+            extEth[i].upperLayerIn <-- nl.out++;
+        }
+
+        for i=0..numLoInterfaces-1 {
+            nl.out++ --> lo[i].upperLayerIn;
+            lo[i].upperLayerOut --> nl.in++;
+        }
+
+        mp1Ppp.upperLayerOut --> nl.in++;
+        mp1Ppp.upperLayerIn <-- nl.out++;
+        mp1Ppp.phys <--> virtInfr;
 
 }

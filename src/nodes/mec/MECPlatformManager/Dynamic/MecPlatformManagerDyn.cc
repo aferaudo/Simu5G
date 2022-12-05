@@ -213,16 +213,6 @@ const std::vector<ServiceInfo>* MecPlatformManagerDyn::getAvailableMecServices()
     }
 }
 
-const std::set<std::string>* MecPlatformManagerDyn::getAvailableOmnetServices() const
-{
-    EV << "MecPlatformManagerDyn::getAvailableOmnetServices" << endl;
-    if(serviceRegistry == nullptr)
-        return nullptr;
-    else
-    {
-       return serviceRegistry->getAvailableOmnetServices();
-    }
-}
 
 void MecPlatformManagerDyn::registerMecService(ServiceDescriptor& servDescriptor) const
 {
