@@ -1,7 +1,6 @@
 
 #include "ExtMecAppBase.h"
-#include "apps/mec/MecApps/MecAppBase.h" // we need this to import their structure HttpMessageStatus, thus avoiding to define a new one here.
-#include  "apps/mec/MecApps/packets/ProcessingTimeMessage_m.h"
+#include "apps/mec/MecApps/packets/ProcessingTimeMessage_m.h"
 
 using namespace omnetpp;
 
@@ -9,6 +8,7 @@ ExtMecAppBase::ExtMecAppBase()
 {
     // TODO Auto-generated constructor stub
    processMessage_ = nullptr;
+   mp1Socket_ = nullptr;
 
 }
 
@@ -76,6 +76,10 @@ void ExtMecAppBase::handleMessage(omnetpp::cMessage *msg)
                }
            }
         }
+        else
+        {
+            handleSelfMessage(msg);
+        }
     }
     else
     {
@@ -131,6 +135,9 @@ void ExtMecAppBase::socketPeerClosed(inet::TcpSocket *socket)
 {
     EV << "ExtMecAppBase::Peer closed the socket " << socket->getRemoteAddress() << endl;
     socket->close();
+
+    EV << "ExtMecAppBase::Removing socket after closing" << endl;
+    removeSocket(socket);
 }
 
 void ExtMecAppBase::socketClosed(inet::TcpSocket *socket)
@@ -219,4 +226,42 @@ void ExtMecAppBase::removeSocket(inet::TcpSocket* tcpSock)
         cancelAndDelete(msgStatus->processMsgTimer);
     }
     delete sockets_.removeSocket(tcpSock);
+}
+
+bool ExtMecAppBase::getInfoFromServiceRegistry()
+{
+    if(mp1Socket_ != nullptr)
+    {
+        EV << "ExtMecAppBase::getting service info from service registry" << endl;
+        const char *baseuri = "/example/mec_service_mgmt/v1/services?ser_name=";
+        std::string host = mp1Socket_->getRemoteAddress().str()+":"+std::to_string(mp1Socket_->getRemotePort());
+        std::string uri;
+        for(auto service : servicesData_)
+        {
+            uri = baseuri + service->name;
+            Http::sendGetRequest(mp1Socket_, host.c_str(), uri.c_str());
+        }
+        return true;
+    }
+    else
+    {
+        EV_INFO << "ExtMecAppBase::error mp1Socket is null" << endl;
+        return false;
+    }
+
+}
+
+int ExtMecAppBase::findServiceFromSocket(int connId)
+{
+   inet::TcpSocket *sock_ = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(connId));
+   int index = -1;
+   for(int i = 0; i < servicesData_.size(); i ++)
+   {
+       if(servicesData_[i]->host.addr == sock_->getRemoteAddress()
+               && servicesData_[i]->host.port == sock_->getRemotePort())
+       {
+          return i;
+       }
+   }
+   return index;
 }

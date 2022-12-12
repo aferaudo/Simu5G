@@ -13,13 +13,26 @@
 #include "inet/transportlayer/contract/udp/UdpSocket.h"
 #include "inet/common/socket/SocketMap.h"
 
+#include "nodes/mec/utils/httpUtils/httpUtils.h"
+#include "nodes/mec/utils/MecCommon.h"
+#include "apps/mec/MecApps/MecAppBase.h" // we need this to import their structure HttpMessageStatus, thus avoiding to define a new one here.
+
+
 
 /*
- * This class adapts the apps/mec/MecApps/MecAppBase.* models provided in Simu5G
+ * This class enables the apps/mec/MecApps/MecAppBase.* models provided in Simu5G
  * to support our system.
  * Thus, end-user can easily deploy app compliant with the Standard ETSI MEC
  * and deploy them in our scenario.
  */
+
+struct MecServiceInfo
+{
+    SockAddr host;
+    std::string name;
+    HttpBaseMessage *currentHttpMessage;
+};
+
 
 class ExtMecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICallback
 {
@@ -36,17 +49,21 @@ class ExtMecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
      */
     inet::SocketMap sockets_;
 
+    // Although a MecApp may have or not a connection with
+    // the MEC platform, it is a std component commont to multiple
+    // apps.
+    inet::TcpSocket* mp1Socket_;
+
     /*
      * It contains the sockets id corresponding to a service
      * This enables a MEC app to communicate with multiple MEC Service
      */
-    std::map<int, std::string> serviceNames_;
+//    std::map<int, std::string> serviceNamesSocketMap_;
 
-    /*
-     * Service Registry information uris
-     */
-    std::vector<std::string> serviceRegistryGetUris;
+    std::vector<MecServiceInfo*> servicesData_;
 
+    HttpBaseMessage* mp1HttpMessage;
+//    std::map<std::string, HttpBaseMessage*> serviceHttpMessages;
 
     // endpoint for contacting the Service Registry
     inet::L3Address mp1Address;
@@ -70,11 +87,17 @@ class ExtMecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
 
     // to be implemented by subclasses
     virtual void handleSelfMessage(omnetpp::cMessage *msg) = 0;
-    virtual void established(int connId) = 0;
     virtual void handleHttpMessage(int connId) = 0;
+    virtual void handleServiceMessage(int connId, int index) = 0;
+    virtual void handleMp1Message(int connId) = 0;
+    virtual void handleUeMessage(omnetpp::cMessage *msg) = 0;
+    virtual void established(int connId) = 0;
+
 
     virtual void connect(inet::TcpSocket* socket, const inet::L3Address& address, const int port);
 
+    // Usually standard for each MECApp
+    virtual bool getInfoFromServiceRegistry();
 
     // INET socket management methods
     virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool urgent) override;
@@ -85,6 +108,9 @@ class ExtMecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
     virtual void socketFailure(inet::TcpSocket *socket, int code) override;
     virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
     virtual void socketDeleted(inet::TcpSocket *socket) override {}
+
+    // utility methods
+    virtual int findServiceFromSocket(int connId);
   public:
     ExtMecAppBase();
     virtual ~ExtMecAppBase();
