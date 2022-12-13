@@ -467,6 +467,11 @@ void MecOrchestratorApp::startMECApp(CreateContextAppMessage* contAppMsg, MECHos
     EV << "MEOApp::sending instantiate mecapp to mechost - " << bestHost->toString() << endl;
     auto it = mecApplicationDescriptors_.find(contAppMsg->getAppDId());
 
+    if(it == mecApplicationDescriptors_.end())
+    {
+        throw cRuntimeError("Application descriptor: %s not found", contAppMsg->getAppDId());
+        //return;
+    }
     const ApplicationDescriptor& appDesc = it->second;
     EV << "MEOApp:: appdesc " << appDesc.getAppName() << endl;
 

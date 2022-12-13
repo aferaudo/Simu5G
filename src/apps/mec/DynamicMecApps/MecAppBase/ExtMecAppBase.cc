@@ -30,7 +30,7 @@ void ExtMecAppBase::initialize(int stage)
     mp1Port = par("mp1Port");
 
     mecAppId = par("mecAppId"); // FIXME mecAppId is the deviceAppId (it does not change anything, though)
-    mecAppIndex_ = par("mecAppIndex");
+//    mecAppIndex_ = par("mecAppIndex"); // not needed
     requiredRam = par("requiredRam").doubleValue();
     requiredDisk = par("requiredDisk").doubleValue();
     requiredCpu = par("requiredCpu").doubleValue();
@@ -136,13 +136,15 @@ void ExtMecAppBase::socketPeerClosed(inet::TcpSocket *socket)
     EV << "ExtMecAppBase::Peer closed the socket " << socket->getRemoteAddress() << endl;
     socket->close();
 
-    EV << "ExtMecAppBase::Removing socket after closing" << endl;
-    removeSocket(socket);
+
 }
 
 void ExtMecAppBase::socketClosed(inet::TcpSocket *socket)
 {
     EV_INFO << "ExtMecAppBase:: socket closed " <<  endl;
+    EV << "ExtMecAppBase::Removing socket after closing" << endl;
+    std::cout << "This could generate a seg fault!" << endl;
+    removeSocket(socket);
 }
 
 void ExtMecAppBase::socketFailure(inet::TcpSocket *socket, int code)
@@ -257,11 +259,27 @@ int ExtMecAppBase::findServiceFromSocket(int connId)
    int index = -1;
    for(int i = 0; i < servicesData_.size(); i ++)
    {
-       if(servicesData_[i]->host.addr == sock_->getRemoteAddress()
-               && servicesData_[i]->host.port == sock_->getRemotePort())
+       if(servicesData_[i]->sockid == connId)
        {
           return i;
        }
    }
    return index;
 }
+
+//inet::TcpSocket * ExtMecAppBase::findSocketFromService(MecServiceInfo *service)
+//{
+//
+//    for(auto socket : sockets_.getMap())
+//    {
+//        if(service->host.addr == check_and_cast<inet::TcpSocket*>(socket.second)->getRemoteAddress()
+//                && service->host.port == check_and_cast<inet::TcpSocket*>(socket.second)->getRemotePort())
+//        {
+//            EV << "Socket found" << endl;
+//            return check_and_cast<inet::TcpSocket*>(socket.second);
+//        }
+//    }
+//
+//    return nullptr;
+//
+//}

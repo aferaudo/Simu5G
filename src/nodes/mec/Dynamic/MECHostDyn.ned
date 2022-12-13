@@ -51,7 +51,7 @@ module MECHostDyn
         string gateway = default("upf");
 
         int numBGMecApp = default(0);
-        string eNBList = default("");
+        string bsList = default("");
 
 
         // Graphic parameters

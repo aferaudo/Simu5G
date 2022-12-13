@@ -12,6 +12,9 @@
 #include "inet/networklayer/common/L3AddressResolver.h"
 
 #include "apps/mec/DynamicMecApps/MecAppBase/ExtMecAppBase.h"
+#include "apps/mec/WarningAlert/packets/WarningAlertPacket_m.h"
+
+
 
 using namespace omnetpp;
 
@@ -44,13 +47,13 @@ class ExtMECWarningAlertApp : public ExtMecAppBase
     virtual void handleProcessedMessage(omnetpp::cMessage *msg) override;
 
     virtual void handleHttpMessage(int connId) override;
-    virtual void handleServiceMessage(int connId, int index) override;
+    virtual void handleServiceMessage(int index) override;
     virtual void handleMp1Message(int connId) override;
     virtual void handleUeMessage(omnetpp::cMessage *msg) override;
 
-    virtual void modifySubscription();
-    virtual void sendSubscription();
-    virtual void sendDeleteSubscription();
+    virtual void modifySubscription(inet::TcpSocket *serviceSocket);
+    virtual void sendSubscription(inet::TcpSocket *socket);
+    virtual void sendDeleteSubscription(inet::TcpSocket *serviceSocket);
 
     virtual void handleSelfMessage(cMessage *msg) override;
 
@@ -60,6 +63,8 @@ class ExtMECWarningAlertApp : public ExtMecAppBase
 
 //        /* TCPSocket::CallbackInterface callback methods */
     virtual void established(int connId) override;
+
+    virtual void sendNackToUE();
 
   public:
     ExtMECWarningAlertApp();

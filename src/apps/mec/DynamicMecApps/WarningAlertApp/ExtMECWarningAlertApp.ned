@@ -32,9 +32,11 @@ simple ExtMECWarningAlertApp like IMECApp, IApp
         int packetSize = default(10);
         string interfaceTableModule = default("");
         
-        int mecAppIndex;
         int mecAppId;
         int localUePort;
+        
+        // TODO try to delete this dependency
+        bool isMigrating = default(false);
         
         string mp1Address = default("");
         int mp1Port = default(10021);
@@ -54,6 +56,8 @@ simple ExtMECWarningAlertApp like IMECApp, IApp
     gates:
 	  input mePlatformIn;
 	  output mePlatformOut;
+	  
+	  inout viAppGate;
 	  
 	  input socketIn;
 	  output socketOut;

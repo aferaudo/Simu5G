@@ -291,16 +291,17 @@ bool VirtualisationInfrastructureApp::handleTermination(DeleteAppMessage* data)
         return false;
 
     RunningAppEntry entry = it->second;
-//    cModule* module = entry.module;
-//    std::cout << module << endl;
-//    module->callFinish();
+    cModule* module = entry.module;
+    std::cout << module << endl;
+    module->callFinish();
+    module->deleteModule();
 //    toDelete = module;
 //    cMessage *msg = new cMessage("deleteModule");
 //    scheduleAt(simTime()+0.1, msg);
 
-    cGate* gate = entry.outputGate;
-    cMessage* msg = new cMessage("startTerminationProcedure");
-    send(msg, gate->getName(), gate->getIndex());
+//    cGate* gate = entry.outputGate;
+//    cMessage* msg = new cMessage("startTerminationProcedure");
+//    send(msg, gate->getName(), gate->getIndex());
 
 
     return true;

@@ -30,7 +30,8 @@ struct MecServiceInfo
 {
     SockAddr host;
     std::string name;
-    HttpBaseMessage *currentHttpMessage;
+//    HttpBaseMessage *currentHttpMessage;
+    int sockid;
 };
 
 
@@ -88,7 +89,7 @@ class ExtMecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
     // to be implemented by subclasses
     virtual void handleSelfMessage(omnetpp::cMessage *msg) = 0;
     virtual void handleHttpMessage(int connId) = 0;
-    virtual void handleServiceMessage(int connId, int index) = 0;
+    virtual void handleServiceMessage(int index) = 0;
     virtual void handleMp1Message(int connId) = 0;
     virtual void handleUeMessage(omnetpp::cMessage *msg) = 0;
     virtual void established(int connId) = 0;
@@ -111,6 +112,8 @@ class ExtMecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
 
     // utility methods
     virtual int findServiceFromSocket(int connId);
+//    inet::TcpSocket * findSocketFromService(MecServiceInfo *service);
+
   public:
     ExtMecAppBase();
     virtual ~ExtMecAppBase();
