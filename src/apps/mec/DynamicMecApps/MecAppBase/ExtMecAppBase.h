@@ -70,11 +70,16 @@ class ExtMecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
     inet::L3Address mp1Address;
     int mp1Port;
 
+    // Local information
     int mecAppId;
     int mecAppIndex_;
     double requiredRam;
     double requiredDisk;
     double requiredCpu;
+
+    inet::L3Address localAddress;
+
+
 
     // simple module methods
     virtual void initialize(int stage) override;
@@ -89,6 +94,7 @@ class ExtMecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
     // to be implemented by subclasses
     virtual void handleSelfMessage(omnetpp::cMessage *msg) = 0;
     virtual void handleHttpMessage(int connId) = 0;
+    virtual void handleReceivedMessage(omnetpp::cMessage *msg) = 0; // this method menage message received on a socket in listening mode
     virtual void handleServiceMessage(int index) = 0;
     virtual void handleMp1Message(int connId) = 0;
     virtual void handleUeMessage(omnetpp::cMessage *msg) = 0;
@@ -102,7 +108,7 @@ class ExtMecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
 
     // INET socket management methods
     virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool urgent) override;
-    virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override { socket->accept(availableInfo->getNewSocketId()); }
+    virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override;
     virtual void socketEstablished(inet::TcpSocket *socket) override;
     virtual void socketPeerClosed(inet::TcpSocket *socket) override;
     virtual void socketClosed(inet::TcpSocket *socket) override;

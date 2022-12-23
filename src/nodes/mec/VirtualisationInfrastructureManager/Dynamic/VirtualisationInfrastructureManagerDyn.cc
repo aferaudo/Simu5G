@@ -1043,6 +1043,7 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
 
     int ueAppID = data->getUeAppID();
     int port = data->getAllocatedPort();
+    int migrationPort = data->getMigrationPort();
     int packetLength = 0;
     auto it = waitingInstantiationRequests.find(std::to_string(ueAppID));
     if(it == waitingInstantiationRequests.end()){
@@ -1095,7 +1096,8 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
         packetLength = packetLength + entry->appInstanceId.size();
 
         toSend->setTargetAddress(entry->endpoint.addr);
-        toSend->setTargetPort(entry->endpoint.port);
+//        toSend->setTargetPort(entry->endpoint.port);
+        toSend->setTargetPort(migrationPort);
         packetLength = packetLength + entry->endpoint.addr.str().size() + 4;
 
         // FIXME Correspondence one-to-one

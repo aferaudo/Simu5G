@@ -15,7 +15,12 @@ ExtMecAppBase::ExtMecAppBase()
 ExtMecAppBase::~ExtMecAppBase()
 {
     // TODO Auto-generated destructor stub
-    sockets_.deleteSockets();
+    for(auto &sock : sockets_.getMap())
+    {
+
+        inet::TcpSocket* tcpSock = (inet::TcpSocket*)sock.second;
+        removeSocket(tcpSock);
+    }
     cancelAndDelete(processMessage_);
 
 }
@@ -35,11 +40,14 @@ void ExtMecAppBase::initialize(int stage)
     requiredDisk = par("requiredDisk").doubleValue();
     requiredCpu = par("requiredCpu").doubleValue();
 
+    localAddress = inet::L3AddressResolver().resolve(getParentModule()->getFullPath().c_str());
+
     processMessage_ = new cMessage("processedMessage");
 }
 
 void ExtMecAppBase::handleMessage(omnetpp::cMessage *msg)
 {
+    EV << "Processing message " << msg->getName() << endl;
     if(msg->isSelfMessage())
     {
         if(strcmp(msg->getName(), "processedMessage") == 0)
@@ -109,20 +117,43 @@ void ExtMecAppBase::socketDataArrived(inet::TcpSocket *socket,
         inet::Packet *msg, bool urgent)
 {
     EV << "ExtMecAppBase::socketDataArrived" << endl;
-    std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
-    std::string packet(bytes.begin(), bytes.end());
 
-    // Getting user data
-    HttpMessageStatus* msgStatus = (HttpMessageStatus*) socket->getUserData();
-    bool res =  Http::parseReceivedMsg(socket->getSocketId(),  packet, msgStatus->httpMessageQueue , &(msgStatus->bufferedData),  &(msgStatus->currentMessage));
-    if(res)
+    if(socket->getUserData() != nullptr)
     {
-        double time = 0; // In our system we don't care about computation time.
-        if(!msgStatus->processMsgTimer->isScheduled())
-            scheduleAt(simTime()+time, msgStatus->processMsgTimer);
+        std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
+        std::string packet(bytes.begin(), bytes.end());
+
+        // Getting user data
+        HttpMessageStatus* msgStatus = (HttpMessageStatus*) socket->getUserData();
+
+        bool res =  Http::parseReceivedMsg(socket->getSocketId(),  packet, msgStatus->httpMessageQueue , &(msgStatus->bufferedData),  &(msgStatus->currentMessage));
+
+        if(res)
+        {
+            double time = 0; // In our system we don't care about computation time.
+            if(!msgStatus->processMsgTimer->isScheduled())
+                scheduleAt(simTime()+time, msgStatus->processMsgTimer);
+        }
+    }
+    else
+    {
+        std::cout << "msg received is not http" << endl;
+        handleReceivedMessage(msg);
     }
 
     delete msg;
+
+}
+
+void ExtMecAppBase::socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo)
+{
+    EV << "ExtMecAppBase::socket in listening mode has been added" << endl;
+    inet::TcpSocket *newSocket = new inet::TcpSocket(availableInfo);
+    newSocket->setOutputGate(gate("socketOut"));
+    newSocket->setCallback(this);
+    sockets_.addSocket(newSocket);
+
+    socket->accept(availableInfo->getNewSocketId());
 
 }
 
@@ -192,6 +223,7 @@ void ExtMecAppBase::handleProcessedMessage(omnetpp::cMessage *msg)
         }
         else
         {
+            EV << "Message has been deleted" << endl;
             delete msg;
         }
     }
@@ -203,10 +235,12 @@ inet::TcpSocket* ExtMecAppBase::addNewSocket()
     newSocket->setOutputGate(gate("socketOut"));
     newSocket->setCallback(this);
 
+    // this creates sockets that transport http content
     HttpMessageStatus* msg = new HttpMessageStatus;
     msg->processMsgTimer = new ProcessingTimeMessage("processedHttpMsg");
     msg->processMsgTimer->setSocketId(newSocket->getSocketId());
     newSocket->setUserData(msg);
+
 
     sockets_.addSocket(newSocket);
     EV << "ExtMecAppBase::addNewSocket(): added socket with ID: " << newSocket->getSocketId() << endl;
@@ -215,17 +249,20 @@ inet::TcpSocket* ExtMecAppBase::addNewSocket()
 
 void ExtMecAppBase::removeSocket(inet::TcpSocket* tcpSock)
 {
-    HttpMessageStatus* msgStatus = (HttpMessageStatus *) tcpSock->getUserData();
-    EV << "ExtMecAppBase::removing socket" << endl;
-    while(!msgStatus->httpMessageQueue.isEmpty())
+    if(tcpSock->getUserData() != nullptr)
     {
-        delete msgStatus->httpMessageQueue.pop();
-    }
-    if(msgStatus->currentMessage != nullptr )
-        delete msgStatus->currentMessage;
-    if(msgStatus->processMsgTimer != nullptr)
-    {
-        cancelAndDelete(msgStatus->processMsgTimer);
+        HttpMessageStatus* msgStatus = (HttpMessageStatus *) tcpSock->getUserData();
+        EV << "ExtMecAppBase::removing socket" << endl;
+        while(!msgStatus->httpMessageQueue.isEmpty())
+        {
+            delete msgStatus->httpMessageQueue.pop();
+        }
+        if(msgStatus->currentMessage != nullptr )
+            delete msgStatus->currentMessage;
+        if(msgStatus->processMsgTimer != nullptr)
+        {
+            cancelAndDelete(msgStatus->processMsgTimer);
+        }
     }
     delete sockets_.removeSocket(tcpSock);
 }
@@ -238,6 +275,8 @@ bool ExtMecAppBase::getInfoFromServiceRegistry()
         const char *baseuri = "/example/mec_service_mgmt/v1/services?ser_name=";
         std::string host = mp1Socket_->getRemoteAddress().str()+":"+std::to_string(mp1Socket_->getRemotePort());
         std::string uri;
+
+        // Get information for each required service
         for(auto service : servicesData_)
         {
             uri = baseuri + service->name;

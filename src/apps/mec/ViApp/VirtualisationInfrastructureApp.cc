@@ -144,6 +144,7 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
                 inet::Packet* packet = new inet::Packet("InstantiationResponse");
                 auto responsepck = inet::makeShared<InstantiationResponse>();
                 responsepck->setAllocatedPort(portCounter);
+                responsepck->setMigrationPort(13365);
                 responsepck->setUeAppID(data->getUeAppID());
                 responsepck->setChunkLength(inet::B(100));
                 responsepck->setStartAllocationTime(data->getStartAllocationTime());
@@ -233,6 +234,7 @@ bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicati
     module->par("requiredDisk") = disk;
     module->par("requiredCpu") = cpu;
     module->par("localUePort") = portCounter;
+    module->par("localPort") = 13365; // TODO make it a parameter
     module->par("mp1Address") = data->getMp1Address();
     module->par("mp1Port") = data->getMp1Port();
     module->par("isMigrating") = data->isMigrating();
@@ -294,7 +296,7 @@ bool VirtualisationInfrastructureApp::handleTermination(DeleteAppMessage* data)
     cModule* module = entry.module;
     std::cout << module << endl;
     module->callFinish();
-    module->deleteModule();
+//    module->deleteModule();
 //    toDelete = module;
 //    cMessage *msg = new cMessage("deleteModule");
 //    scheduleAt(simTime()+0.1, msg);

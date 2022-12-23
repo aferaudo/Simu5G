@@ -14,6 +14,8 @@
 #include "apps/mec/DynamicMecApps/MecAppBase/ExtMecAppBase.h"
 #include "apps/mec/WarningAlert/packets/WarningAlertPacket_m.h"
 
+#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/resources/DeviceInformation.h"
+
 
 
 using namespace omnetpp;
@@ -21,9 +23,19 @@ using namespace omnetpp;
 
 class ExtMECWarningAlertApp : public ExtMecAppBase
 {
+
+    enum SERVICE {
+               LS = 0, // Location Service
+               AMS, // Application Mobility Service
+    };
+
+
     //UDP socket to communicate with the UeApp
     inet::UdpSocket ueSocket;
     int localUePort;
+
+    // local binding for migration
+    int localPort;
 
     inet::L3Address ueAppAddress;
     int ueAppPort;
@@ -38,6 +50,22 @@ class ExtMECWarningAlertApp : public ExtMecAppBase
     double centerPositionY;
     double radius;
 
+    // keep trace of ue status ("Entering" or "Leaving")
+    std::string status;
+
+    // ##### AMS parameters #####
+    bool isMigrating; // TODO change name
+    std::string webHook;
+    // Address new location
+    inet::L3Address migrationAddress;
+    int migrationPort;
+    inet::TcpSocket* amsStateSocket_; // this socket depends on the app - old (in migration) vs new (migrated)
+    std::string amsRegistrationId;
+    std::string amsSubscriptionId;
+    bool subscribed;
+    bool ueRegistered;
+    // ##### -------------- #####
+
 
   protected:
     virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
@@ -50,21 +78,32 @@ class ExtMECWarningAlertApp : public ExtMecAppBase
     virtual void handleServiceMessage(int index) override;
     virtual void handleMp1Message(int connId) override;
     virtual void handleUeMessage(omnetpp::cMessage *msg) override;
+    virtual void handleReceivedMessage(cMessage *msg);
 
-    virtual void modifySubscription(inet::TcpSocket *serviceSocket);
-    virtual void sendSubscription(inet::TcpSocket *socket);
-    virtual void sendDeleteSubscription(inet::TcpSocket *serviceSocket);
+    // Location Service API
+    virtual void modifySubscriptionLS(inet::TcpSocket *serviceSocket, std::string criteria);
+    virtual void sendSubscriptionLS(inet::TcpSocket *socket, std::string criteria);
+    virtual void sendDeleteSubscriptionLS(inet::TcpSocket *serviceSocket);
+
+
+    // Application Mobility Service API
+    virtual void sendRegistrationAMS(inet::TcpSocket *socket, ContextTransferState transferState=NOT_TRANSFERRED);
+    virtual void sendSubscriptionAMS(inet::TcpSocket *socket);
+    virtual void updateRegistrationAMS(inet::TcpSocket *socket,
+            AppMobilityServiceLevel level=APP_MOBILITY_NOT_ALLOWED, ContextTransferState transferState=NOT_TRANSFERRED);
 
     virtual void handleSelfMessage(cMessage *msg) override;
 
-    virtual void handleLSMessage(inet::TcpSocket *serviceSocket, int index);
-    virtual void handleAMSMessage(inet::TcpSocket *serviceSocket, int index);
+    virtual void handleLSMessage(inet::TcpSocket *serviceSocket);
+    virtual void handleAMSMessage(inet::TcpSocket *serviceSocket);
 
 
-//        /* TCPSocket::CallbackInterface callback methods */
+    /* TCPSocket::CallbackInterface callback methods */
     virtual void established(int connId) override;
 
+    // utility methods
     virtual void sendNackToUE();
+    virtual void sendState();
 
   public:
     ExtMECWarningAlertApp();

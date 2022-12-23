@@ -25,6 +25,7 @@ class InstantiationResponse extends inet::FieldsChunk {
     
     int ueAppID;
     int allocatedPort;
+    int migrationPort;
     
     //statistics collection
     simtime_t startAllocationTime;
