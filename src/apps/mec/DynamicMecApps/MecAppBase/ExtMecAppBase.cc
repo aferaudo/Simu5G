@@ -6,23 +6,35 @@ using namespace omnetpp;
 
 ExtMecAppBase::ExtMecAppBase()
 {
-    // TODO Auto-generated constructor stub
    processMessage_ = nullptr;
+   terminationMessage_ = nullptr;
+   connectService_ = nullptr;
    mp1Socket_ = nullptr;
 
 }
 
 ExtMecAppBase::~ExtMecAppBase()
 {
-    // TODO Auto-generated destructor stub
+    std::cout << "destructor called!" << endl;
     for(auto &sock : sockets_.getMap())
     {
 
         inet::TcpSocket* tcpSock = (inet::TcpSocket*)sock.second;
-        removeSocket(tcpSock);
+//        removeSocket(tcpSock);
     }
-    cancelAndDelete(processMessage_);
+    sockets_.deleteSockets();
 
+    if(processMessage_ != nullptr)
+        cancelAndDelete(processMessage_);
+
+    if(terminationMessage_ != nullptr)
+        cancelAndDelete(terminationMessage_);
+
+    if(connectService_ != nullptr)
+        cancelAndDelete(connectService_);
+
+    while(!packetQueue_.isEmpty())
+        packetQueue_.pop();
 }
 
 void ExtMecAppBase::initialize(int stage)
@@ -43,6 +55,12 @@ void ExtMecAppBase::initialize(int stage)
     localAddress = inet::L3AddressResolver().resolve(getParentModule()->getFullPath().c_str());
 
     processMessage_ = new cMessage("processedMessage");
+
+    terminationMessage_ = new cMessage("terminationMessage");
+
+    connectService_ = new cMessage("connectService");
+
+    responseCounter_ = 0;
 }
 
 void ExtMecAppBase::handleMessage(omnetpp::cMessage *msg)
@@ -75,6 +93,9 @@ void ExtMecAppBase::handleMessage(omnetpp::cMessage *msg)
            {
                HttpMessageStatus* msgStatus = (HttpMessageStatus *)sock->getUserData();
                handleHttpMessage(connId);
+
+
+
                delete msgStatus->httpMessageQueue.pop();
                if(!msgStatus->httpMessageQueue.isEmpty())
                {
@@ -84,10 +105,34 @@ void ExtMecAppBase::handleMessage(omnetpp::cMessage *msg)
                }
            }
         }
+        else if(strcmp(msg->getName(), "terminationMessage") == 0)
+        {
+            EV << "ExtMecAppBase::Received termination message " << getFullName() << " - " << getParentModule()->getFullName() <<", waiting for: " << responseCounter_ << " replies" << endl;
+            if(responseCounter_ > 0)
+            {
+                scheduleAt(simTime()+0.01, terminationMessage_);
+                return;
+            }
+            else
+            {
+                cGate* gate = this->gate("viAppGate$o");
+                cMessage* t = new cMessage("endTerminationProcedure");
+                send(t, gate->getName());
+                callFinish();
+                deleteModule();
+            }
+        }
         else
         {
             handleSelfMessage(msg);
         }
+    }
+    else if(strcmp(msg->getName(), "startTerminationProcedure") == 0)
+    {
+        // Extended system
+        EV << "ExtMecAppBase::start termination procedure" << endl;
+        handleTermination();
+        delete msg;
     }
     else
     {
@@ -167,15 +212,13 @@ void ExtMecAppBase::socketPeerClosed(inet::TcpSocket *socket)
     EV << "ExtMecAppBase::Peer closed the socket " << socket->getRemoteAddress() << endl;
     socket->close();
 
-
 }
 
 void ExtMecAppBase::socketClosed(inet::TcpSocket *socket)
 {
     EV_INFO << "ExtMecAppBase:: socket closed " <<  endl;
     EV << "ExtMecAppBase::Removing socket after closing" << endl;
-    std::cout << "This could generate a seg fault!" << endl;
-    removeSocket(socket);
+
 }
 
 void ExtMecAppBase::socketFailure(inet::TcpSocket *socket, int code)
@@ -257,6 +300,7 @@ void ExtMecAppBase::removeSocket(inet::TcpSocket* tcpSock)
         {
             delete msgStatus->httpMessageQueue.pop();
         }
+        msgStatus->httpMessageQueue.clear();
         if(msgStatus->currentMessage != nullptr )
             delete msgStatus->currentMessage;
         if(msgStatus->processMsgTimer != nullptr)
@@ -281,6 +325,7 @@ bool ExtMecAppBase::getInfoFromServiceRegistry()
         {
             uri = baseuri + service->name;
             Http::sendGetRequest(mp1Socket_, host.c_str(), uri.c_str());
+            responseCounter_ ++;
         }
         return true;
     }

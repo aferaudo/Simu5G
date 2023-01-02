@@ -52,6 +52,7 @@ struct RunningAppEntry
     std::string requiredService;
     cModule* module;
     int port;
+    int migrationPort;
     cGate* inputGate;
     cGate* outputGate;
 };
@@ -117,7 +118,7 @@ class VirtualisationInfrastructureApp : public cSimpleModule
 
     private:
 
-        bool handleInstantiation(InstantiationApplicationRequest* data);
+        RunningAppEntry* handleInstantiation(InstantiationApplicationRequest* data);
         bool handleTermination(DeleteAppMessage* data);
 
         void handleEndTerminationProcedure(cMessage *);

@@ -42,6 +42,12 @@ class ExtMecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
     // Scheduling message processing
     omnetpp::cMessage* processMessage_;
 
+    // Scheduling MEC App termination
+    omnetpp::cMessage* terminationMessage_;
+
+    // Scheduling MEC App termination
+    omnetpp::cMessage* connectService_;
+
     // Message Queue received at MECApp
     omnetpp::cQueue packetQueue_;
 
@@ -79,6 +85,10 @@ class ExtMecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
 
     inet::L3Address localAddress;
 
+    // used to avoid nullpointer exception when module is suddenly deleted
+    // This may occur for MEC app deployed on far-edge nodes, where nodes
+    // can leave the resource pool and thus triggering app termination
+    int responseCounter_;
 
 
     // simple module methods
@@ -99,6 +109,7 @@ class ExtMecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
     virtual void handleMp1Message(int connId) = 0;
     virtual void handleUeMessage(omnetpp::cMessage *msg) = 0;
     virtual void established(int connId) = 0;
+    virtual void handleTermination() = 0; //delete registrations
 
 
     virtual void connect(inet::TcpSocket* socket, const inet::L3Address& address, const int port);

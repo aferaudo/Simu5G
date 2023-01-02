@@ -1068,7 +1068,7 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
         // App migration ----
         EV << "VirtualisationInfrastructureManagerDyn::migration status: APP CREATED" << endl;
         // Next step create a method that:
-        // - sends an ServiceMobilityResponse to the MEC platform manager
+        // - sends a ServiceMobilityResponse to the MEC platform manager
         // - deletes and replace the old meapp from the list (release only diminish the used resources)
         EV << "VirtualisationInfrastructureManagerDyn::new mec app address: " << entry->endpoint.addr.str() << endl;
 

@@ -80,7 +80,7 @@ class ApplicationMobilityService : public MecServiceBase
      */
     virtual bool manageSubscription() override;
   private:
-    virtual void printAllSubscription();
+    virtual void printAllSubscriptions();
 };
 
 #endif

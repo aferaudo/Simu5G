@@ -135,16 +135,17 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
             printer.printPacket(std::cout, pPacket);
             auto data = pPacket->peekData<InstantiationApplicationRequest>();
 
-            bool res = handleInstantiation(const_cast<InstantiationApplicationRequest*>(data.get()));
+            RunningAppEntry* res = handleInstantiation(const_cast<InstantiationApplicationRequest*>(data.get()));
 
-            if(res){
+            if(res != nullptr){
                 // send response back to vim
                 inet::L3Address vimAddress = pPacket->getTag<inet::L3AddressInd>()->getSrcAddress();
                 int vimPort = pPacket->getTag<inet::L4PortInd>()->getSrcPort();
                 inet::Packet* packet = new inet::Packet("InstantiationResponse");
                 auto responsepck = inet::makeShared<InstantiationResponse>();
-                responsepck->setAllocatedPort(portCounter);
-                responsepck->setMigrationPort(13365);
+                responsepck->setAllocatedPort(res->port);
+                responsepck->setMigrationPort(res->migrationPort);
+
                 responsepck->setUeAppID(data->getUeAppID());
                 responsepck->setChunkLength(inet::B(100));
                 responsepck->setStartAllocationTime(data->getStartAllocationTime());
@@ -202,13 +203,14 @@ int VirtualisationInfrastructureApp::getHostedAppNum(){
 }
 
 
-bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicationRequest* data)
+RunningAppEntry* VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicationRequest* data)
 {
     EV << "VirtualisationInfrastructureApp::handleInstantiation - " << data << endl;
     std::cout << "viapp with id " << getId() << " " << data->getContextId() << endl;
     appcounter++;
     maxappcounter++;
     portCounter++;
+    int migrationPort = 13365 + appcounter;
 
     // Creation of requested app
     char* meModuleName = (char*)data->getMEModuleName();
@@ -217,8 +219,11 @@ bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicati
     std::stringstream appName;
     appName << meModuleName << "[" <<  data->getContextId() << "]";
     module->setName(appName.str().c_str());
+
+    // debugging info
     EV << "VirtualisationInfrastructureApp::handleInstantiation - meModuleName: " << appName.str() << endl;
     EV << "VirtualisationInfrastructureApp::mp1 - address: " << data->getMp1Address() << ":" << data->getMp1Port() << endl;
+    EV << "VirtualisationInfrastructureApp::Migration port for " << appName.str() << ": " << migrationPort <<" running on " << getParentModule()->getFullName() <<  endl;
 
     double ram = data->getRequiredRam();
     double disk = data->getRequiredDisk();
@@ -234,7 +239,7 @@ bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicati
     module->par("requiredDisk") = disk;
     module->par("requiredCpu") = cpu;
     module->par("localUePort") = portCounter;
-    module->par("localPort") = 13365; // TODO make it a parameter
+    module->par("localPort") = migrationPort;
     module->par("mp1Address") = data->getMp1Address();
     module->par("mp1Port") = data->getMp1Port();
     module->par("isMigrating") = data->isMigrating();
@@ -265,6 +270,7 @@ bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicati
     RunningAppEntry* entry = new RunningAppEntry();
     entry->module = module;
     entry->port = portCounter;
+    entry->migrationPort = migrationPort;
     entry->inputGate = newAppInGate;
     entry->outputGate = newAppOutGate;
     entry->ueAppID = data->getUeAppID();
@@ -279,13 +285,12 @@ bool VirtualisationInfrastructureApp::handleInstantiation(InstantiationApplicati
     allocatedRam += ram;
     allocatedDisk += disk;
 
-    return true;
+    return entry;
 }
 
 bool VirtualisationInfrastructureApp::handleTermination(DeleteAppMessage* data)
 {
     EV << "VirtualisationInfrastructureApp::handleTermination - " << data << endl;
-    std::cout << "VirtualisationInfrastructureApp::handleTermination - " << data << endl;
 
 
     auto it = runningApp.find(data->getUeAppID());
@@ -293,17 +298,17 @@ bool VirtualisationInfrastructureApp::handleTermination(DeleteAppMessage* data)
         return false;
 
     RunningAppEntry entry = it->second;
-    cModule* module = entry.module;
-    std::cout << module << endl;
-    module->callFinish();
+//    cModule* module = entry.module;
+//    std::cout << module << endl;
+//    module->callFinish();
 //    module->deleteModule();
 //    toDelete = module;
 //    cMessage *msg = new cMessage("deleteModule");
 //    scheduleAt(simTime()+0.1, msg);
 
-//    cGate* gate = entry.outputGate;
-//    cMessage* msg = new cMessage("startTerminationProcedure");
-//    send(msg, gate->getName(), gate->getIndex());
+    cGate* gate = entry.outputGate;
+    cMessage* msg = new cMessage("startTerminationProcedure");
+    send(msg, gate->getName(), gate->getIndex());
 
 
     return true;

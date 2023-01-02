@@ -78,7 +78,8 @@ class ExtMECWarningAlertApp : public ExtMecAppBase
     virtual void handleServiceMessage(int index) override;
     virtual void handleMp1Message(int connId) override;
     virtual void handleUeMessage(omnetpp::cMessage *msg) override;
-    virtual void handleReceivedMessage(cMessage *msg);
+    virtual void handleReceivedMessage(cMessage *msg) override;
+    virtual void handleTermination() override;
 
     // Location Service API
     virtual void modifySubscriptionLS(inet::TcpSocket *serviceSocket, std::string criteria);
@@ -88,9 +89,12 @@ class ExtMECWarningAlertApp : public ExtMecAppBase
 
     // Application Mobility Service API
     virtual void sendRegistrationAMS(inet::TcpSocket *socket, ContextTransferState transferState=NOT_TRANSFERRED);
+    virtual void sendDeleteRegistrationAMS(inet::TcpSocket *socket);
     virtual void sendSubscriptionAMS(inet::TcpSocket *socket);
+    virtual void sendDeleteSubscriptionAMS(inet::TcpSocket *socket);
     virtual void updateRegistrationAMS(inet::TcpSocket *socket,
             AppMobilityServiceLevel level=APP_MOBILITY_NOT_ALLOWED, ContextTransferState transferState=NOT_TRANSFERRED);
+    virtual void updateSubscriptionAMS(inet::TcpSocket *socket);
 
     virtual void handleSelfMessage(cMessage *msg) override;
 
@@ -108,6 +112,9 @@ class ExtMECWarningAlertApp : public ExtMecAppBase
   public:
     ExtMECWarningAlertApp();
     ~ExtMECWarningAlertApp();
+
+  private:
+    nlohmann::ordered_json getSubsciptionAMSBody();
 };
 
 #endif
