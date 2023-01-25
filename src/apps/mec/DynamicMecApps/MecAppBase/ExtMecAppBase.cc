@@ -23,18 +23,25 @@ ExtMecAppBase::~ExtMecAppBase()
 //        removeSocket(tcpSock);
     }
     sockets_.deleteSockets();
+    std::cout << "socket ok" << endl;
 
     if(processMessage_ != nullptr)
         cancelAndDelete(processMessage_);
+    std::cout << "processMessage ok" << endl;
 
     if(terminationMessage_ != nullptr)
         cancelAndDelete(terminationMessage_);
+    std::cout << "terminationMessage ok" << endl;
 
     if(connectService_ != nullptr)
         cancelAndDelete(connectService_);
+    std::cout << "connectService ok" << endl;
+
 
     while(!packetQueue_.isEmpty())
         packetQueue_.pop();
+    std::cout << "packetQueue ok" << endl;
+
 }
 
 void ExtMecAppBase::initialize(int stage)

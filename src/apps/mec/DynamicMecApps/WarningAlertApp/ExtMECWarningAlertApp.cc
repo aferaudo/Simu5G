@@ -39,6 +39,9 @@ Define_Module(ExtMECWarningAlertApp);
 
 using namespace omnetpp;
 
+simsignal_t ExtMECWarningAlertApp::migrationTime_ = registerSignal("migrationTime");
+
+
 ExtMECWarningAlertApp::ExtMECWarningAlertApp()
 {
 }
@@ -428,11 +431,14 @@ void ExtMECWarningAlertApp::handleLSMessage(inet::TcpSocket *serviceSocket)
         HttpResponseMessage *rspMsg = dynamic_cast<HttpResponseMessage*>(serviceHttpMessage);
         if(rspMsg->getCode() == 204) // in response to a DELETE
         {
-            std::cout << "simTime deleted " << simTime() << endl;
             EV << "ExtMECWarningAlertApp::handleTcpMsg - response 204, removing circle" << rspMsg->getBody()<< endl;
             serviceSocket->close();
             getSimulation()->getSystemModule()->getCanvas()->removeFigure(circle);
 
+            if(!isMigrating)
+            {
+                emit(migrationTime_, simTime());
+            }
         }
         else if(rspMsg->getCode() == 201) // in response to a POST
         {
@@ -441,6 +447,7 @@ void ExtMECWarningAlertApp::handleLSMessage(inet::TcpSocket *serviceSocket)
             if(isMigrating)
             {
                 std::cout << "simTime subscribed " << simTime() << endl;
+                emit(migrationTime_, simTime());
             }
             try
             {
@@ -930,8 +937,14 @@ void ExtMECWarningAlertApp::handleTermination()
     sendDeleteSubscriptionAMS(amsSocket);
 
     // closing state socket (the only one managed by this class)
-    amsStateSocket_->close();
-
+    std::cout << "handle termination inside the app 0.1" << endl;
+    // There is the possibility that the app did not exchange a state
+    // in such a scenario the socket is nullptr
+    if(amsStateSocket_ != nullptr)
+    {
+        amsStateSocket_->close();
+    }
+    std::cout << "handle termination inside the app 0.2" << endl;
     // scheduling termination message (waiting for replies)
     scheduleAt(simTime()+0.01, terminationMessage_);
 

@@ -67,6 +67,10 @@ class ExtMECWarningAlertApp : public ExtMecAppBase
     // ##### -------------- #####
 
 
+    // statistics
+    static simsignal_t migrationTime_;
+
+
   protected:
     virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
     virtual void initialize(int stage) override;

@@ -59,6 +59,7 @@ simple DMECWarningAlertApp like IMECApp, IApp
         int tos = default(-1); // if not -1, set the Type Of Service (IPv4) / Traffic Class (IPv6) field of sent packets to this value
 		
 		bool logger = default(false);
+		int mecAppIndex = default(0);
 
     gates:
 	  input mePlatformIn;
