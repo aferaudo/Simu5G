@@ -99,12 +99,13 @@ class ExtMecAppBase : public omnetpp::cSimpleModule, public inet::TcpSocket::ICa
 
     virtual void handleProcessedMessage(omnetpp::cMessage *msg);
     virtual inet::TcpSocket* addNewSocket();
+    virtual inet::TcpSocket* addNewSocketNoHttp();
     virtual void removeSocket(inet::TcpSocket* tcpSock);
 
     // to be implemented by subclasses
     virtual void handleSelfMessage(omnetpp::cMessage *msg) = 0;
     virtual void handleHttpMessage(int connId) = 0;
-    virtual void handleReceivedMessage(omnetpp::cMessage *msg) = 0; // this method menage message received on a socket in listening mode
+    virtual void handleReceivedMessage(int sockId, inet::Packet *msg) = 0; // this method menage message received on a socket in listening mode
     virtual void handleServiceMessage(int index) = 0;
     virtual void handleMp1Message(int connId) = 0;
     virtual void handleUeMessage(omnetpp::cMessage *msg) = 0;

@@ -420,7 +420,9 @@ void ApplicationMobilityService::handleSubscriptionRequest(SubscriptionBase *sub
 
         // Debugging
         std::cout << "ADDED subscription" << endl;
+//        std::cout << "before printing" <<endl;
         printAllSubscriptions();
+//        std::cout << "after printing " << endl;
         EV << serviceName_ << " - correct subscription created!" << endl;
     }
     else
@@ -518,4 +520,10 @@ void ApplicationMobilityService::printAllSubscriptions() {
     {
         subscriber.second->to_string();
     }
+}
+
+void ApplicationMobilityService::finish()
+{
+    MecServiceBase::finish();
+    return;
 }

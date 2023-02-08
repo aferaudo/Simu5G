@@ -28,6 +28,8 @@ simple ExtMECWarningAlertApp like IMECApp, IApp
 {
     parameters:
         @display("i=block/app;is=s");
+        @signal[migrationTime];
+        @statistic[migration](source=migrationTime; record=vector);
   			
         int packetSize = default(10);
         string interfaceTableModule = default("");

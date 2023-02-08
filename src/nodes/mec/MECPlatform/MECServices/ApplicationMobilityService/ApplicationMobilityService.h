@@ -63,7 +63,7 @@ class ApplicationMobilityService : public MecServiceBase
 
   protected:
     virtual void initialize(int stage) override;
-    virtual void finish() override {};
+    virtual void finish() override;
     virtual void handleMessage(cMessage *msg) override;
 
     virtual void handleGETRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket) override;

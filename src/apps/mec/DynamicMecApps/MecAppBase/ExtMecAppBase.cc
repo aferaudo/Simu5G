@@ -20,7 +20,7 @@ ExtMecAppBase::~ExtMecAppBase()
     {
 
         inet::TcpSocket* tcpSock = (inet::TcpSocket*)sock.second;
-//        removeSocket(tcpSock);
+        removeSocket(tcpSock);
     }
     sockets_.deleteSockets();
     std::cout << "socket ok" << endl;
@@ -38,9 +38,9 @@ ExtMecAppBase::~ExtMecAppBase()
     std::cout << "connectService ok" << endl;
 
 
-    while(!packetQueue_.isEmpty())
-        packetQueue_.pop();
-    std::cout << "packetQueue ok" << endl;
+//    while(!packetQueue_.isEmpty())
+//        delete packetQueue_.pop();
+//    std::cout << "packetQueue ok" << endl;
 
 }
 
@@ -169,9 +169,9 @@ void ExtMecAppBase::socketDataArrived(inet::TcpSocket *socket,
         inet::Packet *msg, bool urgent)
 {
     EV << "ExtMecAppBase::socketDataArrived" << endl;
-
     if(socket->getUserData() != nullptr)
     {
+
         std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
         std::string packet(bytes.begin(), bytes.end());
 
@@ -190,7 +190,7 @@ void ExtMecAppBase::socketDataArrived(inet::TcpSocket *socket,
     else
     {
         std::cout << "msg received is not http" << endl;
-        handleReceivedMessage(msg);
+        handleReceivedMessage(socket->getSocketId(), msg);
     }
 
     delete msg;
@@ -297,6 +297,16 @@ inet::TcpSocket* ExtMecAppBase::addNewSocket()
     return newSocket;
 }
 
+inet::TcpSocket* ExtMecAppBase::addNewSocketNoHttp()
+{
+    inet::TcpSocket* newSocket = new inet::TcpSocket();
+    newSocket->setOutputGate(gate("socketOut"));
+    newSocket->setCallback(this);
+    sockets_.addSocket(newSocket);
+    EV << "ExtMecAppBase::addNewSocketNoHttp(): added socket for no http messages with ID: " << newSocket->getSocketId() << endl;
+    return newSocket;
+}
+
 void ExtMecAppBase::removeSocket(inet::TcpSocket* tcpSock)
 {
     if(tcpSock->getUserData() != nullptr)
@@ -315,7 +325,7 @@ void ExtMecAppBase::removeSocket(inet::TcpSocket* tcpSock)
             cancelAndDelete(msgStatus->processMsgTimer);
         }
     }
-    delete sockets_.removeSocket(tcpSock);
+//    delete sockets_.removeSocket(tcpSock);
 }
 
 bool ExtMecAppBase::getInfoFromServiceRegistry()
