@@ -30,6 +30,8 @@ class MecWarningAppSyncMessage extends inet::FieldsChunk {
     inet::L3Address ueAddress;
     int uePort;
     
+    int localUePort;
+    
     bool isAck = false;
     bool result = false;
     

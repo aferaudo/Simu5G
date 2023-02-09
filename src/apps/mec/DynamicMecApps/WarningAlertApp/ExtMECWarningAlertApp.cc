@@ -70,8 +70,6 @@ void ExtMECWarningAlertApp::initialize(int stage)
     // set Udp Socket
     ueSocket.setOutputGate(gate("socketOut"));
 
-    localUePort = par("localUePort");
-    ueSocket.bind(localUePort);
 
     // migration port
     localPort = par("localPort");
@@ -104,6 +102,13 @@ void ExtMECWarningAlertApp::initialize(int stage)
         amsStateSocket_ = addNewSocket();
         amsStateSocket_->bind(localAddress, localPort);
         amsStateSocket_->listen();
+    }
+    else
+    {
+        // In case of migrating app these parameters are set after
+        // receiving the state
+        localUePort = par("localUePort");
+        ueSocket.bind(localUePort);
     }
 
 
@@ -217,6 +222,7 @@ void ExtMECWarningAlertApp::handleHttpMessage(int connId)
 void ExtMECWarningAlertApp::handleReceivedMessage(int sockId, inet::Packet *msg)
 {
     auto data = msg->peekData<MecWarningAppSyncMessage>();
+    // managing state messages -- no http
 
     if(!data->isAck())
     {
@@ -234,10 +240,18 @@ void ExtMECWarningAlertApp::handleReceivedMessage(int sockId, inet::Packet *msg)
         centerPositionX = data->getPositionX();
         centerPositionY = data->getPositionY();
         radius = data->getRadius();
+
+        // Remote UE information
         ueAppAddress = data->getUeAddress();
         ueAppPort = data->getUePort();
-        status = std::string(data->getState());
 
+        // Local UE information
+        localUePort = data->getLocalUePort();
+
+        ueSocket.bind(localUePort);
+
+
+        status = std::string(data->getState());
         EV << "ExtMECWarningAlertApp::handleStateMessage - new state injected!" << endl;
 
         if(subscribed) // means registred and subscribed to the AMS
@@ -264,8 +278,8 @@ void ExtMECWarningAlertApp::handleReceivedMessage(int sockId, inet::Packet *msg)
             pkt->insertAtBack(ack);
 
             // sending ack back
-            std::cout << "sending ack " << simTime() <<endl;
-            std::cout << "socket id : " << stateSocket->getSocketId() << endl;
+//            std::cout << "sending ack " << simTime() <<endl;
+//            std::cout << "socket id : " << stateSocket->getSocketId() << endl;
             stateSocket->setUserData(nullptr);
             stateSocket->send(pkt);
         }
@@ -934,11 +948,12 @@ void ExtMECWarningAlertApp::sendState()
     syncMessage->setPositionX(centerPositionX);
     syncMessage->setPositionY(centerPositionY);
     syncMessage->setRadius(radius);
-    syncMessage->setUeAddress(ueAppAddress);
-    syncMessage->setUePort(ueAppPort);
+    syncMessage->setUeAddress(ueAppAddress); // remote us address
+    syncMessage->setUePort(ueAppPort); // remote port
+    syncMessage->setLocalUePort(localUePort); // local ue port
     syncMessage->setState(status.c_str());
     syncMessage->setContextId(std::stoi(module_name.substr(module_name.find('[') + 1, module_name.find(']') - module_name.find('[') - 1)));
-    syncMessage->setChunkLength(inet::B(28));
+    syncMessage->setChunkLength(inet::B(32));
 
     packet->insertAtBack(syncMessage);
 

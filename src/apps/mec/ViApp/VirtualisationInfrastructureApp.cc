@@ -187,7 +187,6 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
         else if(strcmp(msg->getName(), "endTerminationProcedure") == 0)
         {
            handleEndTerminationProcedure(msg);
-           std::cout << "here " << simTime() << endl;
            if(strcmp(getParentModule()->getName(), "vim") != 0 && appcounter == 0 && resourceApp->getState() == RELEASING){
                emit(parkingReleased_, getParentModule()->getName());
            }
