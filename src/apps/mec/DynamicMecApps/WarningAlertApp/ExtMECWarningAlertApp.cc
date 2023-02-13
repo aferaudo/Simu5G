@@ -74,6 +74,10 @@ void ExtMECWarningAlertApp::initialize(int stage)
     // migration port
     localPort = par("localPort");
 
+    // ue port
+    localUePort = par("localUePort");
+    ueSocket.bind(localUePort);
+
     EV << "ExtMECWarningAlertApp::initializing" << endl;
     mp1Socket_ = addNewSocket();
 
@@ -102,13 +106,6 @@ void ExtMECWarningAlertApp::initialize(int stage)
         amsStateSocket_ = addNewSocket();
         amsStateSocket_->bind(localAddress, localPort);
         amsStateSocket_->listen();
-    }
-    else
-    {
-        // In case of migrating app these parameters are set after
-        // receiving the state
-        localUePort = par("localUePort");
-        ueSocket.bind(localUePort);
     }
 
 
@@ -246,9 +243,9 @@ void ExtMECWarningAlertApp::handleReceivedMessage(int sockId, inet::Packet *msg)
         ueAppPort = data->getUePort();
 
         // Local UE information
-        localUePort = data->getLocalUePort();
-
-        ueSocket.bind(localUePort);
+//        localUePort = data->getLocalUePort();
+        std::cout << "Port where " << getSimulation()->getModule(getId())->getName() << " is running  "<< localUePort << endl;
+//        ueSocket.bind(localUePort);
 
 
         status = std::string(data->getState());
@@ -384,11 +381,7 @@ void ExtMECWarningAlertApp::handleServiceMessage(int index)
     else
     {
         // case Application mobility service
-        std::cout << "ExtMECWarningAlertApp: here1 : " << getSimulation()->getModule(getId())->getName() << " running on " << getSimulation()->getModule(getId())->getParentModule()->getName()<< endl;
-
         handleAMSMessage(serviceSocket_);
-        std::cout << "ExtMECWarningAlertApp: here2 : " << getSimulation()->getModule(getId())->getName() << " running on " << getSimulation()->getModule(getId())->getParentModule()->getName()<< endl;
-        std::cout << simTime() << endl;
     }
 
 }
@@ -562,8 +555,8 @@ void ExtMECWarningAlertApp::handleAMSMessage(inet::TcpSocket *serviceSocket)
                            targetAppInfo->getCommInterface()[0].addr != localAddress)
                    {
                        EV << "ExtMECWarningAlertApp::handleAmsMessage - Analyzing notification - TargetAppInfo found: " << " " << serviceHttpMessage->getBody() << endl;
-                       migrationAddress = targetAppInfo->getCommInterface()[0].addr;
-                       migrationPort = targetAppInfo->getCommInterface()[0].port;
+                       migrationAddress = targetAppInfo->getCommInterface()[0].addr; // 0 migration port
+                       migrationPort = targetAppInfo->getCommInterface()[0].port; // 1 ue port
                        // Adding socket to socket map
                        amsStateSocket_ = addNewSocketNoHttp();
 
@@ -779,7 +772,7 @@ void ExtMECWarningAlertApp::sendRegistrationAMS(inet::TcpSocket *socket, Context
 
     registrationBody["deviceInformation"].push_back(deviceInformation);
 
-//    EV << "ExtMECWarningAlertApp::registration to AMS with body" << registrationBody.dump().c_str() << endl;
+    std::cout << "ExtMECWarningAlertApp::registration to AMS with body" << registrationBody.dump().c_str() << endl;
     std::string host = socket->getRemoteAddress().str()+":"+std::to_string(socket->getRemotePort());
     const char *uri = "/example/amsi/v1/app_mobility_services/";
     Http::sendPostRequest(socket, registrationBody.dump().c_str(), host.c_str(), uri);
@@ -950,7 +943,6 @@ void ExtMECWarningAlertApp::sendState()
     syncMessage->setRadius(radius);
     syncMessage->setUeAddress(ueAppAddress); // remote us address
     syncMessage->setUePort(ueAppPort); // remote port
-    syncMessage->setLocalUePort(localUePort); // local ue port
     syncMessage->setState(status.c_str());
     syncMessage->setContextId(std::stoi(module_name.substr(module_name.find('[') + 1, module_name.find(']') - module_name.find('[') - 1)));
     syncMessage->setChunkLength(inet::B(32));
@@ -1015,10 +1007,3 @@ nlohmann::ordered_json ExtMECWarningAlertApp::getSubsciptionAMSBody()
     return subscriptionBody_;
 }
 
-void ExtMECWarningAlertApp::emitMigrationTime()
-{
-    if(isMigrating)
-    {
-        emit(migrationTime_, simTime());
-    }
-}

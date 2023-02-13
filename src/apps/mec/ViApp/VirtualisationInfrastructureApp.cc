@@ -15,7 +15,7 @@
 
 // Imports
 #include <sstream>
-
+#include <numeric>
 #include "VirtualisationInfrastructureApp.h"
 
 Define_Module(VirtualisationInfrastructureApp);
@@ -68,6 +68,15 @@ void VirtualisationInfrastructureApp::initialize(int stage)
 
     appcounter = 0;
     maxappcounter = 0;
+
+    // Port management initialization
+    portRangeStart = par("portRangeStart").intValue();
+    portRangeEnd = par("portRangeEnd").intValue();
+    for(int i=portRangeStart; i <= portRangeEnd; i++)
+    {
+        availablePorts.push_back(i);
+    }
+
     std::string schedulingMode = par("scheduling").stringValue();
     if(std::strcmp(schedulingMode.c_str(), "segregation") == 0)
     {
@@ -143,8 +152,8 @@ void VirtualisationInfrastructureApp::handleMessage(cMessage *msg)
                 int vimPort = pPacket->getTag<inet::L4PortInd>()->getSrcPort();
                 inet::Packet* packet = new inet::Packet("InstantiationResponse");
                 auto responsepck = inet::makeShared<InstantiationResponse>();
-                responsepck->setAllocatedPort(res->port);
-                responsepck->setMigrationPort(res->migrationPort);
+                responsepck->setAllocatedPort(res->port); // uePort
+                responsepck->setMigrationPort(res->migrationPort); // migration port -> used for user context transfer
 
                 responsepck->setUeAppID(data->getUeAppID());
                 responsepck->setChunkLength(inet::B(100));
@@ -208,8 +217,20 @@ RunningAppEntry* VirtualisationInfrastructureApp::handleInstantiation(Instantiat
     std::cout << "viapp with id " << getId() << " " << data->getContextId() << endl;
     appcounter++;
     maxappcounter++;
-    portCounter++;
-    int migrationPort = 13365 + appcounter;
+
+    std::stringstream serviceNameMig;
+    serviceNameMig <<  data->getMEModuleName() << "::mig";
+    std::stringstream serviceNameUe;
+    serviceNameUe <<  data->getMEModuleName() << "::ue ";
+
+    int uePort = portRegistration(serviceNameUe.str());
+    int migrationPort = portRegistration(serviceNameMig.str());
+
+    if(migrationPort == -1 || uePort == -1)
+    {
+        throw cRuntimeError("VirtualisationInfrastructureApp::FATAL! No available ports migration");
+
+    }
 
     // Creation of requested app
     char* meModuleName = (char*)data->getMEModuleName();
@@ -237,11 +258,13 @@ RunningAppEntry* VirtualisationInfrastructureApp::handleInstantiation(Instantiat
     module->par("requiredRam") = ram;
     module->par("requiredDisk") = disk;
     module->par("requiredCpu") = cpu;
-    module->par("localUePort") = portCounter;
+//    std::cout << "Port registration " << portRegistration(serviceNameUe.str()) << endl;
+    module->par("localUePort") = uePort;
     module->par("localPort") = migrationPort;
     module->par("mp1Address") = data->getMp1Address();
     module->par("mp1Port") = data->getMp1Port();
     module->par("isMigrating") = data->isMigrating();
+
 
     module->finalizeParameters();
 
@@ -268,7 +291,7 @@ RunningAppEntry* VirtualisationInfrastructureApp::handleInstantiation(Instantiat
 
     RunningAppEntry* entry = new RunningAppEntry();
     entry->module = module;
-    entry->port = portCounter;
+    entry->port = uePort;
     entry->migrationPort = migrationPort;
     entry->inputGate = newAppInGate;
     entry->outputGate = newAppOutGate;
@@ -304,6 +327,15 @@ bool VirtualisationInfrastructureApp::handleTermination(DeleteAppMessage* data)
 //    toDelete = module;
 //    cMessage *msg = new cMessage("deleteModule");
 //    scheduleAt(simTime()+0.1, msg);
+
+    // making port available again
+    std::stringstream serviceNameMig;
+    serviceNameMig <<  entry.moduleName << "::mig";
+    std::stringstream serviceNameUe;
+    serviceNameUe <<  entry.moduleName << "::ue ";
+    portUnregistration(serviceNameMig.str());
+    portUnregistration(serviceNameUe.str());
+
 
     cGate* gate = entry.outputGate;
     cMessage* msg = new cMessage("startTerminationProcedure");
@@ -404,4 +436,42 @@ void VirtualisationInfrastructureApp::finish(){
     emit(numApp_, maxappcounter);
 }
 
+
+// This should be called for each service - no ue
+int VirtualisationInfrastructureApp::portRegistration(std::string serviceName)
+{
+    int port = -1;
+    if(availablePorts.size() > 0)
+    {
+        port = availablePorts[0];
+
+        // registering
+        portRegistry[serviceName] = port;
+        // delete port
+        availablePorts.erase(availablePorts.begin());
+
+    }
+
+    std::cout << "Assigning port " << port << " for service name : " << serviceName << endl;
+
+    return port;
+
+}
+
+bool VirtualisationInfrastructureApp::portUnregistration(std::string serviceName)
+{
+    auto el = portRegistry.find(serviceName);
+
+    if(el == portRegistry.end())
+    {
+        EV_ERROR << "VirtualisationInfastructureApp::Port not found for service " << serviceName.c_str() << endl;
+        return false;
+    }
+
+    // Port becomes available
+    availablePorts.push_back(el->second);
+    // removing serviceName
+    portRegistry.erase(el);
+    return true;
+}
 

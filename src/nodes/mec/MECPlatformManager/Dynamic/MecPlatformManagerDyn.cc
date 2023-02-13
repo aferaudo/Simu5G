@@ -543,7 +543,13 @@ void MecPlatformManagerDyn::handleServiceMobilityResponse(
     SockAddr targetAddress;
     targetAddress.addr = data->getTargetAddress();
     targetAddress.port = data->getTargetPort();
-    targetInfo->setCommInterface(std::vector<SockAddr>(1,targetAddress));
+
+    std::vector<SockAddr> target;
+    target.push_back({data->getTargetAddress(), data->getTargetPort()});
+    target.push_back({data->getTargetAddress(), data->getTargetUePort()});
+
+//    targetInfo->setCommInterface(std::vector<SockAddr>(1,targetAddress));
+    targetInfo->setCommInterface(target);
 
     // AssociateId
     std::vector<AssociateId> associateId;

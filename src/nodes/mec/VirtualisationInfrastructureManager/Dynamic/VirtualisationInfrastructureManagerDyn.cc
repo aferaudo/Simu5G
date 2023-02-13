@@ -1096,8 +1096,8 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
         packetLength = packetLength + entry->appInstanceId.size();
 
         toSend->setTargetAddress(entry->endpoint.addr);
-//        toSend->setTargetPort(entry->endpoint.port);
-        toSend->setTargetPort(migrationPort);
+        toSend->setTargetUePort(entry->endpoint.port); // port for ue communications
+        toSend->setTargetPort(migrationPort); // port for user context transfer
         packetLength = packetLength + entry->endpoint.addr.str().size() + 4;
 
         // FIXME Correspondence one-to-one

@@ -35,8 +35,12 @@ class ServiceMobilityRequest extends inet::FieldsChunk
 class ServiceMobilityResponse extends inet::FieldsChunk
 {
 	 string appInstanceId;
+	 
+	 // TODO support multiple addresses
 	 inet::L3Address targetAddress;
-	 int targetPort;
+	 int targetPort; // migration
+	 int targetUePort; // ue communication (this requires a 1 to 1 reltionship between MECApp and UE)
+	 //-------------
 	 AssociateId associateId[];
 }
 
