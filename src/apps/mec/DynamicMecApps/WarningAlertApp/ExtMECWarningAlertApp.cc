@@ -1007,3 +1007,10 @@ nlohmann::ordered_json ExtMECWarningAlertApp::getSubsciptionAMSBody()
     return subscriptionBody_;
 }
 
+void ExtMECWarningAlertApp::emitMigrationTime()
+{
+    if(isMigrating)
+    {
+        emit(migrationTime_, simTime());
+    }
+}

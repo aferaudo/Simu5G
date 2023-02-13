@@ -117,6 +117,8 @@ class ExtMECWarningAlertApp : public ExtMecAppBase
     ExtMECWarningAlertApp();
     ~ExtMECWarningAlertApp();
 
+    void emitMigrationTime();
+
   private:
     nlohmann::ordered_json getSubsciptionAMSBody();
 };

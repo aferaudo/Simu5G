@@ -217,6 +217,8 @@ void DUEWarningAlertApp::handleMessage(cMessage *msg)
             else if(!strcmp(mePkt->getType(), START_ACK))
             {
                 EV << "DUEWarningAlertApp::handleMessage - MEC app started correctly" << endl;
+                std::cout << "ue omnetid " << mePkt->getUeOmnetID() << endl;
+                mecAppFullName = getSimulation()->getModule(mePkt->getUeOmnetID())->getName();
                 if(selfMecAppStart_->isScheduled())
                 {
                     cancelEvent(selfMecAppStart_);
@@ -377,6 +379,7 @@ void DUEWarningAlertApp::handleInfoMEWarningAlertApp(cMessage* msg)
     auto pkt = packet->peekAtFront<WarningAlertPacket>();
 
     EV << "DUEWarningAlertApp::handleInfoMEWarningrAlertApp - Received " << pkt->getType() << " type WarningAlertPacket"<< endl;
+    mecAppFullName = getSimulation()->getModule(pkt->getUeOmnetID())->getName();
 
     //updating runtime color of the car icon background
     if(pkt->getDanger())
@@ -497,6 +500,10 @@ void DUEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet
                         interfaces = jsonBody["targetAppInfo"]["commInterface"]["ipAddresses"];
                         mecAppAddress_ = L3AddressResolver().resolve(std::string(interfaces.at(1)["host"]).c_str()); // take first interface
                         mecAppPort_ = interfaces.at(1)["port"];
+                        // TODO to remove -- used only for statistics
+                        ExtMECWarningAlertApp *mecAppModule = check_and_cast<ExtMECWarningAlertApp*>(getSimulation()->findModuleByPath("mechost1")->getSubmodule("vim")->getSubmodule(mecAppFullName.c_str()));
+                        mecAppModule->emitMigrationTime();
+                        //==========================
     //                    deallocatePingApp();
     //                    allocatePingApp(mecAppAddress_, true);
                         EV << "DUEWarningAlertApp::received new mecapp address: " <<  mecAppAddress_.str() << ":" << mecAppPort_ << endl;

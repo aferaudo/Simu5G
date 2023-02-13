@@ -71,6 +71,7 @@ class DUEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallbac
     int mecAppPort_;
 
     std::string mecAppName;
+    std::string mecAppFullName;
 
     // mobility informations
     cModule* ue;
