@@ -67,15 +67,23 @@ class VirtualisationInfrastructureApp : public cSimpleModule
     inet::L3Address localAddress;
     int localPort;
 
+    // key-> MECAppName::Aim -> MECAppName::UE, MECAppName::Mig
+    // value -> port used
+    std::map<std::string, int> portRegistry; // for MECApp port management -- avoid port overlapping
+    std::vector<int> availablePorts;
+    int portRangeStart;
+    int portRangeEnd;
+
     inet::L3Address vimAddress;
     int vimPort;
 
     // Business logic parameters
     int appcounter;
     int maxappcounter;
-    int portCounter = 10000;    // counter to assign port to app
+    int portCounter = 1;    // counter to assign port to app
     std::list<std::string> managedApp;
     std::map<int, RunningAppEntry> runningApp;
+
     SchedulingMode scheduling;
     cModule *toDelete;
     std::queue<cModule *> terminatingModules;
@@ -108,11 +116,11 @@ class VirtualisationInfrastructureApp : public cSimpleModule
 
     protected:
 
-        virtual int numInitStages() const { return inet::NUM_INIT_STAGES; }
+        virtual int numInitStages() const override{ return inet::NUM_INIT_STAGES; }
 
-        void initialize(int stage);
+        void initialize(int stage) override;
 
-        virtual void handleMessage(cMessage *msg);
+        virtual void handleMessage(cMessage *msg) override;
 
         virtual void finish() override;
 
@@ -123,6 +131,8 @@ class VirtualisationInfrastructureApp : public cSimpleModule
 
         void handleEndTerminationProcedure(cMessage *);
         void handleModuleRemoval(cMessage *);
+        int portRegistration(std::string serviceName);
+        bool portUnregistration(std::string serviceName);
 
 };
 

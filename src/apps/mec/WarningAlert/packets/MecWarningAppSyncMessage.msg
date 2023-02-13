@@ -31,6 +31,10 @@ class MecWarningAppSyncMessage extends inet::FieldsChunk {
     int uePort;
     
     
+    bool isAck = false;
+    bool result = false;
+    
+    
 }
 
 

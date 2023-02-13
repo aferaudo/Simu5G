@@ -70,11 +70,13 @@ void ExtMECWarningAlertApp::initialize(int stage)
     // set Udp Socket
     ueSocket.setOutputGate(gate("socketOut"));
 
-    localUePort = par("localUePort");
-    ueSocket.bind(localUePort);
 
     // migration port
     localPort = par("localPort");
+
+    // ue port
+    localUePort = par("localUePort");
+    ueSocket.bind(localUePort);
 
     EV << "ExtMECWarningAlertApp::initializing" << endl;
     mp1Socket_ = addNewSocket();
@@ -214,46 +216,83 @@ void ExtMECWarningAlertApp::handleHttpMessage(int connId)
 
 }
 
-void ExtMECWarningAlertApp::handleReceivedMessage(cMessage *msg)
+void ExtMECWarningAlertApp::handleReceivedMessage(int sockId, inet::Packet *msg)
 {
+    auto data = msg->peekData<MecWarningAppSyncMessage>();
+    // managing state messages -- no http
 
-    EV << "ExtMECWarningAlertApp::handleStateMessage - received message " << endl;
-    inet::Packet *stateMessage = check_and_cast<inet::Packet*>(msg);
-    auto data = stateMessage->peekData<MecWarningAppSyncMessage>();
-    EV << "ExtMECWarningAlertApp::setting new state: " << endl;
-    EV << "ExtMECWarningAlertApp::position x: " << data->getPositionX() << endl;
-    EV << "ExtMECWarningAlertApp::position y: " << data->getPositionY() << endl;
-    EV << "ExtMECWarningAlertApp::radius: " << data->getRadius() << endl;
-    EV << "ExtMECWarningAlertApp::ue addr: " << data->getUeAddress() << endl;
-    EV << "ExtMECWarningAlertApp::ue port: " << data->getUePort() << endl;
-    EV << "ExtMECWarningAlertApp::contextId: " << data->getContextId() << endl;
-    EV << "ExtMECWarningAlertApp::state: " << data->getState() << endl;
-
-    centerPositionX = data->getPositionX();
-    centerPositionY = data->getPositionY();
-    radius = data->getRadius();
-    ueAppAddress = data->getUeAddress();
-    ueAppPort = data->getUePort();
-    status = std::string(data->getState());
-
-    EV << "ExtMECWarningAlertApp::handleStateMessage - new state injected!" << endl;
-
-    if(subscribed) // means registred and subscribed to the AMS
+    if(!data->isAck())
     {
-        // registering the mecapp with the status received
-//        isMigrating = false;
-        inet::TcpSocket *serviceSocketLS  = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(servicesData_[LS]->sockid));
-        connect(serviceSocketLS, servicesData_[LS]->host.addr, servicesData_[LS]->host.port);
-        inet::TcpSocket *serviceSocketAMS = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(servicesData_[AMS]->sockid));
+        EV << "ExtMECWarningAlertApp::handleStateMessage - received message " << endl;
 
-        updateRegistrationAMS(serviceSocketAMS, APP_MOBILITY_NOT_ALLOWED, NOT_TRANSFERRED);
-        updateSubscriptionAMS(serviceSocketAMS);
+        EV << "ExtMECWarningAlertApp::setting new state: " << endl;
+        EV << "ExtMECWarningAlertApp::position x: " << data->getPositionX() << endl;
+        EV << "ExtMECWarningAlertApp::position y: " << data->getPositionY() << endl;
+        EV << "ExtMECWarningAlertApp::radius: " << data->getRadius() << endl;
+        EV << "ExtMECWarningAlertApp::ue addr: " << data->getUeAddress() << endl;
+        EV << "ExtMECWarningAlertApp::ue port: " << data->getUePort() << endl;
+        EV << "ExtMECWarningAlertApp::contextId: " << data->getContextId() << endl;
+        EV << "ExtMECWarningAlertApp::state: " << data->getState() << endl;
+
+        centerPositionX = data->getPositionX();
+        centerPositionY = data->getPositionY();
+        radius = data->getRadius();
+
+        // Remote UE information
+        ueAppAddress = data->getUeAddress();
+        ueAppPort = data->getUePort();
+
+        // Local UE information
+//        localUePort = data->getLocalUePort();
+        std::cout << "Port where " << getSimulation()->getModule(getId())->getName() << " is running  "<< localUePort << endl;
+//        ueSocket.bind(localUePort);
+
+
+        status = std::string(data->getState());
+        EV << "ExtMECWarningAlertApp::handleStateMessage - new state injected!" << endl;
+
+        if(subscribed) // means registred and subscribed to the AMS
+        {
+            // registering the mecapp with the status received
+    //        isMigrating = false;
+            inet::TcpSocket *serviceSocketLS  = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(servicesData_[LS]->sockid));
+            connect(serviceSocketLS, servicesData_[LS]->host.addr, servicesData_[LS]->host.port);
+            inet::TcpSocket *serviceSocketAMS = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(servicesData_[AMS]->sockid));
+            inet::TcpSocket *stateSocket = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(sockId));
+
+
+            updateRegistrationAMS(serviceSocketAMS, APP_MOBILITY_NOT_ALLOWED, NOT_TRANSFERRED);
+            updateSubscriptionAMS(serviceSocketAMS);
+            auto ack = inet::makeShared<MecWarningAppSyncMessage>();
+            inet::Packet *pkt = new inet::Packet("MecWarningAppSyncMessage");
+            ack->setIsAck(true);
+            ack->setResult(true);
+
+            ack->setUeAddress(ueAppAddress);
+            ack->setUePort(ueAppPort);
+            ack->setChunkLength(inet::B(16));
+
+            pkt->insertAtBack(ack);
+
+            // sending ack back
+//            std::cout << "sending ack " << simTime() <<endl;
+//            std::cout << "socket id : " << stateSocket->getSocketId() << endl;
+            stateSocket->setUserData(nullptr);
+            stateSocket->send(pkt);
+        }
+        else
+        {
+            //connect to the services
+            throw cRuntimeError("Attempting to update information without being subscribed to the AMS");
+
+        }
     }
     else
     {
-        //connect to the services
-        throw cRuntimeError("Attempting to update information without being subscribed to the AMS");
-
+       std::cout << "RECEIVED ACK" << endl;
+        // Update AMS registration to trigger ip addresses updates
+       inet::TcpSocket *serviceSocketAMS = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(servicesData_[AMS]->sockid));
+       updateRegistrationAMS(serviceSocketAMS, APP_MOBILITY_NOT_ALLOWED, USER_CONTEXT_TRANSFER_COMPLETED);
     }
 
 }
@@ -333,7 +372,7 @@ void ExtMECWarningAlertApp::handleMp1Message(int connId)
 void ExtMECWarningAlertApp::handleServiceMessage(int index)
 {
     inet::TcpSocket *serviceSocket_ = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(servicesData_[index]->sockid));
-
+    std::cout << "Received Service Message at " << simTime()<< endl;
 
     if(std::strcmp(servicesData_[index]->name.c_str(), "LocationService") == 0)
     {
@@ -413,6 +452,7 @@ void ExtMECWarningAlertApp::handleLSMessage(inet::TcpSocket *serviceSocket)
                     }
                     sendDeleteSubscriptionLS(serviceSocket);
                 }
+                alert->setUeOmnetID(getId()); // TODO remove this line -> it is used only for statistics
                 alert->setPositionX(jsonBody["subscriptionNotification"]["terminalLocationList"]["currentLocation"]["x"]);
                 alert->setPositionY(jsonBody["subscriptionNotification"]["terminalLocationList"]["currentLocation"]["y"]);
                 alert->setChunkLength(inet::B(20));
@@ -444,11 +484,7 @@ void ExtMECWarningAlertApp::handleLSMessage(inet::TcpSocket *serviceSocket)
         {
             nlohmann::json jsonBody;
             EV << "ExtMECWarningAlertApp::handleTcpMsg - response 201 " << rspMsg->getBody()<< endl;
-            if(isMigrating)
-            {
-                std::cout << "simTime subscribed " << simTime() << endl;
-                emit(migrationTime_, simTime());
-            }
+
             try
             {
                jsonBody = nlohmann::json::parse(rspMsg->getBody()); // get the JSON structure
@@ -519,10 +555,10 @@ void ExtMECWarningAlertApp::handleAMSMessage(inet::TcpSocket *serviceSocket)
                            targetAppInfo->getCommInterface()[0].addr != localAddress)
                    {
                        EV << "ExtMECWarningAlertApp::handleAmsMessage - Analyzing notification - TargetAppInfo found: " << " " << serviceHttpMessage->getBody() << endl;
-                       migrationAddress = targetAppInfo->getCommInterface()[0].addr;
-                       migrationPort = targetAppInfo->getCommInterface()[0].port;
+                       migrationAddress = targetAppInfo->getCommInterface()[0].addr; // 0 migration port
+                       migrationPort = targetAppInfo->getCommInterface()[0].port; // 1 ue port
                        // Adding socket to socket map
-                       amsStateSocket_ = addNewSocket();
+                       amsStateSocket_ = addNewSocketNoHttp();
 
                        // triggaring status change procedure
                        cMessage *msg = new cMessage("migrateState");
@@ -736,7 +772,7 @@ void ExtMECWarningAlertApp::sendRegistrationAMS(inet::TcpSocket *socket, Context
 
     registrationBody["deviceInformation"].push_back(deviceInformation);
 
-//    EV << "ExtMECWarningAlertApp::registration to AMS with body" << registrationBody.dump().c_str() << endl;
+    std::cout << "ExtMECWarningAlertApp::registration to AMS with body" << registrationBody.dump().c_str() << endl;
     std::string host = socket->getRemoteAddress().str()+":"+std::to_string(socket->getRemotePort());
     const char *uri = "/example/amsi/v1/app_mobility_services/";
     Http::sendPostRequest(socket, registrationBody.dump().c_str(), host.c_str(), uri);
@@ -839,6 +875,7 @@ void ExtMECWarningAlertApp::established(int connId)
             // the connectService message is scheduled after a start mec app from the UE app, so I can
             // response to her here, once the socket is established
             auto ack = inet::makeShared<WarningAppPacket>();
+            ack->setUeOmnetID(getId()); // TODO remove this: used for statistics
             ack->setType(START_ACK);
             ack->setChunkLength(inet::B(2));
             inet::Packet* packet = new inet::Packet("WarningAlertPacketInfo");
@@ -904,11 +941,11 @@ void ExtMECWarningAlertApp::sendState()
     syncMessage->setPositionX(centerPositionX);
     syncMessage->setPositionY(centerPositionY);
     syncMessage->setRadius(radius);
-    syncMessage->setUeAddress(ueAppAddress);
-    syncMessage->setUePort(ueAppPort);
+    syncMessage->setUeAddress(ueAppAddress); // remote us address
+    syncMessage->setUePort(ueAppPort); // remote port
     syncMessage->setState(status.c_str());
     syncMessage->setContextId(std::stoi(module_name.substr(module_name.find('[') + 1, module_name.find(']') - module_name.find('[') - 1)));
-    syncMessage->setChunkLength(inet::B(28));
+    syncMessage->setChunkLength(inet::B(32));
 
     packet->insertAtBack(syncMessage);
 
@@ -918,9 +955,6 @@ void ExtMECWarningAlertApp::sendState()
     inet::TcpSocket *serviceSocketLS  = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(servicesData_[LS]->sockid));
     sendDeleteSubscriptionLS(serviceSocketLS);
 
-    // Update AMS registration to trigger ip addresses updates
-    inet::TcpSocket *serviceSocketAMS = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(servicesData_[AMS]->sockid));
-    updateRegistrationAMS(serviceSocketAMS, APP_MOBILITY_NOT_ALLOWED, USER_CONTEXT_TRANSFER_COMPLETED);
 
     // sending MEC app's state
     amsStateSocket_->send(packet);

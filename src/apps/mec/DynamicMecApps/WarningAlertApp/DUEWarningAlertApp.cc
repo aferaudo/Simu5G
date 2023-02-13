@@ -25,6 +25,8 @@
 
 #include <fstream>
 
+#include "ExtMECWarningAlertApp.h" // TODO remove -- used only for statistics
+
 using namespace inet;
 using namespace std;
 
@@ -112,7 +114,7 @@ void DUEWarningAlertApp::initialize(int stage)
     simtime_t startTime = par("startTime");
     EV << "DUEWarningAlertApp::initialize - starting sendStartMEWarningAlertApp() in " << startTime << " seconds " << endl;
     scheduleAt(simTime() + startTime, selfStart_);
-    scheduleAt(simTime() + 0.5, connectAmsMessage_);
+    scheduleAt(simTime() + startTime + 0.01, connectAmsMessage_);
 
     //testing
     EV << "DUEWarningAlertApp::initialize - sourceAddress: " << sourceSimbolicAddress << " [" << inet::L3AddressResolver().resolve(sourceSimbolicAddress).str()  <<"]"<< endl;
@@ -131,7 +133,7 @@ void DUEWarningAlertApp::handleMessage(cMessage *msg)
     if (msg->isSelfMessage())
     {
         EV << "DUEWarningAlertApp::handleMessage - is self message: " << msg->getName() << endl;
-        if(!strcmp(msg->getName(), "selfStart"))   sendStartMEWarningAlertApp();
+        if(!strcmp(msg->getName(), "selfStart"))   { sendStartMEWarningAlertApp();}
 
         else if(!strcmp(msg->getName(), "selfStop"))    sendStopMEWarningAlertApp();
 
@@ -203,6 +205,7 @@ void DUEWarningAlertApp::handleMessage(cMessage *msg)
         else
         {
             auto mePkt = packet->peekAtFront<WarningAppPacket>();
+
             if (mePkt == 0)
                 throw cRuntimeError("DUEWarningAlertApp::handleMessage - \tFATAL! Error when casting to WarningAppPacket");
 
@@ -331,6 +334,7 @@ void DUEWarningAlertApp::handleAckStartMEWarningAlertApp(cMessage* msg)
     {
         EV << "DUEWarningAlertApp::handleAckStartMEWarningAlertApp - MEC application cannot be instantiated! Reason: " << pkt->getReason() << endl;
         return;
+
     }
 
     sendMessageToMECApp();
@@ -486,12 +490,13 @@ void DUEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet
                     EV << "DUEWarningAlertApp::socketDataArrived - Received notification - payload: " << " " << amsHttpCompleteMessage->getBody() << endl;
                     HttpRequestMessage* amsNot = check_and_cast<HttpRequestMessage*>(amsHttpCompleteMessage);
                     nlohmann::json jsonBody = nlohmann::json::parse(amsNot->getBody());
+                    std::cout << "UE received notification " << jsonBody.dump() << endl;
                     if(!jsonBody.empty())
                     {
                         nlohmann::json interfaces = nlohmann::json::array();
                         interfaces = jsonBody["targetAppInfo"]["commInterface"]["ipAddresses"];
-                        mecAppAddress_ = L3AddressResolver().resolve(std::string(interfaces.at(0)["host"]).c_str()); // take first interface
-                        mecAppPort_ = interfaces.at(0)["port"];
+                        mecAppAddress_ = L3AddressResolver().resolve(std::string(interfaces.at(1)["host"]).c_str()); // take first interface
+                        mecAppPort_ = interfaces.at(1)["port"];
     //                    deallocatePingApp();
     //                    allocatePingApp(mecAppAddress_, true);
                         EV << "DUEWarningAlertApp::received new mecapp address: " <<  mecAppAddress_.str() << ":" << mecAppPort_ << endl;

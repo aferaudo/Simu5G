@@ -82,7 +82,7 @@ class ExtMECWarningAlertApp : public ExtMecAppBase
     virtual void handleServiceMessage(int index) override;
     virtual void handleMp1Message(int connId) override;
     virtual void handleUeMessage(omnetpp::cMessage *msg) override;
-    virtual void handleReceivedMessage(cMessage *msg) override;
+    virtual void handleReceivedMessage(int sockId, inet::Packet *msg) override;
     virtual void handleTermination() override;
 
     // Location Service API
