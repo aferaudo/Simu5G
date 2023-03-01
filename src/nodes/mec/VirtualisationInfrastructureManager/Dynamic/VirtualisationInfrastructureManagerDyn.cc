@@ -10,6 +10,8 @@
 
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/VirtualisationInfrastructureManagerDyn.h"
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/RegistrationPacket_m.h"
+#include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/SchedulingAlgorithms/BestFirstScheduler.h"
+#include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/SchedulingAlgorithms/RoundRobinScheduler.h"
 
 Define_Module(VirtualisationInfrastructureManagerDyn);
 
@@ -20,6 +22,7 @@ VirtualisationInfrastructureManagerDyn::VirtualisationInfrastructureManagerDyn()
 
 VirtualisationInfrastructureManagerDyn::~VirtualisationInfrastructureManagerDyn()
 {
+    schedulingAlgorithm_ = nullptr;
 }
 
 void VirtualisationInfrastructureManagerDyn::initialize(int stage)
@@ -50,6 +53,18 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 
         // Mep settings
         mp1Port = par("mp1Port").intValue();
+
+        const char * searchType = par("searchType").stringValue();
+        if(std::strcmp(searchType, "BEST_FIRST") == 0){
+            schedulingAlgorithm_ = new BestFirstScheduler(this);
+        }
+        else if(std::strcmp(searchType, "ROUND_ROBIN") == 0){
+            schedulingAlgorithm_ = new RoundRobinScheduler(this);
+        }
+        else
+        {
+            throw cRuntimeError("VirtualisationInfrastructureManagerDyn::Scheduling algorithm for remote resources not valid");
+        }
 
         skipLocalResources = par("skipLocalResources").boolValue();
 
@@ -361,16 +376,18 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDyn(double ram, double d
 
     int besthost_key = -1;
 
-    const char * searchType = par("searchType").stringValue();
-    if(std::strcmp(searchType, "BEST_FIRST") == 0){
-        besthost_key = findBestHostDynBestFirst(ram, disk, cpu);
-    }
-    else if(std::strcmp(searchType, "ROUND_ROBIN") == 0){
-        besthost_key = findBestHostDynRoundRobin(ram, disk, cpu);
-    }
-    else{
-        throw cRuntimeError("VirtualisationInfrastructureManagerDyn::findBestHostDyn - search type not supported");
-    }
+//    const char * searchType = par("searchType").stringValue();
+//    if(std::strcmp(searchType, "BEST_FIRST") == 0){
+//        besthost_key = findBestHostDynBestFirst(ram, disk, cpu);
+//    }
+//    else if(std::strcmp(searchType, "ROUND_ROBIN") == 0){
+//        besthost_key = findBestHostDynRoundRobin(ram, disk, cpu);
+//    }
+//    else{
+//        throw cRuntimeError("VirtualisationInfrastructureManagerDyn::findBestHostDyn - search type not supported");
+//    }
+    ResourceDescriptor r = {ram, disk, cpu};
+    besthost_key = schedulingAlgorithm_->scheduleRemoteResources(r);
 
     return besthost_key;
 }

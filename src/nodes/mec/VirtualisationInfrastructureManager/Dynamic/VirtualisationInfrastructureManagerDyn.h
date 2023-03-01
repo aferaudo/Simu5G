@@ -49,7 +49,7 @@ using namespace omnetpp;
 
 enum HostState {PARKED, LEAVING};
 
-struct HostDescriptor // CarDescriptor
+struct HostDescriptor // Far-edge device descriptor (CarDescriptor)
 {
     ResourceDescriptor totalAmount;
     ResourceDescriptor usedAmount;
@@ -85,9 +85,15 @@ struct MecAppEntryDyn
 
 class CreateAppMessage;
 class DeleteAppMessage;
+class SchedulingAlgorithmBase;
 
 class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 {
+
+    friend class SchedulingAlgorithmBase;
+
+    SchedulingAlgorithmBase *schedulingAlgorithm_;
+
     // Reference to other modules
     cModule* vimHost;
 
@@ -218,7 +224,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         void printRequests();
 
 
-        void  instantiateMEAppLocally(MecAppEntryDyn, bool);
+        void instantiateMEAppLocally(MecAppEntryDyn, bool);
         /*
          * Allocate resources on specific host (car)
          */
