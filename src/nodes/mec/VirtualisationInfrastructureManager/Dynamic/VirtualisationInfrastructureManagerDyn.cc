@@ -244,6 +244,8 @@ int VirtualisationInfrastructureManagerDyn::registerHost(int host_id, double ram
     descriptor->address = ip_addr;
     descriptor->viPort = viPort;
 
+    descriptor->entranceTime = float(simTime().dbl());
+
     handledHosts[host_id] = *descriptor;
 
     printResources();

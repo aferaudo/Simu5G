@@ -58,6 +58,10 @@ struct HostDescriptor // Far-edge device descriptor (CarDescriptor)
     inet::L3Address address;
     int viPort;
     HostState state = PARKED;
+
+    // Used for intelligent scheduling
+    float entranceTime;
+    float predictedOccupancyTime = -1;
 };
 
 struct MecAppEntryDyn
