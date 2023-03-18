@@ -147,6 +147,9 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     simsignal_t allocationTimeSignal_;
 
 
+    cRNG *crng;
+
+
     public:
         VirtualisationInfrastructureManagerDyn();
         ~VirtualisationInfrastructureManagerDyn();
@@ -200,6 +203,11 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         * Get all managed hosts
         */
        std::list<HostDescriptor> getAllHosts();
+
+       /*
+        * set occupancyTime
+        */
+       void setOccupancyTime(int id, float occupancyTime);
 
     protected:
 
@@ -295,6 +303,8 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         void handleMobilityRequest(cMessage *);
 
         void mobilityTrigger(std::string appInstanceId);
+
+        void printPredictedOccupancyTimes();
 };
 
 #endif

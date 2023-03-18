@@ -20,6 +20,8 @@ class SchedulingAlgorithmBase {
       VirtualisationInfrastructureManagerDyn *vim_;
       virtual int scheduleRemoteResources(ResourceDescriptor &) = 0;
       std::map<int, HostDescriptor>& getHandledHosts() const {return vim_->handledHosts;}
+      cRNG *getSimRNG(){return vim_->crng;} // this is needed because if we have to generate random numbers by using
+      // omnetpp libraries, we need to access to theri implementation
 
   public:
     SchedulingAlgorithmBase(VirtualisationInfrastructureManagerDyn *vim){vim_=vim;}

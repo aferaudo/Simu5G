@@ -21,7 +21,7 @@ using namespace omnetpp;
 
 GaussianScheduler::GaussianScheduler(VirtualisationInfrastructureManagerDyn *vim):SchedulingAlgorithmBase(vim)
 {
-    fileName_ = "OccTimeGaussianDistr10Minutes.csv";
+    fileName_ = "/home/simulator/gits/Simu5G/src/nodes/mec/VirtualisationInfrastructureManager/Dynamic/SchedulingAlgorithms/GaussianBasedScheduler/OccTimeGaussianDistr10Minutes.csv";
     loadingGaussianDistributions();
     sampledTime_ = 600;
 
@@ -33,7 +33,7 @@ GaussianScheduler::~GaussianScheduler()
 
 void GaussianScheduler::loadingGaussianDistributions()
 {
-    EV << "GaussianScheduler::LOADING Gaussian distributions from " << fileName_ << endl;
+    std::cout << "GaussianScheduler::LOADING Gaussian distributions from " << fileName_ << endl;
     std::string line, word;
     char sep = ';';
     GaussianDistr *currentGauss = nullptr;
@@ -41,6 +41,7 @@ void GaussianScheduler::loadingGaussianDistributions()
 
     std::fstream file (fileName_, std::ios::in);
     int k, i = 0;
+
     if(file.is_open())
     {
         while(getline(file, line))
@@ -127,13 +128,17 @@ int GaussianScheduler::scheduleRemoteResources(ResourceDescriptor &r)
     std::map<int, HostDescriptor> valuableHosts;
     int key = -1;
     int min = INT_MAX;
-    int maxOccupancyTime = 0;
+    float maxRemainingTime = 0;
+    float currentRemainingTime = 0;
     int occupancyTimeIndex;
 
+    int localid = vim_->getParentModule()->getId();
+    std::cout << "ID LOCAL RESOURCES: " << localid << endl;
 
     for(auto remoteHost : getHandledHosts())
     {
-
+        if(remoteHost.first == localid)
+            continue;
         //verify that the hosts has enough resources
         bool available = r.ram < remoteHost.second.totalAmount.ram - remoteHost.second.usedAmount.ram - remoteHost.second.reservedAmount.ram
                             && r.disk < remoteHost.second.totalAmount.disk - remoteHost.second.usedAmount.disk - remoteHost.second.reservedAmount.disk
@@ -158,15 +163,27 @@ int GaussianScheduler::scheduleRemoteResources(ResourceDescriptor &r)
                     occupancyTimeIndex = remoteHost.second.entranceTime + test;
                 }
 
-//                occupancyTime = truncnormal((double)gaussians_[occupancyTimeIndex].mean, (double)gaussians_[occupancyTimeIndex].std) * 60; // from minutes to seconds
+                occupancyTime = truncnormal(getSimRNG(), gaussians_[occupancyTimeIndex].mean, gaussians_[occupancyTimeIndex].std) * 60; // from minutes to seconds
+                // Store computed occupancyTime
+//                remoteHost.second.predictedOccupancyTime = (float)occupancyTime;
+                vim_->setOccupancyTime(remoteHost.first, (float)occupancyTime);
+            }
+
+            currentRemainingTime = (remoteHost.second.entranceTime + occupancyTime) - simTime().dbl();
+
+            if(currentRemainingTime > maxRemainingTime)
+            {
+                maxRemainingTime = currentRemainingTime;
+                key = remoteHost.first;
             }
         }
+
+
     }
 
 
     EV << "GaussianScheduler::scheduleRemoteResources ended" << endl;
 
-    key = findKeyMaxOccupancyTime(valuableHosts);
     return key;
 }
 

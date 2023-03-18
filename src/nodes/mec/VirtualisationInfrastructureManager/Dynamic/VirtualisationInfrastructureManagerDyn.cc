@@ -12,6 +12,7 @@
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/RegistrationPacket_m.h"
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/SchedulingAlgorithms/BestFirstScheduler.h"
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/SchedulingAlgorithms/RoundRobinScheduler.h"
+#include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/SchedulingAlgorithms/GaussianBasedScheduler/GaussianScheduler.h"
 
 Define_Module(VirtualisationInfrastructureManagerDyn);
 
@@ -30,6 +31,7 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
     cSimpleModule::initialize(stage);
 
     if (stage == inet::INITSTAGE_LOCAL) {
+        crng = getRNG(0);
 
         EV << "VirtualisationInfrastructureManagerDyn::initialize - stage " << stage << endl;
 
@@ -60,6 +62,10 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         }
         else if(std::strcmp(searchType, "ROUND_ROBIN") == 0){
             schedulingAlgorithm_ = new RoundRobinScheduler(this);
+        }
+        else if(std::strcmp(searchType, "GAUSSIAN_ARNHEM_SCHEDULER") == 0)
+        {
+            schedulingAlgorithm_ = new GaussianScheduler(this);
         }
         else
         {
@@ -372,6 +378,12 @@ void VirtualisationInfrastructureManagerDyn::releaseResources(double ram, double
     host->reservedAmount.cpu -= cpu;
 }
 
+
+void VirtualisationInfrastructureManagerDyn::setOccupancyTime(int id, float occupancyTime)
+{
+    handledHosts[id].predictedOccupancyTime = occupancyTime;
+}
+
 int VirtualisationInfrastructureManagerDyn::findBestHostDyn(double ram, double disk, double cpu)
 {
     EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn - Start" << endl;
@@ -390,6 +402,7 @@ int VirtualisationInfrastructureManagerDyn::findBestHostDyn(double ram, double d
 //    }
     ResourceDescriptor r = {ram, disk, cpu};
     besthost_key = schedulingAlgorithm_->scheduleRemoteResources(r);
+    printPredictedOccupancyTimes();
 
     return besthost_key;
 }
@@ -1279,4 +1292,16 @@ void VirtualisationInfrastructureManagerDyn::handleTerminationResponse(
     printResources();
     std::cout<< "After sending: " << handledApp.size() << " " << simTime() << endl;
     printHandledApp();
+}
+
+
+void VirtualisationInfrastructureManagerDyn::printPredictedOccupancyTimes()
+{
+    std::cout << "Printing entrance times and occupancy times" << endl;
+    int localid = getParentModule()->getId();
+    for(auto remoteHost : handledHosts)
+    {
+        if(remoteHost.first != localid)
+            std::cout << "Vehicle [" << remoteHost.first << "], entrance time: " << remoteHost.second.entranceTime << ", occupancyTime: " << remoteHost.second.predictedOccupancyTime << endl;
+    }
 }

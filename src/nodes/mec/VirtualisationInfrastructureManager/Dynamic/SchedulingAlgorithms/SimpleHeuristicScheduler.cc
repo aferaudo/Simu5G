@@ -14,7 +14,7 @@
 // 
 
 #include "SimpleHeuristicScheduler.h"
-#include <Python.h>
+//#include <Python.h>
 
 int SimpleHeuristicScheduler::scheduleRemoteResources(ResourceDescriptor &r)
 {
