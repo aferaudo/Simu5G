@@ -946,6 +946,9 @@ void ExtMECWarningAlertApp::sendState()
     syncMessage->setState(status.c_str());
     syncMessage->setContextId(std::stoi(module_name.substr(module_name.find('[') + 1, module_name.find(']') - module_name.find('[') - 1)));
     syncMessage->setChunkLength(inet::B(32));
+//    syncMessage->setChunkLength(inet::B(1000));
+//    syncMessage->addTag<inet::CreationTimeTag>()->setCreationTime(simTime());
+
 
     packet->insertAtBack(syncMessage);
 

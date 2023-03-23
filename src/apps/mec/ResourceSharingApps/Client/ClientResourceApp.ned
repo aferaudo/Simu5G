@@ -22,6 +22,11 @@ simple ClientResourceApp like IApp{
 	    @display("i=block/app");
 	    // resources may be loaded from a json file
 	    // localAddress
+	    @signal[joiningTime](type=long);
+    	@statistic[joiningTime](source=joiningTime; unit=s; record=mean; interpolationmode=none);
+    	@signal[leavingTime](type=long);
+    	@statistic[leavingTime](source=leavingTime; unit=s; record=mean; interpolationmode=none);
+    	
 	    string localAddress = default("") @mutable;
 	    int localPort = default(3001);
 	    

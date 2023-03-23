@@ -14,6 +14,8 @@
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/SchedulingAlgorithms/RoundRobinScheduler.h"
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/SchedulingAlgorithms/GaussianBasedScheduler/GaussianScheduler.h"
 
+#include "apps/mec/ResourceSharingApps/Client/ClientResourceApp.h"
+
 Define_Module(VirtualisationInfrastructureManagerDyn);
 
 VirtualisationInfrastructureManagerDyn::VirtualisationInfrastructureManagerDyn()
@@ -292,8 +294,9 @@ void VirtualisationInfrastructureManagerDyn::unregisterHost(int host_id)
             dispStr.removeTag("b");
         }
 
+        ClientResourceApp *clientApp = check_and_cast<ClientResourceApp*>(module->getSubmodule("app",0));
+        clientApp->emitExitingSignal(simTime().dbl());
         handledHosts.erase(it);
-
     }
     else
     {

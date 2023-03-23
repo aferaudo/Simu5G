@@ -79,6 +79,8 @@ void ClientResourceApp::initialize(int stage)
 
     EV << "ClientResourceApp::Client Address: " << localIPAddress.str() << endl;
 
+    joiningTimeSignal_ = registerSignal("joiningTime");
+    leavingTimeSignal_ = registerSignal("leavingTime");
 
     cMessage *msg = new cMessage("connect");
     scheduleAt(simTime()+startTime, msg);
@@ -131,6 +133,9 @@ void ClientResourceApp::handleResponse(HttpResponseMessage* response)
                 // Car is going to park now, so socket can be closed and reopened when the car leaves the park
                 close();
 
+                joiningTime_ = simTime().dbl() - joiningTime_;
+
+                emit(joiningTimeSignal_,joiningTime_);
 
                 simtime_t now = simTime(); // Time in which a car starts its parking period
                 // Scheduling exit from park
@@ -205,6 +210,14 @@ State ClientResourceApp::getState(){
 void ClientResourceApp::connectToSRR()
 {
     tcpSocket.renewSocket();
+    if(appState == INIT)
+    {
+        joiningTime_ = simTime().dbl();
+    }
+    else
+    {
+        leavingTime_ = simTime().dbl();
+    }
     if (destIPAddress.isUnspecified()) {
         EV_ERROR << "Connecting to " << destIPAddress << " port=" << destPort << ": cannot resolve destination address\n";
         throw cRuntimeError("Server Resource Register address is unspecified!");
@@ -216,6 +229,8 @@ void ClientResourceApp::connectToSRR()
     }
 
 }
+
+
 
 void ClientResourceApp::sendRewardRequest(){
     EV << "ClientResourceApp::Sending Reward request" << endl;
@@ -387,5 +402,11 @@ void ClientResourceApp::sendReleaseMessage()
 
     Http::sendDeleteRequest(&tcpSocket, serverHost.c_str(), uri.c_str());
 
+}
+
+void ClientResourceApp::emitExitingSignal(double val)
+{
+    leavingTime_ = val - leavingTime_;
+    emit(leavingTimeSignal_, leavingTime_);
 }
 

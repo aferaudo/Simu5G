@@ -45,11 +45,18 @@ class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallbac
     VirtualisationInfrastructureApp* viApp;
     static simsignal_t parkingReleased_;
 
+    simsignal_t joiningTimeSignal_;
+    double joiningTime_;
+
+    simsignal_t leavingTimeSignal_;
+    double leavingTime_;
+
   public:
     ClientResourceApp();
     virtual ~ClientResourceApp();
 
-
+    virtual void emitExitingSignal(double val);
+    State getState();
   protected:
 
       State appState;
@@ -107,8 +114,9 @@ class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallbac
       virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
       virtual void socketDeleted(inet::TcpSocket *socket) override {}
 
-  public:
-      State getState();
+
+
+
 };
 
 #endif
