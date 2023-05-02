@@ -13,20 +13,14 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
-//
-// TODO generated message class
-//
+#include "SimpleHeuristicScheduler.h"
+//#include <Python.h>
 
-import inet.common.INETDefs;
-import inet.common.packet.chunk.Chunk;
-import inet.networklayer.common.L3Address;
+int SimpleHeuristicScheduler::scheduleRemoteResources(ResourceDescriptor &r)
+{
+    EV << "SimpleHeuristicScheduler::started" << endl;
+    // TODO implement this using a Linear Regression model
+    EV << "SimpleHeuristicScheduler::done" << endl;
 
-class InstantiationResponse extends inet::FieldsChunk {
-    
-    int ueAppID;
-    int allocatedPort;
-    int migrationPort;
-    
-    //statistics collection
-    simtime_t startAllocationTime;
+    return 0;
 }

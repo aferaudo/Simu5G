@@ -36,6 +36,10 @@ simple VirtualisationInfrastructureApp like IApp
     	
     	string scheduling = default("segregation");
     	
+    	// MECApp Port management
+    	int portRangeStart = default(20000);
+    	int portRangeEnd = default(portRangeStart + 5000); // Port assigned for migration
+    	
    	gates:
         output socketOut;
         input socketIn;

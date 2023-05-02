@@ -297,7 +297,7 @@ bool MecServiceBase::manageRequest()
             handleRequest(socket);
             simtime_t responseTime = simTime() - currentRequestMessageServed_->getArrivalTime();
             EV_INFO <<" MecServiceBase::manageRequest - Response time - " << responseTime << endl;
-            emit(responseTimeSignal_, responseTime);
+            //emit(responseTimeSignal_, responseTime);
         }
 
         if(currentRequestMessageServed_ != nullptr)
@@ -432,7 +432,7 @@ void MecServiceBase::newRequest(HttpRequestMessage *msg)
 
         msg->setResponseTime(sumOfresponseTimes);
         lastFGRequestArrived_ = simTime();
-        emit(requestQueueSizeSignal_, numOfBGReqs);
+        //emit(requestQueueSizeSignal_, numOfBGReqs);
     }
 
     requests_.insert(msg);
@@ -620,7 +620,7 @@ MecServiceBase::~MecServiceBase(){
 
 void MecServiceBase::emitRequestQueueLength()
 {
-   // emit(requestQueueSizeSignal_, requests_.getLength());
+   // //emit(requestQueueSizeSignal_, requests_.getLength());
 }
 
 

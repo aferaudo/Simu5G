@@ -90,9 +90,11 @@ void ServiceRegistry::handleStartOperation(inet::LifecycleOperation *operation)
     inet::L3Address localAdd(inet::L3AddressResolver().resolve(localAddress));
     EV << "Local Address resolved: "<< localAdd << endl;
 
+    // Required by far-edge system
     inet::L3Address gtpAddress = inet::L3AddressResolver().resolve(getParentModule()->getParentModule()->getSubmodule("upf_mec")->getFullPath().c_str());
     binder_->registerMecHostUpfAddress(localAdd, gtpAddress);
     binder_->registerMecHost(localAdd);
+
     // e.g. 1.2.3.4:5050
     std::stringstream hostStream;
     hostStream << localAddress<< ":" << localPort;

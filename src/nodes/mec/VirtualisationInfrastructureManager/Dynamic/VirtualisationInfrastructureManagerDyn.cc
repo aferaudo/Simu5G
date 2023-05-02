@@ -10,6 +10,9 @@
 
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/VirtualisationInfrastructureManagerDyn.h"
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/RegistrationPacket_m.h"
+#include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/SchedulingAlgorithms/BestFirstScheduler.h"
+#include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/SchedulingAlgorithms/RoundRobinScheduler.h"
+#include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/SchedulingAlgorithms/GaussianBasedScheduler/GaussianScheduler.h"
 
 Define_Module(VirtualisationInfrastructureManagerDyn);
 
@@ -20,6 +23,7 @@ VirtualisationInfrastructureManagerDyn::VirtualisationInfrastructureManagerDyn()
 
 VirtualisationInfrastructureManagerDyn::~VirtualisationInfrastructureManagerDyn()
 {
+    schedulingAlgorithm_ = nullptr;
 }
 
 void VirtualisationInfrastructureManagerDyn::initialize(int stage)
@@ -27,6 +31,7 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
     cSimpleModule::initialize(stage);
 
     if (stage == inet::INITSTAGE_LOCAL) {
+        crng = getRNG(0);
 
         EV << "VirtualisationInfrastructureManagerDyn::initialize - stage " << stage << endl;
 
@@ -50,6 +55,22 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 
         // Mep settings
         mp1Port = par("mp1Port").intValue();
+
+        const char * searchType = par("searchType").stringValue();
+        if(std::strcmp(searchType, "BEST_FIRST") == 0){
+            schedulingAlgorithm_ = new BestFirstScheduler(this);
+        }
+        else if(std::strcmp(searchType, "ROUND_ROBIN") == 0){
+            schedulingAlgorithm_ = new RoundRobinScheduler(this);
+        }
+        else if(std::strcmp(searchType, "GAUSSIAN_ARNHEM_SCHEDULER") == 0)
+        {
+            schedulingAlgorithm_ = new GaussianScheduler(this);
+        }
+        else
+        {
+            throw cRuntimeError("VirtualisationInfrastructureManagerDyn::Scheduling algorithm for remote resources not valid");
+        }
 
         skipLocalResources = par("skipLocalResources").boolValue();
 
@@ -229,6 +250,8 @@ int VirtualisationInfrastructureManagerDyn::registerHost(int host_id, double ram
     descriptor->address = ip_addr;
     descriptor->viPort = viPort;
 
+    descriptor->entranceTime = float(simTime().dbl());
+
     handledHosts[host_id] = *descriptor;
 
     printResources();
@@ -355,22 +378,31 @@ void VirtualisationInfrastructureManagerDyn::releaseResources(double ram, double
     host->reservedAmount.cpu -= cpu;
 }
 
+
+void VirtualisationInfrastructureManagerDyn::setOccupancyTime(int id, float occupancyTime)
+{
+    handledHosts[id].predictedOccupancyTime = occupancyTime;
+}
+
 int VirtualisationInfrastructureManagerDyn::findBestHostDyn(double ram, double disk, double cpu)
 {
     EV << "VirtualisationInfrastructureManagerDyn::findBestHostDyn - Start" << endl;
 
     int besthost_key = -1;
 
-    const char * searchType = par("searchType").stringValue();
-    if(std::strcmp(searchType, "BEST_FIRST") == 0){
-        besthost_key = findBestHostDynBestFirst(ram, disk, cpu);
-    }
-    else if(std::strcmp(searchType, "ROUND_ROBIN") == 0){
-        besthost_key = findBestHostDynRoundRobin(ram, disk, cpu);
-    }
-    else{
-        throw cRuntimeError("VirtualisationInfrastructureManagerDyn::findBestHostDyn - search type not supported");
-    }
+//    const char * searchType = par("searchType").stringValue();
+//    if(std::strcmp(searchType, "BEST_FIRST") == 0){
+//        besthost_key = findBestHostDynBestFirst(ram, disk, cpu);
+//    }
+//    else if(std::strcmp(searchType, "ROUND_ROBIN") == 0){
+//        besthost_key = findBestHostDynRoundRobin(ram, disk, cpu);
+//    }
+//    else{
+//        throw cRuntimeError("VirtualisationInfrastructureManagerDyn::findBestHostDyn - search type not supported");
+//    }
+    ResourceDescriptor r = {ram, disk, cpu};
+    besthost_key = schedulingAlgorithm_->scheduleRemoteResources(r);
+    printPredictedOccupancyTimes();
 
     return besthost_key;
 }
@@ -1043,6 +1075,7 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
 
     int ueAppID = data->getUeAppID();
     int port = data->getAllocatedPort();
+    int migrationPort = data->getMigrationPort();
     int packetLength = 0;
     auto it = waitingInstantiationRequests.find(std::to_string(ueAppID));
     if(it == waitingInstantiationRequests.end()){
@@ -1067,7 +1100,7 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
         // App migration ----
         EV << "VirtualisationInfrastructureManagerDyn::migration status: APP CREATED" << endl;
         // Next step create a method that:
-        // - sends an ServiceMobilityResponse to the MEC platform manager
+        // - sends a ServiceMobilityResponse to the MEC platform manager
         // - deletes and replace the old meapp from the list (release only diminish the used resources)
         EV << "VirtualisationInfrastructureManagerDyn::new mec app address: " << entry->endpoint.addr.str() << endl;
 
@@ -1095,7 +1128,8 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
         packetLength = packetLength + entry->appInstanceId.size();
 
         toSend->setTargetAddress(entry->endpoint.addr);
-        toSend->setTargetPort(entry->endpoint.port);
+        toSend->setTargetUePort(entry->endpoint.port); // port for ue communications
+        toSend->setTargetPort(migrationPort); // port for user context transfer
         packetLength = packetLength + entry->endpoint.addr.str().size() + 4;
 
         // FIXME Correspondence one-to-one
@@ -1258,4 +1292,16 @@ void VirtualisationInfrastructureManagerDyn::handleTerminationResponse(
     printResources();
     std::cout<< "After sending: " << handledApp.size() << " " << simTime() << endl;
     printHandledApp();
+}
+
+
+void VirtualisationInfrastructureManagerDyn::printPredictedOccupancyTimes()
+{
+    std::cout << "Printing entrance times and occupancy times" << endl;
+    int localid = getParentModule()->getId();
+    for(auto remoteHost : handledHosts)
+    {
+        if(remoteHost.first != localid)
+            std::cout << "Vehicle [" << remoteHost.first << "], entrance time: " << remoteHost.second.entranceTime << ", occupancyTime: " << remoteHost.second.predictedOccupancyTime << endl;
+    }
 }

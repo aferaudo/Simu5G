@@ -111,10 +111,10 @@ class DUEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallbac
 
     protected:
 
-        virtual int numInitStages() const { return inet::NUM_INIT_STAGES; }
-        void initialize(int stage);
-        virtual void handleMessage(cMessage *msg);
-        virtual void finish();
+        virtual int numInitStages() const override{ return inet::NUM_INIT_STAGES; }
+        void initialize(int stage) override;
+        virtual void handleMessage(cMessage *msg) override;
+        virtual void finish() override;
 
         void sendStartMEWarningAlertApp();
         void sendMessageToMECApp();

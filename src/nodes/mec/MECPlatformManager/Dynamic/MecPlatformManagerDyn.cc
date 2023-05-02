@@ -386,9 +386,10 @@ void MecPlatformManagerDyn::manageNotification()
     {
         EV << "MecPlatformManagerDyn::manageNotification - subscription" << endl;
         HttpResponseMessage *response = check_and_cast<HttpResponseMessage*>(currentHttpMessageServed_);
-        nlohmann::ordered_json jsonBody = nlohmann::json::parse(currentHttpMessageServed_->getBody());
+//        nlohmann::ordered_json jsonBody = nlohmann::json::parse(currentHttpMessageServed_->getBody());
         if(response->getCode() == 201)
         {
+            nlohmann::ordered_json jsonBody = nlohmann::json::parse(currentHttpMessageServed_->getBody());
             MobilityProcedureSubscription subscription;
             subscription.fromJson(jsonBody);
             LinkType *link = new LinkType();
@@ -397,6 +398,10 @@ void MecPlatformManagerDyn::manageNotification()
             EV << "MecPlatformManagerDyn::registered for " << subscription.getFilterCriteria()->getAppInstanceId() << endl;
             // test that subscription is really ok
             //Http::sendGetRequest(&tcpSocket, serverHost.c_str(), subscription.getLinks().c_str());
+        }
+        else if(response->getCode() == 204)
+        {
+            EV << "MecPlatformManagerDyn::received reponse with code 204 (probably unsub)" << endl;
         }
 
     }
@@ -538,7 +543,13 @@ void MecPlatformManagerDyn::handleServiceMobilityResponse(
     SockAddr targetAddress;
     targetAddress.addr = data->getTargetAddress();
     targetAddress.port = data->getTargetPort();
-    targetInfo->setCommInterface(std::vector<SockAddr>(1,targetAddress));
+
+    std::vector<SockAddr> target;
+    target.push_back({data->getTargetAddress(), data->getTargetPort()});
+    target.push_back({data->getTargetAddress(), data->getTargetUePort()});
+
+//    targetInfo->setCommInterface(std::vector<SockAddr>(1,targetAddress));
+    targetInfo->setCommInterface(target);
 
     // AssociateId
     std::vector<AssociateId> associateId;
@@ -556,7 +567,7 @@ void MecPlatformManagerDyn::handleServiceMobilityResponse(
     EV << "MecPlatformManagerDyn::Received service mobility response json object: " << notification->toJson().dump()<< endl;
 
     // Exploiting socket used for subscribing phase
-    std::cout << "SENDING NOTIFICATION - MY HOST (Service mobilityResponse) " << serverHost.c_str() << endl;
+    std::cout << "SENDING NOTIFICATION - MY HOST (Service mobilityResponse) " << serverHost.c_str() << " for  " << data->getAppInstanceId() << " at " << simTime() << endl;
     Http::sendPostRequest(&tcpSocket, notification->toJson().dump().c_str(), serverHost.c_str(), triggerURI.c_str());
 
 }
@@ -575,7 +586,7 @@ void MecPlatformManagerDyn::handleParkMigrationTrigger(inet::Packet* packet)
     request["appInstanceId"] = data->getAppInstanceId();
 
     EV << "MecPlatformManagerDyn::Trigger ready: " << request.dump() << endl;
-    std::cout << "SENDING NOTIFICATION - MY HOST (handleParkMigrationTrigger) " << serverHost.c_str() << endl;
+    std::cout << "SENDING NOTIFICATION - MY HOST (handleParkMigrationTrigger) " << serverHost.c_str() << " for app " << data->getAppInstanceId() << endl;
 
     Http::sendPostRequest(&tcpSocket, request.dump().c_str(),  serverHost.c_str(), triggerURI.c_str());
 }

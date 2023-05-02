@@ -13,20 +13,19 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
-//
-// TODO generated message class
-//
+#ifndef NODES_MEC_VIRTUALISATIONINFRASTRUCTUREMANAGER_DYNAMIC_SCHEDULINGALGORITHMS_ROUNDROBINSCHEDULER_H_
+#define NODES_MEC_VIRTUALISATIONINFRASTRUCTUREMANAGER_DYNAMIC_SCHEDULINGALGORITHMS_ROUNDROBINSCHEDULER_H_
 
-import inet.common.INETDefs;
-import inet.common.packet.chunk.Chunk;
-import inet.networklayer.common.L3Address;
+#include "SchedulingAlgorithmBase.h"
 
-class InstantiationResponse extends inet::FieldsChunk {
-    
-    int ueAppID;
-    int allocatedPort;
-    int migrationPort;
-    
-    //statistics collection
-    simtime_t startAllocationTime;
-}
+class RoundRobinScheduler : public SchedulingAlgorithmBase{
+
+  protected:
+    virtual int scheduleRemoteResources(ResourceDescriptor &r) override;
+
+  public:
+    RoundRobinScheduler(VirtualisationInfrastructureManagerDyn *vim):SchedulingAlgorithmBase(vim){};
+    virtual ~RoundRobinScheduler(){};
+};
+
+#endif /* NODES_MEC_VIRTUALISATIONINFRASTRUCTUREMANAGER_DYNAMIC_SCHEDULINGALGORITHMS_ROUNDROBINSCHEDULER_H_ */

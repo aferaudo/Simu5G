@@ -17,7 +17,7 @@
 import nodes.mec.MECPlatform.MECPackets;
 
 class WarningAppPacket extends MECPacket
-{}
+{int ueOmnetID;}
 
 class WarningAlertPacket extends WarningAppPacket
 {       

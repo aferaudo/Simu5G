@@ -306,6 +306,7 @@ void ApplicationMobilityService::handlePUTRequest(const HttpRequestMessage *curr
 
         uri.erase(0, baseUriSubscriptions_.length());
         EV << "AMS::Received subscriptions update from " << uri << endl;
+
         nlohmann::ordered_json request = nlohmann::json::parse(currentRequestMessageServed->getBody());
         SubscriptionBase *subscription = nullptr;
 
@@ -324,8 +325,12 @@ void ApplicationMobilityService::handlePUTRequest(const HttpRequestMessage *curr
             {
                 subscription->set_links(baseSubscriptionLocation_);
                 subscriptions_[sub->first] = subscription;
-                EV << "AMS::Subscription " << subscription->toJson() << endl;
                 EV << "AMS::Subscription Updated" << endl;
+                std::cout << "UPDATED subscription" << endl;
+                std::cout << "AMS::Subscription " << subscription->toJson() << endl;
+
+                printAllSubscriptions();
+
                 Http::send200Response(socket, request.dump().c_str());
             }
             else
@@ -361,6 +366,10 @@ void ApplicationMobilityService::handleDELETERequest(const HttpRequestMessage *c
             EV << "AMS::Delete request - service consumer not found!" << endl;
             Http::send404Response(socket);
         }
+        else
+        {
+            Http::send204Response(socket);
+        }
     }
     else if(uri.find(baseUriSubscriptions_) == 0)
     {
@@ -376,7 +385,9 @@ void ApplicationMobilityService::handleDELETERequest(const HttpRequestMessage *c
         }
 
         subscriptions_.erase(it);
-        printAllSubscription();
+        std::cout << "DELETED subscription" << endl;
+        printAllSubscriptions();
+        Http::send204Response(socket);
     }
     else
     {
@@ -408,7 +419,10 @@ void ApplicationMobilityService::handleSubscriptionRequest(SubscriptionBase *sub
         // requestTestNotification - here you can start the test!
 
         // Debugging
-        printAllSubscription();
+        std::cout << "ADDED subscription" << endl;
+//        std::cout << "before printing" <<endl;
+        printAllSubscriptions();
+//        std::cout << "after printing " << endl;
         EV << serviceName_ << " - correct subscription created!" << endl;
     }
     else
@@ -500,10 +514,16 @@ bool ApplicationMobilityService::manageSubscription()
     }
 }
 
-void ApplicationMobilityService::printAllSubscription() {
+void ApplicationMobilityService::printAllSubscriptions() {
 
     for(auto subscriber : subscriptions_)
     {
         subscriber.second->to_string();
     }
+}
+
+void ApplicationMobilityService::finish()
+{
+    MecServiceBase::finish();
+    return;
 }

@@ -49,7 +49,7 @@ using namespace omnetpp;
 
 enum HostState {PARKED, LEAVING};
 
-struct HostDescriptor // CarDescriptor
+struct HostDescriptor // Far-edge device descriptor (CarDescriptor)
 {
     ResourceDescriptor totalAmount;
     ResourceDescriptor usedAmount;
@@ -58,6 +58,10 @@ struct HostDescriptor // CarDescriptor
     inet::L3Address address;
     int viPort;
     HostState state = PARKED;
+
+    // Used for intelligent scheduling
+    float entranceTime;
+    float predictedOccupancyTime = -1;
 };
 
 struct MecAppEntryDyn
@@ -85,9 +89,15 @@ struct MecAppEntryDyn
 
 class CreateAppMessage;
 class DeleteAppMessage;
+class SchedulingAlgorithmBase;
 
 class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 {
+
+    friend class SchedulingAlgorithmBase;
+
+    SchedulingAlgorithmBase *schedulingAlgorithm_;
+
     // Reference to other modules
     cModule* vimHost;
 
@@ -135,6 +145,9 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 
     // Statistics collection
     simsignal_t allocationTimeSignal_;
+
+
+    cRNG *crng;
 
 
     public:
@@ -191,6 +204,11 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         */
        std::list<HostDescriptor> getAllHosts();
 
+       /*
+        * set occupancyTime
+        */
+       void setOccupancyTime(int id, float occupancyTime);
+
     protected:
 
         virtual void initialize(int stage) override;
@@ -218,7 +236,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         void printRequests();
 
 
-        void  instantiateMEAppLocally(MecAppEntryDyn, bool);
+        void instantiateMEAppLocally(MecAppEntryDyn, bool);
         /*
          * Allocate resources on specific host (car)
          */
@@ -285,6 +303,8 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         void handleMobilityRequest(cMessage *);
 
         void mobilityTrigger(std::string appInstanceId);
+
+        void printPredictedOccupancyTimes();
 };
 
 #endif
