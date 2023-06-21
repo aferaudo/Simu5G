@@ -27,7 +27,8 @@ SubscriberBase::SubscriberBase()
 SubscriberBase::~SubscriberBase()
 {
     std::cout<<"called subscriberBase destructor" << endl;
-    cancelAndDelete(nextEvent);
+    if(nextEvent != nullptr)
+        cancelAndDelete(nextEvent);
 }
 
 void SubscriberBase::initialize(int stage)
@@ -49,9 +50,9 @@ void SubscriberBase::handleStartOperation(inet::LifecycleOperation *operation)
     //inet::IMobility *mod = check_and_cast<inet::IMobility *>(host->getSubmodule("mobility"));
     // center = mod->getCurrentPosition();
     //center = inet::Coord;
-    center.setX(0);
-    center.setY(0);
-    center.setZ(0);
+//    center.setX(0);
+//    center.setY(0);
+//    center.setZ(0);
 
     // Socket local binding
     tcpSocket.setOutputGate(gate("socketOut"));
@@ -155,31 +156,31 @@ void SubscriberBase::sendSubscription()
     appState = SUB;
 }
 
-nlohmann::json SubscriberBase::infoToJson()
-{
-    /*
-     * Return a json object with
-     * clientId: int
-     * subscription: obj
-     *
-     * Subscription obj:
-     *      coordinateX:
-     *      coordinateY:
-     *      coordinateZ: -> typically null
-     *      radius
-     * */
-
-    nlohmann::json jsonObj = nlohmann::json::object();
-
-    jsonObj["clientId"] = getId();
-    jsonObj["clientWebhook"] = webHook;
-    jsonObj["subscription"]["coordinateX"] = center.getX();
-    jsonObj["subscription"]["coordinateY"] = center.getY();
-    jsonObj["subscription"]["coordinateZ"] = center.getZ();
-    jsonObj["subscription"]["radius"] = radius;
-
-    return jsonObj;
-}
+//nlohmann::json SubscriberBase::infoToJson()
+//{
+//    /*
+//     * Return a json object with
+//     * clientId: int
+//     * subscription: obj
+//     *
+//     * Subscription obj:
+//     *      coordinateX:
+//     *      coordinateY:
+//     *      coordinateZ: -> typically null
+//     *      radius
+//     * */
+//
+//    nlohmann::json jsonObj = nlohmann::json::object();
+//
+//    jsonObj["clientId"] = getId();
+//    jsonObj["clientWebhook"] = webHook;
+//    jsonObj["subscription"]["coordinateX"] = center.getX();
+//    jsonObj["subscription"]["coordinateY"] = center.getY();
+//    jsonObj["subscription"]["coordinateZ"] = center.getZ();
+//    jsonObj["subscription"]["radius"] = radius;
+//
+//    return jsonObj;
+//}
 
 void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent)
 {

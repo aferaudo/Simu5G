@@ -66,6 +66,9 @@ void ClientResourceApp::initialize(int stage)
     localResources.disk = host->par("localDisk").doubleValue();
     localResources.cpu = host->par("localCpuSpeed").doubleValue();
 
+    // Mobility data
+    mobility = check_and_cast<inet::IMobility*>(host->getSubmodule("mobility"));
+
     // Socket local binding
     tcpSocket.setOutputGate(gate("socketOut"));
     tcpSocket.bind(localPort);
@@ -212,7 +215,6 @@ void ClientResourceApp::connectToSRR()
     else {
         EV << "Connecting to " << destIPAddress << " port=" << destPort << endl;
         tcpSocket.connect(destIPAddress, destPort);
-
     }
 
 }
@@ -257,6 +259,9 @@ void ClientResourceApp::sendRegisterRequest()
         jsonBody["deviceInfo"]["resourceInfo"]["maxDisk"] = localResources.disk;
         jsonBody["deviceInfo"]["resourceInfo"]["maxCPU"] = localResources.cpu;
         jsonBody["deviceInfo"]["viPort"] = viPort;
+        jsonBody["deviceInfo"]["coordinateX"] = mobility->getCurrentPosition().getX();
+        jsonBody["deviceInfo"]["coordinateY"] = mobility->getCurrentPosition().getY();
+        jsonBody["deviceInfo"]["coordinateZ"] = mobility->getCurrentPosition().getZ();
 
         EV << "Request body " << jsonBody.dump() << endl;
         Http::sendPostRequest(&tcpSocket, jsonBody.dump().c_str(), serverHost.c_str(), uri.c_str());

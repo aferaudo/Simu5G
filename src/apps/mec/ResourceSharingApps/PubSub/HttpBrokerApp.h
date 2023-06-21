@@ -39,8 +39,8 @@
 #include "inet/networklayer/common/L3AddressResolver.h"
 #include "inet/common/socket/SocketMap.h"
 #include "inet/applications/base/ApplicationBase.h"
-#include "inet/common/geometry/common/Coord.h"
 
+#include "apps/mec/ResourceSharingApps/utils/Entries.h"
 
 
 
@@ -63,30 +63,19 @@ using namespace omnetpp;
  *  - subscribers are VIMs {subscriptions happen through http POST request}
  * It handles subscriber connections and dispatches publications based on the client coordinates
  */
-struct ClientResourceEntry
-{
-    int clientId;
-    inet::L3Address ipAddress;
-    int viPort; // used by the VIM to allocate new app
-    ResourceDescriptor resources;
-    std::string reward;
-    // TODO add zone coordinates
-    int vimId = -1;
-    bool operator < (const ClientResourceEntry &other) const {return clientId < other.clientId;}
-};
+//struct ClientResourceEntry
+//{
+//    int clientId;
+//    inet::L3Address ipAddress;
+//    int viPort; // used by the VIM to allocate new app
+//    ResourceDescriptor resources;
+//    std::string reward;
+//    inet::Coord coord;
+//    int vimId = -1;
+//    bool operator < (const ClientResourceEntry &other) const {return clientId < other.clientId;}
+//};
 
-struct SubscriberEntry
-{
-    int clientId;
-    // this parameters maybe useful in case of connection lost
-    inet::L3Address clientAddress;
-    int clientPort;
-    // -----
-    std::string clientWebHook;
-    inet::Coord subscriberPos;
-    double subscriberRadius;
-    bool operator < (const SubscriberEntry &other) const {return clientId < other.clientId;}
-};
+
 
 enum Notification {NEW, RELEASE};
 
@@ -190,7 +179,7 @@ class HttpBrokerApp : public inet::ApplicationBase, public inet::TcpSocket::ICal
     /*
      * This method compute the subscribers that need to be notified
      */
-    virtual SubscriberEntry filterSubscribers(ClientResourceEntry *c);
+    virtual SubscriberEntry *filterSubscribers(ClientResourceEntry *c);
 
 
     /*

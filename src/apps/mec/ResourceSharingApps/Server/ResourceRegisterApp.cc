@@ -221,7 +221,7 @@ void ResourceRegisterApp::refreshDisplay() const
     getDisplayString().setTagArg("t", 0, buf);
 }
 
-void ResourceRegisterApp::insertClientEntry(ClientEntry c)
+void ResourceRegisterApp::insertClientEntry(ClientResourceEntry c)
 {
     // For the amount of nodes we manage this may not be needed
     mtx_write.lock();
@@ -234,6 +234,10 @@ void ResourceRegisterApp::insertClientEntry(ClientEntry c)
     jsonBody["disk"] = c.resources.disk;
     jsonBody["cpu"] = c.resources.cpu;
     jsonBody["viPort"] = c.viPort;
+    jsonBody["coordinateX"] = c.coord.x;
+    jsonBody["coordinateY"] = c.coord.y;
+    jsonBody["coordinateZ"] = c.coord.z;
+
     publish("POST", jsonBody.dump().c_str());
     mtx_write.unlock();
 

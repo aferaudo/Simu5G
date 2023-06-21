@@ -80,7 +80,7 @@ class SubscriberBase: public inet::ApplicationBase, public inet::TcpSocket::ICal
     // utility methods
     virtual void connectToBroker();
     virtual void sendSubscription();
-    virtual nlohmann::json infoToJson();
+    virtual nlohmann::json infoToJson()=0;
 
     /*
      * This method sends a DELETE request to the broker

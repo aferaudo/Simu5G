@@ -18,6 +18,9 @@ Define_Module(VirtualisationInfrastructureManagerDyn);
 
 VirtualisationInfrastructureManagerDyn::VirtualisationInfrastructureManagerDyn()
 {
+    circle = nullptr;
+
+
     handledApp.clear();
 }
 
@@ -35,6 +38,7 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 
         EV << "VirtualisationInfrastructureManagerDyn::initialize - stage " << stage << endl;
 
+
         // Init parameters
         vimHost = getParentModule()->getParentModule();
         host = getParentModule(); // Used to add brokerGates
@@ -42,7 +46,7 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         //Broker settings
         brokerPort = par("brokerPort");
         localToBrokerPort = par("localBrokerPort");
-        radius = par("radius");
+
         subscribeURI = std::string(par("subscribeURI").stringValue());
         unsubscribeURI = subscribeURI + std::to_string(getId());
         webHook = std::string(par("webHook").stringValue());
@@ -55,6 +59,12 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 
         // Mep settings
         mp1Port = par("mp1Port").intValue();
+
+        // graphic
+        center.x = vimHost->getAncestorPar("coordinateX");
+        center.y = vimHost->getAncestorPar("coordinateY");
+        radius = vimHost->getAncestorPar("radius");
+        color = getParentModule()->getParentModule()->par("color").stringValue();
 
         const char * searchType = par("searchType").stringValue();
         if(std::strcmp(searchType, "BEST_FIRST") == 0){
@@ -77,14 +87,14 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
         std::cout << getParentModule()->getSubmodule("interfaceTable") << endl;
         //ifacetable = check_and_cast<inet::InterfaceTable*>(getParentModule()->getSubmodule("interfaceTable"));
 
-        // Graphic
-        color = getParentModule()->getParentModule()->par("color").stringValue();
-        cDisplayString& dispStr = getParentModule()->getParentModule()->getDisplayString();
-        dispStr.setTagArg("b", 0, 50);
-        dispStr.setTagArg("b", 1, 50);
-        dispStr.setTagArg("b", 2, "rect");
-        dispStr.setTagArg("b", 3, color.c_str());
-        dispStr.setTagArg("b", 4, "black");
+
+//        cDisplayString& dispStr = getParentModule()->getParentModule()->getDisplayString();
+//        dispStr.setTagArg("b", 0, radius);
+//        dispStr.setTagArg("b", 1, radius);
+//        dispStr.setTagArg("b", 2, "oval");
+//        dispStr.
+////        dispStr.setTagArg("b", 3, color.c_str());
+//        dispStr.setTagArg("b", 4, color.c_str());
 
         // statistics collection initialization
         allocationTimeSignal_ = registerSignal("allocationTime");
@@ -115,6 +125,22 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
     binder_->registerMecHostUpfAddress(localAddress, gtpAddress);
     binder_->registerMecHost(localAddress);
 
+    // setting center (mobility)
+    if(center.x == -1 && center.y == -1)
+    {
+        inet::IMobility *mob = check_and_cast<inet::IMobility*>(vimHost->getSubmodule("mobility"));
+        center = mob->getCurrentPosition();
+    }
+
+    // Graphic
+    circle = new omnetpp::cOvalFigure("circle");
+
+    circle->setBounds(cFigure::Rectangle(center.x-radius, center.y-radius, radius*2, radius*2));
+    circle->setLineWidth(4);
+    circle->setLineStyle(cFigure::LINE_DOTTED);
+    circle->setLineColor(cFigure::Color(color.c_str()));
+    circle->setVisible(true);
+    getSystemModule()->getCanvas()->addFigure(circle);
 
     // Broker settings
     brokerIPAddress = inet::L3AddressResolver().resolve(par("brokerAddress").stringValue());
@@ -139,14 +165,6 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
 
     //  Register message - meo and broker
     scheduleAt(simTime()+0.01, new cMessage("register"));
-
-    // Print message
-//    cMessage *print = new cMessage("print");
-//    scheduleAt(simTime()+0.1, print);
-
-    // unsub message - TEST
-//    cMessage *unsub = new cMessage("unsub");
-//    scheduleAt(simTime()+2, unsub);
 
     // set tcp socket VIM <--> Broker
     SubscriberBase::handleStartOperation(operation);
@@ -1304,4 +1322,31 @@ void VirtualisationInfrastructureManagerDyn::printPredictedOccupancyTimes()
         if(remoteHost.first != localid)
             std::cout << "Vehicle [" << remoteHost.first << "], entrance time: " << remoteHost.second.entranceTime << ", occupancyTime: " << remoteHost.second.predictedOccupancyTime << endl;
     }
+}
+
+
+nlohmann::json VirtualisationInfrastructureManagerDyn::infoToJson()
+{
+    /*
+     * Return a json object with
+     * clientId: int
+     * subscription: obj
+     *
+     * Subscription obj:
+     *      coordinateX:
+     *      coordinateY:
+     *      coordinateZ: -> typically null
+     *      radius
+     * */
+
+    nlohmann::json jsonObj = nlohmann::json::object();
+
+    jsonObj["clientId"] = getId();
+    jsonObj["clientWebhook"] = webHook;
+    jsonObj["subscription"]["coordinateX"] = center.getX();
+    jsonObj["subscription"]["coordinateY"] = center.getY();
+    jsonObj["subscription"]["coordinateZ"] = center.getZ();
+    jsonObj["subscription"]["radius"] = radius;
+
+    return jsonObj;
 }

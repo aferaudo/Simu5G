@@ -21,6 +21,8 @@
 #include "inet/transportlayer/contract/tcp/TcpSocket.h"
 #include "inet/networklayer/common/L3Address.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
+#include "inet/mobility/contract/IMobility.h"
+
 #include "nodes/mec/utils/httpUtils/httpUtils.h"
 
 #include "apps/mec/ViApp/VirtualisationInfrastructureApp.h"
@@ -80,6 +82,9 @@ class ClientResourceApp : public cSimpleModule, public inet::TcpSocket::ICallbac
       cModule* host; // any device host this application needs to provide some resources
       ResourceDescriptor localResources;
 
+
+      // Mobility data
+      inet::IMobility *mobility;
 
       virtual void initialize(int stage) override;
       virtual void handleMessage(cMessage *msg) override;

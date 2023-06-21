@@ -149,6 +149,9 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 
     cRNG *crng;
 
+    // Graphic
+    cOvalFigure *circle;
+
 
     public:
         VirtualisationInfrastructureManagerDyn();
@@ -269,6 +272,10 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
          */
         virtual void manageNotification() override;
 
+        /*
+         * Building json subscription body
+         */
+        virtual nlohmann::json infoToJson() override;
 
         /*
          * This method sends the subscription to the broker when socket has been established

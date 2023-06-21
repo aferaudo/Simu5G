@@ -154,7 +154,7 @@ void ResourceRegisterThread::handlePOSTRequest(const HttpRequestMessage *current
         nlohmann::json jsonBody = nlohmann::json::parse(currentRequestMessageServed->getBody());
         EV << "ResourceRegisterThread::post-request: " << jsonBody << endl;
 
-        ClientEntry entry;
+        ClientResourceEntry entry;
         entry.clientId = jsonBody["deviceInfo"]["deviceId"];
 
 
@@ -169,6 +169,11 @@ void ResourceRegisterThread::handlePOSTRequest(const HttpRequestMessage *current
         entry.resources.disk = jsonBody["deviceInfo"]["resourceInfo"]["maxDisk"];
         entry.resources.cpu = jsonBody["deviceInfo"]["resourceInfo"]["maxCPU"];
         entry.viPort = jsonBody["deviceInfo"]["viPort"];
+        entry.coord.x = jsonBody["deviceInfo"]["coordinateX"];
+        entry.coord.y = jsonBody["deviceInfo"]["coordinateY"];
+        entry.coord.z = jsonBody["deviceInfo"]["coordinateZ"];
+
+
 
         EV << "ResourceRegisterThread::post-request - saving resources " << std::to_string(entry.resources.disk) << endl;
 

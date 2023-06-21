@@ -108,6 +108,11 @@ class MecPlatformManagerDyn : public SubscriberBase
 
         virtual void manageNotification() override;
 
+        /*
+         * Building json subscription body
+         */
+        virtual nlohmann::json infoToJson() override;
+
     private:
         void sendMEORegistration();
         void handleServiceRequest(inet::Packet* resourcePacket);

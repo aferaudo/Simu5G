@@ -269,6 +269,9 @@ void HttpBrokerApp::handlePOSTRequest(const HttpRequestMessage *currentRequestMe
                           if(jsonBody.contains("viPort"))
                           {
                                 c.viPort = jsonBody["viPort"];
+                                c.coord.x = jsonBody["coordinateX"];
+                                c.coord.y = jsonBody["coordinateY"];
+                                c.coord.z = jsonBody["coordinateZ"];
                                 totalResources.insert(std::pair<int, ClientResourceEntry>(c.clientId, c));
                                 currentResourceNewId = c.clientId;
                                 printAvailableResources();
@@ -379,14 +382,20 @@ void HttpBrokerApp::notifyNewResources()
     }
     EV << "HttpBrokerApp::computing socket id" << endl;
 
-    SubscriberEntry s = filterSubscribers(&resource->second);
+    SubscriberEntry* s = filterSubscribers(&resource->second);
 
-    inet::TcpSocket *sock = check_and_cast<inet::TcpSocket *> (socketMap.getSocketById(clientSocketMap.find(s.clientId)->second));
+    if(s == nullptr)
+    {
+        EV << "HttpBrokerApp::no available mechost found in that area" << endl;
+        return;
+    }
 
-    std::string webhookHost = s.clientAddress.str() + ":" + std::to_string(s.clientPort);
+    inet::TcpSocket *sock = check_and_cast<inet::TcpSocket *> (socketMap.getSocketById(clientSocketMap.find(s->clientId)->second));
+
+    std::string webhookHost = s->clientAddress.str() + ":" + std::to_string(s->clientPort);
     if(resource->second.vimId == -1)
     {
-        resource->second.vimId = s.clientId;
+        resource->second.vimId = s->clientId;
         nlohmann::json jsonObj = nlohmann::json::object();
         jsonObj[std::to_string(resource->first)]["ipAddress"] = resource->second.ipAddress.str();
         jsonObj[std::to_string(resource->first)]["viPort"] = resource->second.viPort;
@@ -396,7 +405,7 @@ void HttpBrokerApp::notifyNewResources()
 
         EV << "HttpBrokerApp::Send Notification Post to " << webhookHost << endl;
         EV << "HttpBrokerApp::Json- " << jsonObj.dump() << endl;
-        Http::sendPostRequest(sock, jsonObj.dump().c_str(), webhookHost.c_str(), s.clientWebHook.c_str());
+        Http::sendPostRequest(sock, jsonObj.dump().c_str(), webhookHost.c_str(), s->clientWebHook.c_str());
         printAvailableResources();
     }
     else
@@ -437,25 +446,36 @@ void HttpBrokerApp::notifyResourceRelease()
 }
 
 
-nlohmann::json HttpBrokerApp::filterInitialResourcesToSend(int vimId, inet::Coord, double radius)
+nlohmann::json HttpBrokerApp::filterInitialResourcesToSend(int vimId, inet::Coord c, double radius)
 {
-    // TODO add a filtering method
-    EV <<"HttpBrokerApp::filterInitialResourcesToSend - no filterning so far" << endl;
+    /*
+     * This method is used in case of a subscription that happens after
+     * resources availability
+     */
+    EV <<"HttpBrokerApp::filterInitialResourcesToSend" << endl;
     nlohmann::json jsonObj = nlohmann::json::object();
+    int totalResourcesSent = 0;
 
     std::map<int, ClientResourceEntry>::iterator it = totalResources.begin();
 
-//    std::stringstream client;
-//    hostStream << localAddress<< ":" << localPort;
     while(it != totalResources.end())
     {
-        it->second.vimId = vimId;
-        jsonObj[std::to_string(it->second.clientId)]["ipAddress"] = it->second.ipAddress.str();
-        jsonObj[std::to_string(it->second.clientId)]["viPort"] = it->second.viPort;
-        jsonObj[std::to_string(it->second.clientId)]["ram"] = it->second.resources.ram;
-        jsonObj[std::to_string(it->second.clientId)]["disk"] = it->second.resources.disk;
-        jsonObj[std::to_string(it->second.clientId)]["cpu"] = it->second.resources.cpu;
+        double distance = it->second.coord.distance(c);
+        if(distance <= radius)
+        {
+            it->second.vimId = vimId;
+            jsonObj[std::to_string(it->second.clientId)]["ipAddress"] = it->second.ipAddress.str();
+            jsonObj[std::to_string(it->second.clientId)]["viPort"] = it->second.viPort;
+            jsonObj[std::to_string(it->second.clientId)]["ram"] = it->second.resources.ram;
+            jsonObj[std::to_string(it->second.clientId)]["disk"] = it->second.resources.disk;
+            jsonObj[std::to_string(it->second.clientId)]["cpu"] = it->second.resources.cpu;
+            totalResourcesSent ++;
+        }
         ++it;
+    }
+    if(totalResourcesSent == 0)
+    {
+        EV << "HttpBrokerApp::no resource found in the area for subscriber [" << vimId << "]" << endl;
     }
     EV << "jsonobj:: " << jsonObj.dump() << endl;
 
@@ -495,26 +515,35 @@ void HttpBrokerApp::printAvailableResources()
     EV << "#######################################" << endl;
 }
 
-SubscriberEntry HttpBrokerApp::filterSubscribers(ClientResourceEntry *c)
+SubscriberEntry* HttpBrokerApp::filterSubscribers(ClientResourceEntry *c)
 {
-    /*
-     * TODO
-     * Check in each subscriber its coordinates:
-     * - if a device is found, return that device and stop
-     * - if a device is not found, return null
-     */
 
     // For testing it will return the begin of the set
-    std::map<int, SubscriberEntry>::iterator someElementIterator = subscribers.begin();
-    return someElementIterator->second;
-
+    std::map<int, SubscriberEntry>::iterator it = subscribers.begin();
+    bool found = false;
 //    std::set<SubscriberEntry*>::iterator it = subscribers.begin();
 //
-//    while(it != subscribers.end())
-//    {
-//
-//        ++it;
-//    }
+    EV << "HttpBroker::filterSubscribers - finding correct mechost based on location" << endl;
+    while(it != subscribers.end() && !found)
+    {
+        double distance = c->coord.distance(it->second.subscriberPos);
+
+        if(distance <= it->second.subscriberRadius)
+        {
+            EV << "HttpBroker::Found MECHost [" << it->second.clientId  << "] to include client ["
+               << c->clientId << "] resources" << endl;
+            return &it->second;
+        }
+        else
+        {
+            // TODO loggin part
+            EV << "HttpBroker:: Client [" << c->clientId << "] too far" << endl;
+        }
+
+        ++it;
+    }
+
+    return nullptr;
 
 }
 

@@ -29,6 +29,8 @@
 // ResourceDescriptor struct
 #include "nodes/mec/utils/MecCommon.h"
 
+#include "apps/mec/ResourceSharingApps/utils/Entries.h"
+
 
 using namespace omnetpp;
 
@@ -37,17 +39,17 @@ using namespace omnetpp;
  * @author Angelo Feraudo
  */
 
-struct ClientEntry
-{
-    // TODO
-    // This structure will be used to dynamically change
-    // the kind of reward available
-    int clientId;
-    inet::L3Address ipAddress;
-    ResourceDescriptor resources;
-    std::string reward;
-    int viPort;
-};
+//struct ClientEntry
+//{
+//    // TODO
+//    // This structure will be used to dynamically change
+//    // the kind of reward available
+//    int clientId;
+//    inet::L3Address ipAddress;
+//    ResourceDescriptor resources;
+//    std::string reward;
+//    int viPort;
+//};
 
 class ResourceRegisterThread;
 
@@ -60,8 +62,8 @@ class ResourceRegisterApp : public PublisherBase
 
     // Map with client resource info
     // key = client id
-    // value = ClientEntry;
-//    std::map <int, ClientEntry> availableResources_;
+    // value = ClientResourceEntry;
+//    std::map <int, ClientResourceEntry> availableResources_;
 
     /*
      * Map containing the clientid and its selected reward
@@ -79,13 +81,13 @@ class ResourceRegisterApp : public PublisherBase
         ~ResourceRegisterApp();
 
         //set
-        virtual void insertClientEntry(ClientEntry c);
+        virtual void insertClientEntry(ClientResourceEntry c);
         virtual void deleteClientEntry(int clientId);
 
         // get
         virtual std::string getBaseUri(){return baseUri_;}
         virtual std::map<std::string, int> getRewardMap() {return rewardMap_;}
-//        virtual std::map<int, ClientEntry> getAvailableResources() {return availableResources_;}
+//        virtual std::map<int, ClientResourceEntry> getAvailableResources() {return availableResources_;}
         virtual std::map<int, std::string> getClientRewards() {return clientRewards_;}
 
         // other methods

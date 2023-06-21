@@ -594,21 +594,27 @@ void MecPlatformManagerDyn::handleParkMigrationTrigger(inet::Packet* packet)
 void MecPlatformManagerDyn::handleSubscription(
        std::string appInstanceId) {
 
-
-    subscriptionBody_ = nlohmann::ordered_json();
-    subscriptionBody_["_links"]["self"]["href"] = "";
-    subscriptionBody_["callbackReference"] = localAddress.str() + ":" + std::to_string(localToBrokerPort)  + webHook;
-    subscriptionBody_["requestTestNotification"] = false;
-    subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
-    subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
+    subscriptionBody_ = infoToJson();
     subscriptionBody_["filterCriteria"]["appInstanceId"] = appInstanceId;
-    subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
-    subscriptionBody_["filterCriteria"]["mobilityStatus"] = nlohmann::json::array();
-    subscriptionBody_["filterCriteria"]["mobilityStatus"].push_back("INTERHOST_MOVEOUT_TRIGGERED");
-    subscriptionBody_["filterCriteria"]["mobilityStatus"].push_back("INTERHOST_MOVEOUT_COMPLETED");
-    subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
-    EV << subscriptionBody_;
     sendSubscription();
 
+}
+
+nlohmann::json MecPlatformManagerDyn::infoToJson()
+{
+
+    nlohmann::json jsonObj = nlohmann::ordered_json();
+    jsonObj["_links"]["self"]["href"] = "";
+    jsonObj["callbackReference"] = localAddress.str() + ":" + std::to_string(localToBrokerPort)  + webHook;
+    jsonObj["requestTestNotification"] = false;
+    jsonObj["websockNotifConfig"]["websocketUri"] = "";
+    jsonObj["websockNotifConfig"]["requestWebsocketUri"] = false;
+    jsonObj["filterCriteria"]["associateId"] = nlohmann::json::array();
+    jsonObj["filterCriteria"]["mobilityStatus"] = nlohmann::json::array();
+    jsonObj["filterCriteria"]["mobilityStatus"].push_back("INTERHOST_MOVEOUT_TRIGGERED");
+    jsonObj["filterCriteria"]["mobilityStatus"].push_back("INTERHOST_MOVEOUT_COMPLETED");
+    jsonObj["subscriptionType"] = "MobilityProcedureSubscription";
+
+    return jsonObj;
 }
 
