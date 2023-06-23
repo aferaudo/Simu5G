@@ -55,6 +55,8 @@ class InstantiationApplicationRequest extends GeneralMessage
     int mp1Port;
     bool isMigrating = false;
     
+    string requiredStandardService[];
+    
     // statistics collection
     simtime_t startAllocationTime;
 }
@@ -69,6 +71,12 @@ class InstantiationApplicationResponse extends GeneralMessage
     // This are used in case of dynamic MEC Host - app executed on car
     inet::L3Address mecAppRemoteAddress;
     int mecAppRemotePort;
+    
+    // This is needed by the UALCMP to enable the app migration
+    inet::L3Address amsAdddress;
+    int amsPort;
+    
+    string requiredStandardService[];
 }
 
 class TerminationAppInstRequest extends GeneralMessage

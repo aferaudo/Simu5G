@@ -75,6 +75,7 @@ struct MecAppEntryDyn
     std::string moduleType;
     bool isBuffered;
     int contextID;
+    std::vector<std::string> requiredServices;
 };
 
 // used to calculate processing time needed to execute a number of instructions

@@ -26,6 +26,8 @@ import inet.linklayer.contract.IEthernetInterface;
 import simu5g.nodes.NR.NRUe;
 import inet.node.inet.Router;
 import inet.node.ethernet.EthernetSwitch;
+import inet.mobility.static.StationaryMobility;
+
 
 
 
@@ -56,11 +58,23 @@ module MECHostDyn
 
         // Graphic parameters
         string color = default("red");
+        
+        // center coordinates (in meters)
+        double coordinateX = default(-1);
+        double coordinateY = default(-1);
+        
+        // coverage radius
+        double radius = default(150); //radius in meters
 
     gates:
         inout ppp[];
 
     submodules:
+
+        mobility: StationaryMobility {
+            parameters:
+                @display("p=61.548,100.350006;is=s");
+        }
 
         vim: VirtualisationInfrastructureManagerHost {
             // Local virtualised resources
@@ -97,7 +111,7 @@ module MECHostDyn
         mecPlatformManagerHost.pppUPFg++ <--> Eth10G <--> router.pppg++;
         mecPlatform.virtInfr <--> Eth10G <--> router.pppg++; // this may be changed with a customised version
 
-        router.pppg++ <--> Eth10G <--> upf_mec.pppg++;
+//        router.pppg++ <--> Eth10G <--> upf_mec.pppg++;
         router.pppg++ <--> Eth10G <--> upf_mec.filterGate;// Needed for communications between local apps and ues 
 		// upf_mec is connected with an antenna and an i-upf
         for i=0..sizeof(ppp)-1 {

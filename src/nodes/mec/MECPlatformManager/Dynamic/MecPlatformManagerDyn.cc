@@ -76,6 +76,7 @@ void MecPlatformManagerDyn::handleStartOperation(inet::LifecycleOperation *opera
     meoAddress = inet::L3AddressResolver().resolve(par("meoAddress"));
     localAddress = inet::L3AddressResolver().resolve(par("localAddress"));
     vimAddress = inet::L3AddressResolver().resolve(par("vimAddress"));
+    binder_ = getBinder();
     // Setup orchestrator communication
     if(localPort != -1){
         EV << "MecPlatformManagerDyn::initialize - binding orchestrator socket to port " << localPort << endl;
@@ -87,6 +88,11 @@ void MecPlatformManagerDyn::handleStartOperation(inet::LifecycleOperation *opera
     brokerIPAddress = inet::L3AddressResolver().resolve(par("brokerAddress").stringValue());
 
     registerMessage_ = new cMessage("register");
+
+    inet::L3Address gtpAddress = inet::L3AddressResolver().resolve(getParentModule()->getParentModule()->getSubmodule("upf_mec")->getFullPath().c_str());
+    binder_->registerMecHostUpfAddress(localAddress, gtpAddress);
+    binder_->registerMecHost(localAddress);
+
     scheduleAt(simTime()+0.01, registerMessage_);
     SubscriberBase::handleStartOperation(operation);
 }
@@ -117,18 +123,15 @@ void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
         if(!strcmp(msg->getName(), "ServiceRequest")){
                 inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
                 handleServiceRequest(pPacket);
-//                delete msg;
         }
         else if (!strcmp(msg->getName(), "instantiationApplicationRequest")){
             inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
             handleInstantiationRequest(pPacket);
-    //            delete msg;
         }
         else if (!strcmp(msg->getName(), "instantiationApplicationResponse")){
             inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
             handleInstantiationResponse(pPacket);
 
-    //            delete msg;
         }
         else if(!strcmp(msg->getName(), "terminationAppInstRequest"))
         {
@@ -350,11 +353,27 @@ void MecPlatformManagerDyn::handleInstantiationResponse(
     auto responsemsg = inet::makeShared<InstantiationApplicationResponse>();
     auto data = instantiationPacket->peekData<InstantiationApplicationResponse>();
     responsemsg = data.get()->dup();
+    bool mobilitySupportRequired = false;
+
+    for(int i = 0; i < responsemsg->getRequiredStandardServiceArraySize() && !mobilitySupportRequired; i++)
+    {
+       if(std::strcmp(responsemsg->getRequiredStandardService(i), "ApplicationMobilityService") == 0)
+           mobilitySupportRequired = true;
+    }
+
+    if(mobilitySupportRequired)
+    {
+       // Subscribing to the AMS for this application
+        responsemsg->setAmsAdddress(brokerIPAddress);
+        responsemsg->setAmsPort(brokerPort);
+
+    }
+
     pktdup->insertAtBack(responsemsg);
 
     socket.sendTo(pktdup, meoAddress, meoPort);
     EV << "MecPlatformManagerDyn:: App instance id: " << responsemsg->getInstanceId()<< endl;
-    if(amsEnabled && responsemsg->getStatus())
+    if(amsEnabled && responsemsg->getStatus() && mobilitySupportRequired)
     {
         handleSubscription(responsemsg->getInstanceId());
     }

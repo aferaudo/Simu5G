@@ -36,7 +36,7 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
        	string brokerAddress; // address for notification system
        	int localBrokerPort = default(3334); // port for TCP communications VIM <--> Broker
     	int brokerPort = default(3005); // destination broker port
-    	double radius = default(150); //radius in meters
+    	
     	// pubsub parameters
 		string subscribeURI = default("/broker/subscribe/");
 		string webHook = default("/newresources/");

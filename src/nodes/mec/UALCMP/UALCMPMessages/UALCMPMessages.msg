@@ -31,8 +31,10 @@ message CreateContextAppAck extends UALCMPMessage
 {
 	bool success;
 	string appInstanceUri;
-
+	
 	string appInstanceId;
+	
+	string amsUri;
 	int contextId;	
 }
 

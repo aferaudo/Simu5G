@@ -26,6 +26,8 @@ import simu5g.apps.mec.ViApp.VirtualisationInfrastructureApp;
 import inet.linklayer.ppp.PppInterface;
 import inet.linklayer.ethernet.EthernetInterface;
 import inet.linklayer.contract.ILoopbackInterface;
+import inet.applications.contract.IApp;
+
 
 //
 // 
@@ -40,7 +42,6 @@ module VirtualisationInfrastructureManagerHost
         @networkNode();
         bool hasIpv4 = default(true);
         bool hasIpv6 = default(false);
-
         //# Resource of the VimHost
         double localRam @unit("B") = default(32GB);
         double localDisk @unit("B") = default(100TB);
@@ -49,6 +50,11 @@ module VirtualisationInfrastructureManagerHost
         *.interfaceTableModule = default(absPath(".interfaceTable"));
 
         @display("i=device/device");
+        
+        // Background Apps
+        int numApps = default(0);
+		
+        
 
     gates:
         inout pppUPFg[];
@@ -65,7 +71,12 @@ module VirtualisationInfrastructureManagerHost
 
             @display("p=751.376,71.271996");
         }
-     
+     	
+     	//# app layer 
+        app[numApps]: <> like IApp {
+            @display("p=374.47998,72.479996,row,140");
+        }
+     	
 		interfaceTable: InterfaceTable {
             @display("p=61.344,74.976;is=s");
         }
@@ -127,21 +138,26 @@ module VirtualisationInfrastructureManagerHost
                 @display("p=750,676,row,150");
         }
     connections allowunconnected:
-
+		
+		for i=0..numApps-1 {
+            app[i].socketOut --> at.in++;
+            app[i].socketIn <-- at.out++;
+        }
+        
         viApp.socketOut --> at.in++;
         viApp.socketIn <-- at.out++;
 
         vimApp.socketOut --> at.in++;
         vimApp.socketIn <-- at.out++;
 
-        
         at.out++ --> udp.appIn;
         at.in++ <-- udp.appOut;
 
         at.out++ --> tcp.appIn;
         at.in++ <-- tcp.appOut;
 
-
+		at.out++ --> tn.in++;
+		at.in++ <-- tn.out++;
         //# 
         //# Transport layer to network layer connections
         //#

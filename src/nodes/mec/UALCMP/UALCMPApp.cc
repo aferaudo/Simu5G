@@ -166,10 +166,19 @@ void UALCMPApp::handleCreateContextAppAckMessage(UALCMPMessage *msg)
     {
         if(ack->getSuccess())
         {
+            // Checking required services:
+            if(std::strcmp(ack->getAmsUri(), "") != 0)
+            {
+                // Subscribing to the AMS for this application
+                std::cout << "AMS Subscription required: " << ack->getAmsUri() << endl;
+            }
+
+
 
             jsonBody["contextId"] = std::to_string(ack->getContextId());
             jsonBody["appInfo"]["userAppInstanceInfo"]["appInstanceId"] = ack->getAppInstanceId();
             jsonBody["appInfo"]["userAppInstanceInfo"]["referenceURI"]  = ack->getAppInstanceUri(); // add the end point
+            std::cout << "Reference uri: " << ack->getAppInstanceUri();
 //            jsonBody["appInfo"]["userAppInstanceInfo"]["appLocation"]; // TODO not implemented yet
             std::stringstream uri;
             uri << baseUriQueries_<<"/app_contexts/"<< ack->getContextId();

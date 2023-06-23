@@ -32,6 +32,7 @@ MecOrchestratorApp::MecOrchestratorApp()
     responseMap.clear();
     mecApplicationDescriptors_.clear();
     contextIdCounter = 0;
+    processResourceRequest_ = nullptr;
 }
 
 MecOrchestratorApp::~MecOrchestratorApp()
@@ -39,6 +40,9 @@ MecOrchestratorApp::~MecOrchestratorApp()
 //    mecHosts.clear();
 //    mecApplicationDescriptors_.clear();
     pendingRequests.clear();
+    cancelAndDelete(processResourceRequest_);
+
+    while(!resourceRequestQueue_.empty()) {resourceRequestQueue_.pop();}
 }
 
 void MecOrchestratorApp::initialize(int stage)
@@ -47,6 +51,8 @@ void MecOrchestratorApp::initialize(int stage)
     {
         EV << "MEOApp::initialising parameters" << endl;
         localPort = par("localPort");
+
+        processResourceRequest_ = new cMessage("processResourceRequest");
     }
     inet::ApplicationBase::initialize(stage);
 }
@@ -69,16 +75,29 @@ void MecOrchestratorApp::handleStartOperation(inet::LifecycleOperation *operatio
 
 void MecOrchestratorApp::handleMessageWhenUp(omnetpp::cMessage *msg)
 {
-    if (msg->isSelfMessage() && std::strcmp(msg->getName(), "Test") == 0)
+    if (msg->isSelfMessage())
     {
-        EV << "MEOApp::ReceivedSelfMessage - TEST!!";
+        if(std::strcmp(msg->getName(),"Test") == 0)
+        {
+            EV << "MEOApp::ReceivedSelfMessage - TEST!!";
+            //        // TESTING METHOD FIND BEST MEC HOST
+            //        if(mecHosts.size() > 0)
+            //        {
+            //            const ApplicationDescriptor& appDesc = mecApplicationDescriptors_["WAMECAPP"];
+            //            findBestMecHost(appDesc);
+            //        }
+        }
+        else if(std::strcmp(msg->getName(),"processResourceRequest") == 0)
+        {
+            sendSRRequest();
+            if(resourceRequestQueue_.size() > 0 && !processResourceRequest_->isScheduled())
+            {
+                scheduleAt(simTime(), processResourceRequest_);
+            }
+            return;
+        }
 
-//        // TESTING METHOD FIND BEST MEC HOST
-//        if(mecHosts.size() > 0)
-//        {
-//            const ApplicationDescriptor& appDesc = mecApplicationDescriptors_["WAMECAPP"];
-//            findBestMecHost(appDesc);
-//        }
+
 
     }
     // handle message from the LCM proxy
@@ -349,12 +368,24 @@ void MecOrchestratorApp::handleResourceReply(inet::Packet *packet)
 
             // mm4
             inet::Packet* pktMM4 = makeResourceRequestPacket(contAppMsg->getDevAppId(), appDesc.getVirtualResources().cpu, appDesc.getVirtualResources().ram, appDesc.getVirtualResources().disk);
-
-            response->requestTime = sendSRRequest(pktMM3, pktMM4, bestHost->mepmHostIp, bestHost->vimHostIp, bestHost->vimPort, bestHost->mepmPort);
-
+            ResourceRequest *r = new ResourceRequest();
+            r->pktMM3 = pktMM3;
+            r->pktMM4 = pktMM4;
+            r->vimHostAddress = bestHost->vimHostIp;
+            r->mepmHostAddress = bestHost->mepmHostIp;
+            r->vimPort = bestHost->vimPort;
+            r->mepmPort = bestHost->mepmPort;
+            resourceRequestQueue_.push(r);
+            response->requestTime = simTime().dbl();
             // resetting replies
             response->vimRes = NO_VALUE;
             response->mepmRes = NO_VALUE;
+            if(!processResourceRequest_->isScheduled())
+                scheduleAt(simTime(),processResourceRequest_);
+//            response->requestTime = sendSRRequest(pktMM3, pktMM4, bestHost->mepmHostIp, bestHost->vimHostIp, bestHost->vimPort, bestHost->mepmPort);
+
+
+
 
             return;
         }
@@ -433,10 +464,21 @@ void MecOrchestratorApp::handleInstantiationResponse(inet::Packet *packet)
         meAppMap[appResponse->getContextId()] = newMecApp;
         EV << "MEOApp::meapp instantiated contextid: " << appResponse->getContextId() << endl;
 
+        bool mobilitySupportRequired = false;
 
+        for(int i = 0; i < appResponse->getRequiredStandardServiceArraySize() && !mobilitySupportRequired; i++)
+        {
+          if(std::strcmp(appResponse->getRequiredStandardService(i), "ApplicationMobilityService") == 0)
+              mobilitySupportRequired = true;
+        }
 
+        std::string amsUri = "";
+        if(mobilitySupportRequired)
+        {
+            amsUri = appResponse->getAmsAdddress().str() + ":" + std::to_string(appResponse->getAmsPort());
+        }
         // send successful ack
-        sendCreateAppContextAck(true, itUALCMPRequest->second->getRequestId(), appResponse->getContextId());
+        sendCreateAppContextAck(true, itUALCMPRequest->second->getRequestId(), appResponse->getContextId(), "", amsUri);
 
         // delete pending request
         delete itUALCMPRequest->second;
@@ -493,6 +535,15 @@ void MecOrchestratorApp::startMECApp(CreateContextAppMessage* contAppMsg, MECHos
         instAppRequest->setRequiredService(appDesc.getOmnetppServiceRequired().c_str());
     else
         instAppRequest->setRequiredService("NULL");
+
+    // insert ETSI std required services
+    // get app descriptor
+    std::vector<std::string> requiredServiceNames = appDesc.getAppServicesRequired();
+    instAppRequest->setRequiredStandardServiceArraySize(requiredServiceNames.size());
+    for(int i = 0; i < requiredServiceNames.size(); i++)
+    {
+        instAppRequest->setRequiredStandardService(i, requiredServiceNames[i].c_str());
+    }
 
     instAppRequest->setContextId(contextIdCounter);
 
@@ -571,7 +622,18 @@ void MecOrchestratorApp::findBestMecHost(std::string deviceAppId, const Applicat
             EV << "MEOApp::Found candidate MECHost - id: " << it->mecHostId << " - sending requests" << endl;
             responseEntry = new MECHostResponseEntry;
             responseEntry->mecHostID = it->mecHostId;
-            responseEntry->requestTime = sendSRRequest(pktMM3, pktMM4, it->mepmHostIp, it->vimHostIp, it->vimPort, it->mepmPort);
+            ResourceRequest *r = new ResourceRequest();
+            r->pktMM3 = pktMM3;
+            r->pktMM4 = pktMM4;
+            r->vimHostAddress = it->vimHostIp;
+            r->mepmHostAddress = it->mepmHostIp;
+            r->vimPort = it->vimPort;
+            r->mepmPort = it->mepmPort;
+            resourceRequestQueue_.push(r);
+            responseEntry->requestTime = simTime().dbl();
+            if(!processResourceRequest_->isScheduled())
+                scheduleAt(simTime(),processResourceRequest_);
+//            responseEntry->requestTime = sendSRRequest(pktMM3, pktMM4, it->mepmHostIp, it->vimHostIp, it->vimPort, it->mepmPort);
 
             responseMap[key].push_back(responseEntry);
         }
@@ -616,24 +678,28 @@ const ApplicationDescriptor& MecOrchestratorApp::onboardApplicationPackage(const
         {
             mecApplicationDescriptors_[appDesc.getAppDId()] = appDesc; // add to the mecApplicationDescriptors_
         }
-
+        printAvailableAppDescs();
         return mecApplicationDescriptors_[appDesc.getAppDId()];
 }
 
-double MecOrchestratorApp::sendSRRequest(inet::Packet* pktMM3, inet::Packet* pktMM4, inet::L3Address mepmHostAddress, inet::L3Address vimHostAddress, int vimPort, int mepmPort)
+//double MecOrchestratorApp::sendSRRequest(inet::Packet* pktMM3, inet::Packet* pktMM4, inet::L3Address mepmHostAddress, inet::L3Address vimHostAddress, int vimPort, int mepmPort)
+void MecOrchestratorApp::sendSRRequest()
 {
-    EV << "MEOApp::Sending requests to " << mepmHostAddress.str() << " and " << vimHostAddress.str() <<endl;
+
+    ResourceRequest *r = dynamic_cast<ResourceRequest*>(resourceRequestQueue_.front());
+    resourceRequestQueue_.pop();
+    EV << "MEOApp::Sending requests to " << r->mepmHostAddress.str() << " and " << r->vimHostAddress.str() <<endl;
 
     // Requesting to vim if MECApp is allocable
-    socket.sendTo(pktMM4, vimHostAddress, vimPort);
+    socket.sendTo(r->pktMM4->dup(), r->vimHostAddress, r->vimPort);
 
     // Requesting to MEPM if the MECPlatform has the needed services
-    socket.sendTo(pktMM3, mepmHostAddress, mepmPort);
+    socket.sendTo(r->pktMM3->dup(), r->mepmHostAddress, r->mepmPort);
 
-    return simTime().dbl();
+//    return simTime().dbl();
 }
 
-void MecOrchestratorApp::sendCreateAppContextAck(bool result, unsigned int requestSno, int contextId, const std::string &deviceAppId)
+void MecOrchestratorApp::sendCreateAppContextAck(bool result, unsigned int requestSno, int contextId, const std::string &deviceAppId, std::string amsUri)
 {
     EV << "MEOApp::sendCreateAppContextAck - result: "<< result << " reqSno: " << requestSno << " contextId: " << contextId << endl;
     CreateContextAppAckMessage *ack = new CreateContextAppAckMessage();
@@ -658,6 +724,8 @@ void MecOrchestratorApp::sendCreateAppContextAck(bool result, unsigned int reque
         uri << mecAppStatus.mecAppAddress.str()<<":"<<mecAppStatus.mecAppPort;
 
         ack->setAppInstanceUri(uri.str().c_str());
+        ack->setAmsUri(amsUri.c_str());
+
     }
     else
     {
@@ -758,6 +826,12 @@ void MecOrchestratorApp::printAvailableAppDescs()
     for(auto it = mecApplicationDescriptors_.begin(); it != mecApplicationDescriptors_.end(); ++it)
     {
         EV << "MEOApp::App Name: " << it->second.getAppName() << ", Description" << it->second.getAppDescription()<< endl;
+        EV << "MEOAPP::Required services:" << endl;
+        std::vector<std::string> requiredServices = it->second.getAppServicesRequired();
+        for(int i = 0; i < requiredServices.size(); i++)
+        {
+            EV << requiredServices[i] << endl;
+        }
         EV << "------------------------------------" << endl;
     }
     EV << "####################################" << endl;

@@ -283,8 +283,6 @@ int VirtualisationInfrastructureManagerDyn::registerHost(int host_id, double ram
         dispStr.setTagArg("b", 2, "oval");
         dispStr.setTagArg("b", 3, color.c_str());
         dispStr.setTagArg("b", 4, "black");
-//        dispStr.setTagArg("b", 5, 4);
-//        EV << "VirtualisationInfrastructureManagerDyn::registerHost - display string of host " << ip_addr << " is " << dispStr << endl;
     }
 
 
@@ -481,6 +479,11 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
     newAppEntry.usedResources.disk = msg->getRequiredDisk();
     newAppEntry.usedResources.cpu  = msg->getRequiredCpu();
     newAppEntry.ueEndpoint = msg->getUeIpAddress();
+    for(int i = 0; i < msg->getRequiredStandardServiceArraySize(); i++)
+    {
+        newAppEntry.requiredServices.push_back(msg->getRequiredStandardService(i));
+    }
+
     inet::Packet* packet = createInstantiationRequest(newAppEntry, msg->getRequiredService());
     waitingInstantiationRequests[std::to_string(msg->getUeAppID())] = newAppEntry;
     std::cout<<"instantiateMEAppReq " << waitingInstantiationRequests.size() << endl;
@@ -1111,6 +1114,7 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
     entry->ueEndpoint = it->second.ueEndpoint;
     entry->usedResources = it->second.usedResources;
     entry->endpoint.port = port;
+    entry->requiredServices = it->second.requiredServices;
     auto existingApp = handledApp.find(std::to_string(entry->ueAppID));
     if(existingApp != handledApp.end() && port != -1)
     {
@@ -1208,6 +1212,13 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
     responsePkt->setDeviceAppId(std::to_string(ueAppID).c_str());
     std::stringstream appName;
     appName << entry->moduleName << "[" <<  entry->contextID << "]";
+
+    responsePkt->setRequiredStandardServiceArraySize(entry->requiredServices.size());
+    for(int i = 0; i < entry->requiredServices.size(); i++)
+    {
+        responsePkt->setRequiredStandardService(i, entry->requiredServices[i].c_str());
+    }
+
 
     responsePkt->setInstanceId(appName.str().c_str());
     responsePkt->setMecAppRemoteAddress(entry->endpoint.addr);

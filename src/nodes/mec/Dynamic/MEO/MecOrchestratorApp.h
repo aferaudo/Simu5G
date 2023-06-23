@@ -64,7 +64,6 @@ using namespace omnetpp;
 
 enum ResponseResult {FALSE, TRUE, NO_VALUE};
 enum MecHostInfo {INCOMPLETE, COMPLETE};
-
 struct MECHostDescriptor
 {
     int mecHostId;
@@ -125,6 +124,17 @@ struct mecApp_s
 
 };
 
+struct ResourceRequest
+{
+    inet::Packet* pktMM3;
+    inet::Packet* pktMM4;
+    inet::L3Address mepmHostAddress;
+    inet::L3Address vimHostAddress;
+    int vimPort;
+    int mepmPort;
+};
+
+
 class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket::ICallback, public IMecOrchestrator
 {
     /*
@@ -172,6 +182,9 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
      */
 //    std::vector<std::pair<int, double>> lastAllocatedVect;
 
+    std::queue<ResourceRequest*> resourceRequestQueue_;
+    cMessage* processResourceRequest_;
+
 
   public:
     MecOrchestratorApp ();
@@ -215,10 +228,8 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
      * This method sends to a MECHost two requests:
      *  - service required request (to MEPM via MM3)
      *  - resource required request (to VIM via MM4)
-     * @param pktMM3, pktMM4s packet to be sendo to mecHostAddress, vimPort, mepmPort
-     * @return requestTime
      * */
-    double sendSRRequest(inet::Packet* pktMM3, inet::Packet* pktMM4, inet::L3Address mepmHostAddress, inet::L3Address vimHostAddress, int vimPort, int mepmPort);
+    void sendSRRequest();
 
     // utility methods
     void printAvailableMECHosts();
@@ -230,7 +241,7 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
 
     // source: nodes/mec/MECOrchestrator/MecOrchestrator.h
     // device app id is used to remove the UALCMP request from the pending request list
-    void sendCreateAppContextAck(bool result, unsigned int requestSno, int contextId=-1, const std::string &deviceAppId = std::string());
+    void sendCreateAppContextAck(bool result, unsigned int requestSno, int contextId=-1, const std::string &deviceAppId = std::string(), std::string amsUri = std::string());
     void sendDeleteAppContextAck(bool result, unsigned int requestSno, int contextId = -1);
 
 

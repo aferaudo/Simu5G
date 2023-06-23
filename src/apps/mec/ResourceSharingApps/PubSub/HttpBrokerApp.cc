@@ -425,6 +425,16 @@ void HttpBrokerApp::notifyResourceRelease()
     auto resource = totalResources.find(currentResourceReleaseId);
 
     int subId = resource->second.vimId;
+
+    // Delete resource from availables
+    totalResources.erase(currentResourceReleaseId);
+
+    if(subId == -1)
+    {
+        EV << "HttpBrokerApp::No MECHost associated" << endl;
+        return;
+    }
+
     inet::TcpSocket *sock = check_and_cast<inet::TcpSocket*>(socketMap.getSocketById(clientSocketMap.find(subId)->second));
 
     SubscriberEntry s = subscribers.find(subId)->second;
@@ -441,8 +451,6 @@ void HttpBrokerApp::notifyResourceRelease()
     // notify only the vim where resources are allocated
     Http::sendDeleteRequest(sock, subscriberHost.c_str(), uri.c_str());
 
-    // Delete resource from availables
-    totalResources.erase(currentResourceReleaseId);
 }
 
 

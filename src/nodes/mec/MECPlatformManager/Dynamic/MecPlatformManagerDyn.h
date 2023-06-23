@@ -60,6 +60,8 @@ class MecPlatformManagerDyn : public SubscriberBase
 
     std::map<std::string, LinkType*> links_;
 
+    // SIMULTE Binder module
+    Binder* binder_;
 
     bool amsEnabled;
 
@@ -85,6 +87,7 @@ class MecPlatformManagerDyn : public SubscriberBase
     cMessage* registerMessage_;
     //std::map<std::string, std::string> subscriptions_; // link -
     // std::queue<std::string> appInstanceIds_; //used to take trace of next subscriptions
+
 
     public:
         MecPlatformManagerDyn();
