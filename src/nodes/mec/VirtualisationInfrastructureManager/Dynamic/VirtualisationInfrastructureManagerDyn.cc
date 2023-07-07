@@ -156,7 +156,7 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
     mp1Address = inet::L3AddressResolver().resolve(par("mp1Address").stringValue());
 
     // Registering mp1Address (MECPlatform) as MECHost component
-    binder_->registerMecHostUpfAddress(mp1Address, gtpAddress);
+//    binder_->registerMecHostUpfAddress(mp1Address, gtpAddress);
 
 
     initResource();

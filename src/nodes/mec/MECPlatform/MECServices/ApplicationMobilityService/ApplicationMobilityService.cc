@@ -60,9 +60,7 @@ void ApplicationMobilityService::handleMessage(cMessage *msg)
             {
                 // Generating notification
                 MobilityProcedureNotification *notification = new MobilityProcedureNotification();
-                std::cout << "DEvo bestemmiare? " << endl;
                 RegistrationInfo *r = registrationResources_->getRegistrationInfoFromContext(el.second->getAppInstanceId());
-                std::cout << "non bestemmio per poco" << endl;
                 if(r != nullptr)
                 {
                     notification->setMobilityStatus(INTERHOST_MOVEOUT_COMPLETED);

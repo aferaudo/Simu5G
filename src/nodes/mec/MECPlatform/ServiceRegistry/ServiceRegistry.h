@@ -47,6 +47,8 @@ private:
     */
     std::string uuidBase;
     int servIdCounter;
+
+    inet::L3Address gtpAddress_;
 public:
     ServiceRegistry();
     virtual ~ServiceRegistry();

@@ -51,12 +51,49 @@ class UALCMPApp: public MecServiceBase
         nlohmann::json appCont; // for POST the app context used in the request is sent back with new fields (according to the result)
     } LcmRequestStatus;
 
+    typedef struct
+    {
+        int ueSockId;
+        int amsSockId;
+        std::string amsUri;
+    } AmsSubscription;
+
+    typedef struct
+    {
+        std::string bufferedData;
+        HttpBaseMessage* httpMessage;
+        omnetpp::cQueue completedMessageQueue; // for broken notification
+
+    } HttpMessageManager;
+
     bool scheduledSubscription;
     IMecOrchestrator *mecOrchestrator_; // reference to the MecOrchestrator used to get AppList
     bool isMEOApp;
 
     unsigned int requestSno;    // counter to keep trace of the requests
     std::map<unsigned int, LcmRequestStatus> pendingRequests;
+
+
+    // AMS related variables
+    // The UALCMPApp class manages directly the socket related to AMS interactions
+    // all the other pass through the socketManager
+    std::string subscriptionUri_;
+
+    // The UALCMP might be subscribed to different AMS within the MEC system
+    inet::SocketMap amsSocketMap;
+
+    cMessage *processSubscriptionMessage;
+
+    // Pending subscriptions
+    std::queue<AmsSubscription*> pendingSubscriptions_;
+
+    // struct used to manage http messages
+    // received by multiple ams
+    std::map<int, HttpMessageManager*> httpmanager_;
+    HttpBaseMessage* amsHttpCompleteMessage;
+
+    // Map used to identify subscription to delete after deleting the context
+    std::map<std::string, AmsSubscription*> amsSubscriptions_;
 
   public:
     UALCMPApp();
@@ -96,6 +133,32 @@ class UALCMPApp: public MecServiceBase
      *
      */
     CreateContextAppMessage* parseContextCreateRequest(const nlohmann::json&);
+
+    // AMS Related socket management
+    /*
+     * This method is used for MEC assisted user context transfer
+     * - Connection to the AMS
+     * - it returns the socket id
+     */
+    int openAmsConnection(inet::L3Address amsAddress, int amsPort);
+
+    /*
+     * Check if AMS socket already exists
+     * It returns the socket id if it exists, otherwise -1
+     */
+    int checkAmsSocket(inet::L3Address amsAddress, int amsPort);
+
+    /*
+     * Established connection with the AMS
+     */
+    virtual void socketEstablished(inet::TcpSocket *socket) override;
+
+    /*
+     * Data received from AMS
+     */
+    virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent) override;
+
+
 
     virtual ~UALCMPApp();
 

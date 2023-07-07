@@ -40,6 +40,11 @@
 #include "nodes/mec/UALCMP/UALCMPMessages/UALCMPMessages_m.h"
 #include "nodes/mec/UALCMP/UALCMPMessages/UALCMPMessages_types.h"
 
+// Notifications
+#include "resources/AddressChangeNotification.h"
+#include "nodes/mec/MECPlatform/MECServices/packets/HttpResponseMessage/HttpResponseMessage.h"
+
+
 Define_Module(UALCMPApp);
 
 UALCMPApp::UALCMPApp()
@@ -49,10 +54,13 @@ UALCMPApp::UALCMPApp()
     supportedQueryParams_.insert("app_list");
     supportedQueryParams_.insert("app_contexts");
     scheduledSubscription = false;
+    subscriptionUri_ = "/example/amsi/v1/subscriptions/";
     mecOrchestrator_ = nullptr;
     requestSno = 0;
     subscriptionId_ = 0;
     subscriptions_.clear();
+    amsHttpCompleteMessage = nullptr;
+    httpmanager_.clear();
 }
 
 void UALCMPApp::initialize(int stage)
@@ -77,6 +85,7 @@ void UALCMPApp::initialize(int stage)
         responseTimeSignal_ = registerSignal("responseTime");
         binder_ = getBinder();
         isMEOApp = getAncestorPar("isMEOapp").boolValue();
+        processSubscriptionMessage = new cMessage("processSubscription");
     }
 
     else if (stage == inet::INITSTAGE_APPLICATION_LAYER) {
@@ -135,10 +144,77 @@ void UALCMPApp::handleMessageWhenUp(cMessage *msg)
     }
     else
     {
-        MecServiceBase::handleMessageWhenUp(msg);
+        if(!msg->isSelfMessage())
+        {
+            inet::TcpSocket *socket = check_and_cast_nullable<inet::TcpSocket *>(amsSocketMap.findSocketFor(msg));
+            if (socket)
+            {
+                socket->processMessage(msg);
+                return;
+            }
 
+        }
+        else if(msg->isSelfMessage() && strcmp(msg->getName(), "processSubscription") == 0)
+        {
+
+            AmsSubscription *sub = pendingSubscriptions_.front();
+            inet::TcpSocket* amsSock = check_and_cast<inet::TcpSocket*>(amsSocketMap.getSocketById(sub->amsSockId));
+            double delay = uniform(0.001, 0.004);
+            if(amsSock->getState() == inet::TcpSocket::CONNECTED)
+            {
+                std::string host = amsSock->getRemoteAddress().str() + ":" +std::to_string(amsSock->getRemotePort());
+                std::string webHook ="/amsWebHook_" + std::to_string(sub->ueSockId);
+                inet::TcpSocket* ueSock = check_and_cast<inet::TcpSocket*>(socketMap.getSocketById(sub->ueSockId));
+
+
+                nlohmann::ordered_json subscriptionBody_;
+                subscriptionBody_ = nlohmann::ordered_json();
+                subscriptionBody_["_links"]["self"]["href"] = "";
+                subscriptionBody_["callbackReference"] = amsSock->getLocalAddress().str() + ":" + std::to_string(amsSock->getLocalPort()) + webHook;
+                subscriptionBody_["requestTestNotification"] = false;
+                subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
+                subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
+                subscriptionBody_["filterCriteria"]["appInstanceId"] = "";
+                subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
+
+                nlohmann::ordered_json val_;
+                val_["type"] = "UE_IPv4_ADDRESS";
+                val_["value"] = ueSock->getRemoteAddress().str();
+                subscriptionBody_["filterCriteria"]["associateId"].push_back(val_);
+
+                subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_COMPLETED";
+                subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
+
+                EV << "UALCMP::subscribing for: " << subscriptionBody_ << endl;
+                // sending the subscription
+                Http::sendPostRequest(amsSock, subscriptionBody_.dump().c_str(), host.c_str(), subscriptionUri_.c_str());
+
+                // removing from the queue
+                pendingSubscriptions_.pop();
+                delay = 0;
+            }
+
+            if(!processSubscriptionMessage->isScheduled() && !pendingSubscriptions_.empty())
+            {
+                scheduleAt(simTime()+delay, processSubscriptionMessage);
+            }
+
+            return;
+
+        }
+
+        MecServiceBase::handleMessageWhenUp(msg);
     }
 }
+
+void UALCMPApp::socketEstablished(inet::TcpSocket *socket)
+{
+    EV << "UALCMP::AMS socket established" << endl;
+    // Creating an instance of the struct to manage ams related http message
+    HttpMessageManager *messageStruct = new HttpMessageManager();
+    httpmanager_[socket->getSocketId()] = messageStruct;
+}
+
 
 void UALCMPApp::handleCreateContextAppAckMessage(UALCMPMessage *msg)
 {
@@ -166,25 +242,47 @@ void UALCMPApp::handleCreateContextAppAckMessage(UALCMPMessage *msg)
     {
         if(ack->getSuccess())
         {
-            // Checking required services:
-            if(std::strcmp(ack->getAmsUri(), "") != 0)
-            {
-                // Subscribing to the AMS for this application
-                std::cout << "AMS Subscription required: " << ack->getAmsUri() << endl;
-            }
-
-
 
             jsonBody["contextId"] = std::to_string(ack->getContextId());
             jsonBody["appInfo"]["userAppInstanceInfo"]["appInstanceId"] = ack->getAppInstanceId();
             jsonBody["appInfo"]["userAppInstanceInfo"]["referenceURI"]  = ack->getAppInstanceUri(); // add the end point
-            std::cout << "Reference uri: " << ack->getAppInstanceUri();
+
 //            jsonBody["appInfo"]["userAppInstanceInfo"]["appLocation"]; // TODO not implemented yet
             std::stringstream uri;
             uri << baseUriQueries_<<"/app_contexts/"<< ack->getContextId();
             std::pair<std::string, std::string> locHeader("Location: ", uri.str());
             EV << "UALCMP::jsonbody response: " << jsonBody.dump() << "\nUALCMP dest: " << socket->getRemoteAddress() << endl;
             Http::send201Response(socket, jsonBody.dump().c_str(), locHeader);
+
+            // Checking required services:
+            if(std::strcmp(ack->getAmsUri(), "") != 0)
+            {
+                // Subscribing to the AMS for this application
+                EV << "UALCMP::AMS Subscription required: " << ack->getAmsUri() << endl;
+                char *uri = strdup(ack->getAmsUri());
+                // No error checking
+                inet::L3Address amsAddress = inet::L3AddressResolver().resolve(std::strtok(uri, ":"));
+                int amsPort = std::atoi(std::strtok(NULL, ":"));
+
+                int amsSockId = checkAmsSocket(amsAddress, amsPort);
+                if(amsSocketMap.size() == 0 || amsSockId == -1)
+                {
+                    std::cout << "Socket not opened with: " << amsAddress << " " << amsPort << endl;
+                    amsSockId = openAmsConnection(amsAddress, amsPort);
+                }
+                AmsSubscription *subscription = new AmsSubscription();
+                subscription->ueSockId = socket->getSocketId(); // This is useful to notify the correct UE
+                subscription->amsSockId = amsSockId;
+//                subscription->postBody = subscriptionBody_;
+
+                pendingSubscriptions_.push(subscription);
+
+                if(!processSubscriptionMessage->isScheduled() &&
+                        !pendingSubscriptions_.empty())
+                {
+                    scheduleAt(simTime(), processSubscriptionMessage);
+                }
+            }
 
         }
         else
@@ -222,7 +320,22 @@ void UALCMPApp::handleDeleteContextAppAckMessage(UALCMPMessage *msg)
     if(socket)
     {
         if(ack->getSuccess() == true)
+        {
             Http::send204Response(socket);
+
+            auto sub = amsSubscriptions_.find(socket->getRemoteAddress().str());
+            if(sub != amsSubscriptions_.end())
+            {
+                // Delete subscription from AMS
+                EV << "UALCMP::sending delete subscription to AMS" << endl;
+                inet::TcpSocket *amsSocket = check_and_cast<inet::TcpSocket *>(amsSocketMap.getSocketById(sub->second->amsSockId));
+                std::string host = amsSocket->getRemoteAddress().str() + ":" + std::to_string(amsSocket->getRemotePort());
+
+                Http::sendDeleteRequest(amsSocket, host.c_str(), sub->second->amsUri.c_str());
+                amsSubscriptions_.erase(sub);
+            }
+
+        }
         else
         {
             Http::ProblemDetailBase pd;
@@ -385,7 +498,7 @@ void UALCMPApp::handleDELETERequest(const HttpRequestMessage *currentRequestMess
     //    Accept: application/xml
     //    Host: example.com
 
-    EV << "LocationService::handleDELETERequest" << endl;
+    EV << "UALCMP::handleDELETERequest" << endl;
     // uri must be in form /example/dev_app/v1/app_context/contextId
     std::string uri = currentRequestMessageServed->getUri();
 
@@ -469,4 +582,158 @@ void UALCMPApp::finish()
 }
 
 UALCMPApp::~UALCMPApp(){
+    cancelAndDelete(processSubscriptionMessage);
+    while(!pendingSubscriptions_.empty()) {pendingSubscriptions_.pop();}
+
+    for(auto &it : httpmanager_)
+    {
+        while(!it.second->completedMessageQueue.isEmpty())
+            it.second->completedMessageQueue.pop();
+    }
+
+    httpmanager_.clear();
 }
+
+int UALCMPApp::openAmsConnection(inet::L3Address amsAddress, int amsPort)
+{
+    EV << "UALCMP::MEC App requires migration support - connecting to the AMS " << amsAddress.str() << " " << amsPort  << endl;
+    inet::TcpSocket *sock = new inet::TcpSocket();
+    sock->setOutputGate(gate("socketOut"));
+    sock->setCallback(this);
+//    sock->bind(localPort);
+
+    // we need a new connId if this is not the first connection
+    sock->renewSocket();
+
+    if (sock->getState() == inet::TcpSocket::CONNECTED) {
+        EV_ERROR << "Already connected to " << amsAddress.str() << " port=" << amsPort << endl;
+    }
+    else {
+        sock->connect(amsAddress, amsPort);
+        amsSocketMap.addSocket(sock);
+        return sock->getSocketId();
+    }
+
+    return -1;
+}
+
+void UALCMPApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent)
+{
+    EV << "UALCMP::socket data arrived" << endl;
+
+    std::vector<uint8_t> bytes =  packet->peekDataAsBytes()->getBytes();
+    std::string msg(bytes.begin(), bytes.end());
+
+    if(checkAmsSocket(socket->getRemoteAddress(), socket->getRemotePort()) != -1)
+    {
+        EV << "UALCMP::AMS valid socket" << endl;
+        auto messageManager = httpmanager_.find(socket->getSocketId());
+        if(messageManager == httpmanager_.end())
+        {
+            throw cRuntimeError("UALCMP::socketDataArrived - httpmessagemanager not found!");
+        }
+
+        bool res = Http::parseReceivedMsg(socket->getSocketId(), msg, messageManager->second->completedMessageQueue, &messageManager->second->bufferedData, &messageManager->second->httpMessage);
+        if(res)
+        {
+            while(!messageManager->second->completedMessageQueue.isEmpty())
+            {
+                amsHttpCompleteMessage = check_and_cast<HttpBaseMessage*>(messageManager->second->completedMessageQueue.pop());
+
+                if(amsHttpCompleteMessage->getType() == REQUEST)
+                {
+                    HttpRequestMessage *request = check_and_cast<HttpRequestMessage*>(amsHttpCompleteMessage);
+                    EV << "UALCMP::socketDataArrived - Received notification - payload: " << " " << amsHttpCompleteMessage->getBody() << endl;
+                    char * uri = strdup(request->getUri());
+
+                    EV << "UALCMP::received notification for: " << uri << endl;
+
+                    nlohmann::json jsonBody = nlohmann::json::parse(request->getBody());
+                    std::strtok(uri, "_");
+                    int ueSockId = std::atoi(std::strtok(NULL, "_"));
+
+                    inet::TcpSocket *ueSock = check_and_cast<inet::TcpSocket*>(socketMap.getSocketById(ueSockId));
+                    std::string host = ueSock->getRemoteAddress().str()+":"+std::to_string(ueSock->getRemotePort());
+                    std::string uristring = "/example/deviceApp/v1/notification/";
+
+                    if(jsonBody["notificationType"]=="MobilityProcedureNotification")
+                    {
+                        AddressChangeNotification *notification = new AddressChangeNotification();
+                        notification->setAppInstanceId(jsonBody["targetAppInfo"]["appInstanceId"]);
+
+                        // TODO How do we get the context id?
+                        notification->setContextId("");
+//
+//                        // so far only one interface is supported
+                        nlohmann::json interfaces = nlohmann::json::array();
+                        interfaces = jsonBody["targetAppInfo"]["commInterface"]["ipAddresses"];
+                        int port = interfaces.at(1)["port"];
+                        std::string referenceUri = std::string(interfaces.at(1)["host"]) + ":" + std::to_string(port);
+                        notification->setReferenceUri(referenceUri);
+//
+                        // sending notification to DeviceApp
+                        Http::sendPostRequest(ueSock, notification->toJson().dump().c_str(), host.c_str(), uristring.c_str());
+
+                    }
+
+
+                }else if(amsHttpCompleteMessage->getType() == RESPONSE){
+                   EV << "UALCMP::socketDataArrived - Received response - payload: " << " " << amsHttpCompleteMessage->getBody() << endl;
+                   HttpResponseMessage* amsResponse = check_and_cast<HttpResponseMessage*>(amsHttpCompleteMessage);
+                   // TODO CODE CHECKING
+                   if(amsResponse->getCode() == 201)
+                   {
+                        nlohmann::json jsonBody = nlohmann::json::parse(amsHttpCompleteMessage->getBody());
+                        std::string ueAddress = jsonBody["filterCriteria"]["associateId"][0]["value"];
+                        std::string subUri = jsonBody["_links"]["self"]["href"];
+                        AmsSubscription *sub = new AmsSubscription();
+                        sub->amsSockId = socket->getSocketId();
+                        sub->amsUri = subUri;
+                        EV << "UALCMP::AMS subscription for MEC App requested by " << ueAddress << " completed - " << subUri << " -";
+
+                        // keeping track of the subscriptions
+                        amsSubscriptions_.insert({ueAddress, sub});
+                   }
+                   else if(amsResponse->getCode() == 204)
+                   {
+                       // Delete response
+                       EV << "UALCMP::Ams - ue subscription deleted" << endl;
+
+                   }
+                   else
+                   {
+                       EV_ERROR << "UALCMP::Unexpected Error Code: " << amsResponse->getCode() << endl;
+                   }
+
+                }
+
+            }
+
+        }
+    }
+    else
+    {
+        delete packet;
+        throw cRuntimeError("UALCMP::socketDataArrived - Socket %d not recognized", socket->getSocketId());
+    }
+
+    delete packet;
+    return;
+
+}
+
+
+int UALCMPApp::checkAmsSocket(inet::L3Address amsAddress, int amsPort)
+{
+    for(auto it : amsSocketMap.getMap())
+    {
+
+        inet::TcpSocket *sock = check_and_cast<inet::TcpSocket *>(it.second);
+        if(sock->getRemoteAddress() == amsAddress && sock->getRemotePort() == amsPort)
+        {
+            return sock->getSocketId();
+        }
+    }
+    return -1;
+}
+

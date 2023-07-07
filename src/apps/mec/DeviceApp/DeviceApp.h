@@ -56,7 +56,9 @@ class DeviceApp : public omnetpp::cSimpleModule, public inet::TcpSocket::ICallba
         int  UALCMPPort;
 
         HttpBaseMessage* UALCMPMessage;
+        HttpBaseMessage* UALCMPHttpCompleteMessage;
         std::string UALCMPMessageBuffer;
+        omnetpp::cQueue completedMessageQueue; // for broken notification
 
         omnetpp::cMessage* processedUALCMPMessage;
 

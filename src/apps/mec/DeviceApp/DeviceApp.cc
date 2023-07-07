@@ -276,6 +276,10 @@ void DeviceApp::handleUALCMPMessage()
     else
     {
         // TODO implement subscriptions
+        HttpRequestMessage *request = dynamic_cast<HttpRequestMessage*>(UALCMPMessage);
+
+        EV << "DeviceApp::Received this notification: " << request->getBody() << endl;
+
         return;
     }
 

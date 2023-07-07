@@ -156,7 +156,6 @@ void DUEWarningAlertApp::handleMessage(cMessage *msg)
             subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
             subscriptionBody_["filterCriteria"]["appInstanceId"] = "";
             subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
-
             nlohmann::ordered_json val_;
             val_["type"] = "UE_IPv4_ADDRESS";
             val_["value"] = deviceAppAddress_.str();
@@ -490,7 +489,6 @@ void DUEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet
                     EV << "DUEWarningAlertApp::socketDataArrived - Received notification - payload: " << " " << amsHttpCompleteMessage->getBody() << endl;
                     HttpRequestMessage* amsNot = check_and_cast<HttpRequestMessage*>(amsHttpCompleteMessage);
                     nlohmann::json jsonBody = nlohmann::json::parse(amsNot->getBody());
-                    std::cout << "UE received notification " << jsonBody.dump() << endl;
                     if(!jsonBody.empty())
                     {
                         nlohmann::json interfaces = nlohmann::json::array();

@@ -129,6 +129,7 @@ void ExtMECWarningAlertApp::handleSelfMessage(cMessage *msg)
        for(auto service : servicesData_)
        {
            EV << "ExtMECWarningAlertApp::handleMessage- " << msg->getName() << endl;
+           std::cout << "MySelf: " << getParentModule()->getClassAndFullName() << endl;
            if(!service->host.addr.isUnspecified())
            {
                inet::TcpSocket *serviceSocket  = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(service->sockid));
