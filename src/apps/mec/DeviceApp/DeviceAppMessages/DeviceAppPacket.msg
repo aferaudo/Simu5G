@@ -58,6 +58,14 @@ class DeviceAppStopAckPacket extends DeviceAppPacket
     string reason;
 }
 
+class DeviceAppNotificationPacket extends DeviceAppPacket
+{
+    // So far only AdddressChangeNotification are supported
+    string notificationType;
+	string ipAdddress;
+	int port;
+}
+
 
 
 

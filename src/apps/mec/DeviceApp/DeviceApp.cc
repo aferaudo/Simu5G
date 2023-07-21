@@ -279,10 +279,32 @@ void DeviceApp::handleUALCMPMessage()
     }
     else
     {
-        // TODO implement subscriptions
+        // Subscriptions management
         HttpRequestMessage *request = dynamic_cast<HttpRequestMessage*>(UALCMPMessage);
 
-        EV << "DeviceApp::Received this notification: " << request->getBody() << endl;
+        EV << "DeviceApp::Received notification" << endl;
+        nlohmann::json jsonBody = nlohmann::json::parse(request->getBody());
+        if(jsonBody["notificationType"] == "AddressChangeNotification")
+        {
+            EV << "DeviceApp::Received Address Change Notification" << endl;
+            inet::Packet* packet = new inet::Packet("DeviceNotificationPacket");
+            auto notification = inet::makeShared<DeviceAppNotificationPacket>();
+            //instantiation requirements and info
+            notification->setType(INFO_MECAPP);
+            char * referenceUri = strdup(std::string(jsonBody["referenceURI"]).c_str());
+
+            std::string newAddress = std::strtok(referenceUri, ":");
+            int newPort = std::atoi(std::strtok(NULL, ":"));
+            notification->setNotificationType("AddressChangeNotification");
+            notification->setIpAdddress(newAddress.c_str());
+            notification->setPort(newPort);
+            notification->addTagIfAbsent<inet::CreationTimeTag>()->setCreationTime(simTime());
+            notification->setChunkLength(inet::B(32));
+
+            packet->insertAtBack(notification);
+
+            ueAppSocket_.sendTo(packet, ueAppAddress, ueAppPort);
+        }
 
         return;
     }

@@ -195,6 +195,8 @@ void DUEWarningAlertApp::handleMessage(cMessage *msg)
 
             else if(!strcmp(mePkt->getType(), ACK_STOP_MECAPP))  handleAckStopMEWarningAlertApp(msg);
 
+            else if(!strcmp(mePkt->getType(), INFO_MECAPP))      handleMEAppInfo(msg);
+
             else
             {
                 throw cRuntimeError("DUEWarningAlertApp::handleMessage - \tFATAL! Error, DeviceAppPacket type %s not recognized", mePkt->getType());
@@ -430,6 +432,20 @@ void DUEWarningAlertApp::handleAckStopMEWarningAlertApp(cMessage* msg)
 //    deallocatePingApp();
 }
 
+void DUEWarningAlertApp::handleMEAppInfo(cMessage *msg)
+{
+    inet::Packet* packet = check_and_cast<inet::Packet*>(msg);
+    auto pkt = packet->peekAtFront<DeviceAppNotificationPacket>();
+
+    if(strcmp(pkt->getNotificationType(), "AddressChangeNotification") == 0)
+    {
+        EV << "DUEWarningAlertApp::received new address " << pkt->getIpAdddress() << ":" << pkt->getPort() << endl;
+        mecAppAddress_ = inet::L3AddressResolver().resolve(pkt->getIpAdddress());
+        mecAppPort_ = pkt->getPort();
+        EV << "DUEWarningAlertApp::mecapp location updated!" << endl;
+    }
+}
+
 /*
  * ---------------------------------------------TCP Callback Implementation------------------------------------------
  */
@@ -497,7 +513,7 @@ void DUEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet
                         mecAppPort_ = interfaces.at(1)["port"];
     //                    deallocatePingApp();
     //                    allocatePingApp(mecAppAddress_, true);
-                        EV << "DUEWarningAlertApp::received new mecapp address: " <<  mecAppAddress_.str() << ":" << mecAppPort_ << endl;
+                        EV << "DUEWarningAlertApp::received new mecapp address AMS: " <<  mecAppAddress_.str() << ":" << mecAppPort_ << endl;
                     }
                 }else if(amsHttpCompleteMessage->getType() == RESPONSE){
                     EV << "DUEWarningAlertApp::socketDataArrived - Received response - payload: " << " " << amsHttpCompleteMessage->getBody() << endl;
@@ -583,3 +599,5 @@ void DUEWarningAlertApp::deallocatePingApp(){
     pingAppModule->callFinish();
     pingAppModule->deleteModule();
 }
+
+

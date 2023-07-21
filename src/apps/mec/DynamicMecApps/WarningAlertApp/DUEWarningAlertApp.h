@@ -123,6 +123,7 @@ class DUEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallbac
         void handleAckStartMEWarningAlertApp(cMessage* msg);
         void handleInfoMEWarningAlertApp(cMessage* msg);
         void handleAckStopMEWarningAlertApp(cMessage* msg);
+        void handleMEAppInfo(cMessage *msg);
 
 
         void connect(inet::TcpSocket* socket, const inet::L3Address& address, const int port);
