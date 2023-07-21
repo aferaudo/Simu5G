@@ -22,6 +22,8 @@ class GeneralMessage extends inet::FieldsChunk
 
 class MeoVimRequest extends GeneralMessage 
 {
+    inet::L3Address dstAddress;
+    int dstPort;
     string deviceAppId;
     double ram;
     double disk;
@@ -30,6 +32,8 @@ class MeoVimRequest extends GeneralMessage
 
 class MeoMepmRequest extends GeneralMessage
 {
+    inet::L3Address dstAddress;
+    int dstPort;
     string requiredServiceNames[];
 }
 

@@ -364,10 +364,10 @@ void MecOrchestratorApp::handleResourceReply(inet::Packet *packet)
 
             // Building packets
             // mm3
-            inet::Packet* pktMM3 = makeAvailableServiceRequestPacket(contAppMsg->getDevAppId(), appDesc);
+            inet::Packet* pktMM3 = makeAvailableServiceRequestPacket(bestHost->mepmHostIp, bestHost->mepmPort, contAppMsg->getDevAppId(), appDesc);
 
             // mm4
-            inet::Packet* pktMM4 = makeResourceRequestPacket(contAppMsg->getDevAppId(), appDesc.getVirtualResources().cpu, appDesc.getVirtualResources().ram, appDesc.getVirtualResources().disk);
+            inet::Packet* pktMM4 = makeResourceRequestPacket(bestHost->vimHostIp, bestHost->vimPort,  contAppMsg->getDevAppId(), appDesc.getVirtualResources().cpu, appDesc.getVirtualResources().ram, appDesc.getVirtualResources().disk);
             ResourceRequest *r = new ResourceRequest();
             r->pktMM3 = pktMM3;
             r->pktMM4 = pktMM4;
@@ -604,13 +604,6 @@ void MecOrchestratorApp::findBestMecHost(std::string deviceAppId, const Applicat
 {
     EV << "MEOApp::findBestMecHost - finding best MecHost..." << endl;
 
-    // Preparing the packet to send
-    // mm3
-    inet::Packet* pktMM3 = makeAvailableServiceRequestPacket(deviceAppId, appDesc);
-
-    // mm4
-    inet::Packet* pktMM4 = makeResourceRequestPacket(deviceAppId, appDesc.getVirtualResources().cpu, appDesc.getVirtualResources().ram, appDesc.getVirtualResources().disk);
-
 
     std::string key = deviceAppId;
     for(auto &it : mecHosts)
@@ -623,6 +616,13 @@ void MecOrchestratorApp::findBestMecHost(std::string deviceAppId, const Applicat
             responseEntry = new MECHostResponseEntry;
             responseEntry->mecHostID = it->mecHostId;
             ResourceRequest *r = new ResourceRequest();
+            // mm3
+            inet::Packet* pktMM3 = makeAvailableServiceRequestPacket(it->mepmHostIp, it->mepmPort, deviceAppId, appDesc);
+
+            // mm4
+            inet::Packet* pktMM4 = makeResourceRequestPacket(it->vimHostIp, it->vimPort, deviceAppId, appDesc.getVirtualResources().cpu, appDesc.getVirtualResources().ram, appDesc.getVirtualResources().disk);
+
+
             r->pktMM3 = pktMM3;
             r->pktMM4 = pktMM4;
             r->vimHostAddress = it->vimHostIp;
@@ -691,10 +691,11 @@ void MecOrchestratorApp::sendSRRequest()
     EV << "MEOApp::Sending requests to " << r->mepmHostAddress.str() << " and " << r->vimHostAddress.str() <<endl;
 
     // Requesting to vim if MECApp is allocable
-    socket.sendTo(r->pktMM4->dup(), r->vimHostAddress, r->vimPort);
+    socket.sendTo(r->pktMM4, r->vimHostAddress, r->vimPort);
 
     // Requesting to MEPM if the MECPlatform has the needed services
-    socket.sendTo(r->pktMM3->dup(), r->mepmHostAddress, r->mepmPort);
+    socket.sendTo(r->pktMM3, r->mepmHostAddress, r->mepmPort);
+
 
 //    return simTime().dbl();
 }
@@ -761,7 +762,7 @@ void MecOrchestratorApp::sendDeleteAppContextAck(bool result, unsigned int reque
     send(ack, "toUALCMP");
 }
 
-inet::Packet* MecOrchestratorApp::makeResourceRequestPacket(std::string deviceAppId, double cpu, double ram, double disk)
+inet::Packet* MecOrchestratorApp::makeResourceRequestPacket(inet::L3Address dstAddress, int dstPort, std::string deviceAppId, double cpu, double ram, double disk)
 {
     inet::Packet* pktMM4 = new inet::Packet("ResourceRequest");
     auto resourcePkt = inet::makeShared<MeoVimRequest>();
@@ -769,13 +770,15 @@ inet::Packet* MecOrchestratorApp::makeResourceRequestPacket(std::string deviceAp
     resourcePkt->setCpu(cpu);
     resourcePkt->setRam(ram);
     resourcePkt->setDisk(disk);
+    resourcePkt->setDstAddress(dstAddress);
+    resourcePkt->setDstPort(dstPort);
     resourcePkt->setChunkLength(inet::B(2000));
     pktMM4->insertAtBack(resourcePkt);
 
     return pktMM4;
 }
 
-inet::Packet* MecOrchestratorApp::makeAvailableServiceRequestPacket(std::string deviceAppId, const ApplicationDescriptor& appDesc)
+inet::Packet* MecOrchestratorApp::makeAvailableServiceRequestPacket(inet::L3Address dstAddress, int dstPort, std::string deviceAppId, const ApplicationDescriptor& appDesc)
 {
     inet::Packet* pktMM3 = new inet::Packet("ServiceRequest");
     std::vector<std::string> requiredServiceNames = appDesc.getAppServicesRequired();
@@ -784,7 +787,6 @@ inet::Packet* MecOrchestratorApp::makeAvailableServiceRequestPacket(std::string 
 
     auto servicePkt = inet::makeShared<MeoMepmRequest>();
     servicePkt->setDeviceAppId(deviceAppId.c_str());
-    servicePkt->setChunkLength(inet::B(2000));
     servicePkt->setRequiredServiceNamesArraySize(requiredServiceNames.size());
     // the index is needed to populate the other packet array
     // so we use the old fashioned way
@@ -792,6 +794,9 @@ inet::Packet* MecOrchestratorApp::makeAvailableServiceRequestPacket(std::string 
     {
         servicePkt->setRequiredServiceNames(i, requiredServiceNames[i].c_str());
     }
+    servicePkt->setDstAddress(dstAddress);
+    servicePkt->setDstPort(dstPort);
+    servicePkt->setChunkLength(inet::B(2000));
     pktMM3->insertAtBack(servicePkt);
 
     return pktMM3;

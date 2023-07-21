@@ -234,8 +234,8 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
     // utility methods
     void printAvailableMECHosts();
     void printAvailableAppDescs();
-    inet::Packet* makeResourceRequestPacket(std::string deviceAppId, double cpu, double ram, double disk);
-    inet::Packet* makeAvailableServiceRequestPacket(std::string deviceAppId, const ApplicationDescriptor& appDesc);
+    inet::Packet* makeResourceRequestPacket(inet::L3Address dstAddress, int dstPort, std::string deviceAppId, double cpu, double ram, double disk);
+    inet::Packet* makeAvailableServiceRequestPacket(inet::L3Address dstAddress, int dstPort, std::string deviceAppId, const ApplicationDescriptor& appDesc);
     void handleUALCMPMessage(cMessage* msg);
     void handleCreateContextMessage(CreateContextAppMessage* contAppMsg);
 

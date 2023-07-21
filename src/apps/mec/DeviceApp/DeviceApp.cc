@@ -40,6 +40,10 @@ DeviceApp::DeviceApp()
 DeviceApp::~DeviceApp()
 {
     cancelAndDelete(processedUALCMPMessage);
+    while(!completedMessageQueue.isEmpty())
+    {
+        completedMessageQueue.pop();
+    }
 }
 
 
@@ -293,7 +297,15 @@ void DeviceApp::handleSelfMessage(cMessage *msg){
     }
     else if(strcmp(msg->getName(), "processedUALCMPMessage") == 0)
     {
+        UALCMPMessage = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
+        UALCMPMessage->setSockId(UALCMPSocket_.getSocketId());
+
         handleUALCMPMessage();
+        if(!completedMessageQueue.isEmpty() && !processedUALCMPMessage->isScheduled())
+        {
+            double time = 0.005;
+            scheduleAt(simTime()+time, processedUALCMPMessage);
+        }
         if(UALCMPMessage != nullptr)
             delete UALCMPMessage;
         UALCMPMessage = nullptr;
@@ -533,14 +545,17 @@ void DeviceApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bo
 
     delete msg;
 //    EV << packet << endl;
-
-    bool res = Http::parseReceivedMsg(packet, &UALCMPMessageBuffer, &UALCMPMessage);
+    bool res = Http::parseReceivedMsg(socket->getSocketId(), packet, completedMessageQueue, &UALCMPMessageBuffer, &UALCMPMessage);
     if(res)
     {
         EV << "DeviceApp::socketDataArrived - schedule processedUALCMPMessage" << endl;
-        UALCMPMessage->setSockId(UALCMPSocket_.getSocketId());
-        double time = 0.005;
-        scheduleAt(simTime()+time, processedUALCMPMessage);
+//        UALCMPMessage->setSockId(UALCMPSocket_.getSocketId());
+
+        if(!processedUALCMPMessage->isScheduled())
+        {
+            double time = 0.005;
+            scheduleAt(simTime()+time, processedUALCMPMessage);
+        }
     }
 }
 void DeviceApp::socketEstablished(inet::TcpSocket *socket)
