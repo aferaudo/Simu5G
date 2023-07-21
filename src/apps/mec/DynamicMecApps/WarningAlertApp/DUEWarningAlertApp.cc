@@ -37,16 +37,12 @@ simsignal_t DUEWarningAlertApp::logicTerminated_ = registerSignal("logicTerminat
 DUEWarningAlertApp::DUEWarningAlertApp(){
     selfStart_ = NULL;
     selfStop_ = NULL;
-    amsHttpMessage = nullptr;
-    amsHttpCompleteMessage = nullptr;
 }
 
 DUEWarningAlertApp::~DUEWarningAlertApp(){
     cancelAndDelete(selfStart_);
     cancelAndDelete(selfStop_);
     cancelAndDelete(selfMecAppStart_);
-    cancelAndDelete(connectAmsMessage_);
-    cancelAndDelete(subAmsMessage_);
 }
 
 void DUEWarningAlertApp::initialize(int stage)
@@ -68,10 +64,6 @@ void DUEWarningAlertApp::initialize(int stage)
     deviceSimbolicAppAddress_ = (char*)par("deviceAppAddress").stringValue();
     deviceAppAddress_ = inet::L3AddressResolver().resolve(deviceSimbolicAppAddress_);
 
-    // AMS parameters
-    amsAddress = inet::L3AddressResolver().resolve(par("amsAddress").stringValue());
-    amsPort = par("amsPort").intValue();
-
     // testing Core delays
     coreAddress = inet::L3AddressResolver().resolve(par("coreAddress").stringValue());
     coreTesting_ = par("coreTesting").boolValue();
@@ -79,10 +71,6 @@ void DUEWarningAlertApp::initialize(int stage)
     //binding socket
     socket.setOutputGate(gate("socketOut"));
     socket.bind(localPort_);
-    amsSocket.setCallback(this);
-    amsSocket.setOutputGate(gate("socketOut"));
-
-    webHook ="/amsWebHook_" + std::to_string(getId());
 
     int tos = par("tos");
     if (tos != -1)
@@ -107,14 +95,12 @@ void DUEWarningAlertApp::initialize(int stage)
     selfStart_ = new cMessage("selfStart");
     selfStop_ = new cMessage("selfStop");
     selfMecAppStart_ = new cMessage("selfMecAppStart");
-    subAmsMessage_ = new cMessage("subscribeAms");
-    connectAmsMessage_ = new cMessage("connectAms");
+
 
     //starting DUEWarningAlertApp
     simtime_t startTime = par("startTime");
     EV << "DUEWarningAlertApp::initialize - starting sendStartMEWarningAlertApp() in " << startTime << " seconds " << endl;
     scheduleAt(simTime() + startTime, selfStart_);
-    scheduleAt(simTime() + startTime + 0.01, connectAmsMessage_);
 
     //testing
     EV << "DUEWarningAlertApp::initialize - sourceAddress: " << sourceSimbolicAddress << " [" << inet::L3AddressResolver().resolve(sourceSimbolicAddress).str()  <<"]"<< endl;
@@ -141,33 +127,6 @@ void DUEWarningAlertApp::handleMessage(cMessage *msg)
         {
             sendMessageToMECApp();
             scheduleAt(simTime() + period_, selfMecAppStart_);
-        }
-
-        else if(!strcmp(msg->getName(), "connectAms")){
-            connect(&amsSocket, amsAddress, amsPort);
-        }
-        else if(!strcmp(msg->getName(), "subscribeAms")){
-            nlohmann::ordered_json subscriptionBody_;
-            subscriptionBody_ = nlohmann::ordered_json();
-            subscriptionBody_["_links"]["self"]["href"] = "";
-            subscriptionBody_["callbackReference"] = deviceAppAddress_.str() + ":" + std::to_string(localPort_) + webHook;
-            subscriptionBody_["requestTestNotification"] = false;
-            subscriptionBody_["websockNotifConfig"]["websocketUri"] = "";
-            subscriptionBody_["websockNotifConfig"]["requestWebsocketUri"] = false;
-            subscriptionBody_["filterCriteria"]["appInstanceId"] = "";
-            subscriptionBody_["filterCriteria"]["associateId"] = nlohmann::json::array();
-            nlohmann::ordered_json val_;
-            val_["type"] = "UE_IPv4_ADDRESS";
-            val_["value"] = deviceAppAddress_.str();
-            subscriptionBody_["filterCriteria"]["associateId"].push_back(val_);
-
-            subscriptionBody_["filterCriteria"]["mobilityStatus"] = "INTERHOST_MOVEOUT_COMPLETED";
-            subscriptionBody_["subscriptionType"] = "MobilityProcedureSubscription";
-            EV << subscriptionBody_ << endl;
-
-            std::string host = amsSocket.getRemoteAddress().str()+":"+std::to_string(amsSocket.getRemotePort());
-            std::string uristring = "/example/amsi/v1/subscriptions/";
-            Http::sendPostRequest(&amsSocket, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
         }
 
         else    throw cRuntimeError("DUEWarningAlertApp::handleMessage - \tWARNING: Unrecognized self message");
@@ -230,16 +189,11 @@ void DUEWarningAlertApp::handleMessage(cMessage *msg)
         }
         delete msg;
     }
-    else if(amsSocket.belongsToSocket(msg))
-    {
-        amsSocket.processMessage(msg);
-    }
 }
 
 void DUEWarningAlertApp::finish()
 {
-    if(amsSocket.getState() == inet::TcpSocket::CONNECTED)
-        amsSocket.close();
+
 }
 /*
  * -----------------------------------------------Sender Side------------------------------------------
@@ -446,116 +400,11 @@ void DUEWarningAlertApp::handleMEAppInfo(cMessage *msg)
     }
 }
 
-/*
- * ---------------------------------------------TCP Callback Implementation------------------------------------------
- */
-
-void DUEWarningAlertApp::connect(inet::TcpSocket* socket, const inet::L3Address& address, const int port)
-{
-    // we need a new connId if this is not the first connection
-    socket->renewSocket();
-
-    int timeToLive = par("timeToLive");
-    if (timeToLive != -1)
-        socket->setTimeToLive(timeToLive);
-
-    int dscp = par("dscp");
-    if (dscp != -1)
-        socket->setDscp(dscp);
-
-    int tos = par("tos");
-    if (tos != -1)
-        socket->setTos(tos);
-
-    if (address.isUnspecified()) {
-        EV_ERROR << "Connecting to " << address << " port=" << port << ": cannot resolve destination address\n";
-    }
-    else {
-        EV_INFO << "Connecting to " << address << " port=" << port << endl;
-
-        socket->connect(address, port);
-    }
-}
-
-void DUEWarningAlertApp::socketEstablished(TcpSocket * socket)
-{
-    EV << "DUEWarningAlertApp::socketEstablished " << socket->getSocketId() << endl;
-
-    scheduleAt(simTime() + 0.01, subAmsMessage_);
-}
-
-void DUEWarningAlertApp::socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool)
-{
-    EV << "DUEWarningAlertApp::socketDataArrived" << endl;
-
-
-    std::vector<uint8_t> bytes =  msg->peekDataAsBytes()->getBytes();
-    std::string packet(bytes.begin(), bytes.end());
-
-    if(amsSocket.belongsToSocket(msg))
-    {
-        bool res = Http::parseReceivedMsg(amsSocket.getSocketId(), packet, completedMessageQueue, &bufferedData, &amsHttpMessage);
-
-        if(res)
-        {
-            while(!completedMessageQueue.isEmpty())
-            {
-                amsHttpCompleteMessage = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
-                if(amsHttpCompleteMessage->getType() == REQUEST){
-                    EV << "DUEWarningAlertApp::socketDataArrived - Received notification - payload: " << " " << amsHttpCompleteMessage->getBody() << endl;
-                    HttpRequestMessage* amsNot = check_and_cast<HttpRequestMessage*>(amsHttpCompleteMessage);
-                    nlohmann::json jsonBody = nlohmann::json::parse(amsNot->getBody());
-                    if(!jsonBody.empty())
-                    {
-                        nlohmann::json interfaces = nlohmann::json::array();
-                        interfaces = jsonBody["targetAppInfo"]["commInterface"]["ipAddresses"];
-                        mecAppAddress_ = L3AddressResolver().resolve(std::string(interfaces.at(1)["host"]).c_str()); // take first interface
-                        mecAppPort_ = interfaces.at(1)["port"];
-    //                    deallocatePingApp();
-    //                    allocatePingApp(mecAppAddress_, true);
-                        EV << "DUEWarningAlertApp::received new mecapp address AMS: " <<  mecAppAddress_.str() << ":" << mecAppPort_ << endl;
-                    }
-                }else if(amsHttpCompleteMessage->getType() == RESPONSE){
-                    EV << "DUEWarningAlertApp::socketDataArrived - Received response - payload: " << " " << amsHttpCompleteMessage->getBody() << endl;
-
-                    HttpResponseMessage* amsResponse = check_and_cast<HttpResponseMessage*>(amsHttpCompleteMessage);
-                    nlohmann::json jsonBody = nlohmann::json::parse(amsResponse->getBody());
-                    if(!jsonBody.empty()){
-                        if(jsonBody.contains("callbackReference")){
-                            std::stringstream stream;
-                            stream << "sub" << jsonBody["subscriptionId"];
-                            amsSubscriptionId = stream.str();
-                            EV << "DUEWarningAlertApp::socketDataArrived - subscription ID: " << amsSubscriptionId << endl;
-                        }
-                    }
-
-                }
-            }
-        }
-    }
-    else{
-        throw cRuntimeError("DUEWarningAlertApp::socketDataArrived - Socket %d not recognized", socket->getSocketId());
-    }
-
-    delete msg;
-}
-
-void DUEWarningAlertApp::socketPeerClosed(TcpSocket *socket_)
-{
-    EV << "DUEWarningAlertApp::socketPeerClosed" << endl;
-    socket_->close();
-}
-
-void DUEWarningAlertApp::socketClosed(TcpSocket *socket)
-{
-    EV << "DUEWarningAlertApp::socketClosed" << endl;
-}
-
 
 //  PING APP TEST
 void DUEWarningAlertApp::allocatePingApp(inet::L3Address mecAppAddress, bool pingMigrated, bool pingCore){
 //    MECWarningAlertApp simu5g.apps.mec.WarningAlert.MECWarningAlertApp
-    char* label;
+    std::string label;
 
     if(pingCore)
     {
@@ -568,9 +417,9 @@ void DUEWarningAlertApp::allocatePingApp(inet::L3Address mecAppAddress, bool pin
     }
 
 
-    char* meModuleName = "PingApp";
+    std::string meModuleName = "PingApp";
     cModuleType* moduleType = cModuleType::get("inet.applications.pingapp.PingApp");
-    pingAppModule = moduleType->create(meModuleName, getParentModule());
+    pingAppModule = moduleType->create(meModuleName.c_str(), getParentModule());
     std::stringstream appName;
     appName << meModuleName << "["<< label << "]";
     pingAppModule->setName(appName.str().c_str());

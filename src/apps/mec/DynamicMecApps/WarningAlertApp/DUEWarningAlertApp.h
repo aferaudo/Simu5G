@@ -49,12 +49,11 @@ using namespace omnetpp;
  * 4) send delete MEC app to the Device App
  */
 
-class DUEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallback
+class DUEWarningAlertApp: public cSimpleModule
 {
 
     //communication to device app and mec app
     inet::UdpSocket socket;
-    inet::TcpSocket amsSocket;
     omnetpp::cQueue completedMessageQueue; // for broken notification
 
     int size_;
@@ -81,20 +80,8 @@ class DUEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallbac
     cMessage *selfStart_;
     cMessage *selfStop_;
     cMessage *selfMecAppStart_;
-    cMessage * connectAmsMessage_;
-    cMessage * subAmsMessage_;
-
-    inet::L3Address amsAddress;
-    int amsPort;
 
     inet::L3Address coreAddress;
-
-    std::string amsSubscriptionId;
-    std::string webHook;
-
-    std::string bufferedData;
-    HttpBaseMessage* amsHttpMessage;
-    HttpBaseMessage* amsHttpCompleteMessage;
 
     cModule* pingAppModule;
 
@@ -126,16 +113,6 @@ class DUEWarningAlertApp: public cSimpleModule, public inet::TcpSocket::ICallbac
         void handleMEAppInfo(cMessage *msg);
 
 
-        void connect(inet::TcpSocket* socket, const inet::L3Address& address, const int port);
-        // Tcp callback
-        virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent) override;
-        virtual void socketAvailable(inet::TcpSocket *socket, inet::TcpAvailableInfo *availableInfo) override {};
-        virtual void socketEstablished(inet::TcpSocket *socket) override;
-        virtual void socketPeerClosed(inet::TcpSocket *socket) override;
-        virtual void socketClosed(inet::TcpSocket *socket) override;
-        virtual void socketFailure(inet::TcpSocket *socket, int code) override {}
-        virtual void socketStatusArrived(inet::TcpSocket *socket, inet::TcpStatusInfo *status) override {}
-        virtual void socketDeleted(inet::TcpSocket *socket) override {}
         virtual void allocatePingApp(inet::L3Address mecAppAddress, bool pingMigrated, bool pingCore = false);
         virtual void deallocatePingApp();
 };
