@@ -316,11 +316,12 @@ void MecPlatformManagerDyn::handleTerminationRequest(inet::Packet *packet)
 void MecPlatformManagerDyn::handleTerminationResponse(inet::Packet * packet)
 {
     auto data = packet->peekData<TerminationAppInstResponse>().get();
-    if(data->isMigrating())
-    {
-        EV << "MecPlatformManagerDyn::handleTerminationResponse - app of " << data->getDeviceAppId() << " migrated (nothing to do)" << endl;
 
-        auto it = links_.find(std::string(data->getAppInstanceId()));
+    EV << "MecPlatformManagerDyn::handleTerminationResponse - app of " << data->getDeviceAppId() << " migrated (nothing to do)" << endl;
+
+    auto it = links_.find(std::string(data->getAppInstanceId()));
+    if(it != links_.end())
+    {
         unsubscribeURI = it->second->getHref();
         EV << "MecPlatformManagerDyn::handleTerminationResponse unsub uri:  " << unsubscribeURI << endl;
 
@@ -328,13 +329,17 @@ void MecPlatformManagerDyn::handleTerminationResponse(inet::Packet * packet)
         unsubscribe();
         links_.erase(it);
 
-        // TODO add multiple unsubscription - COMPLETED
-
-        // Subscribing for new Apps
-        handleSubscription(std::string(data->getAppInstanceId()));
-        appState = SUB;
-        return;
+            // TODO add multiple unsubscription - COMPLETED
+        if(data->isMigrating())
+            {
+            // Subscribing for new Apps
+            handleSubscription(std::string(data->getAppInstanceId()));
+            appState = SUB;
+            return;
+        }
     }
+    else
+        EV << "MecPlatformManagerDyn::handleTerminationResponse app does not support AMS - no unsubscription required" << endl;
     inet::Packet* pktdup = new inet::Packet("terminationAppInstResponse");
     auto deleteAppResponse = inet::makeShared<TerminationAppInstResponse>();
     deleteAppResponse = data->dup();
