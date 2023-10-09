@@ -214,6 +214,7 @@ bool LteSchedulerEnbUl::racschedule(double carrierFrequency, BandLimitVector* ba
     // update available blocks
     unsigned int availableBlocks = numBands - racAllocatedBlocks;
 
+    EV << NOW << " LteSchedulerEnbUl::racschedule racAllocatedBlocks: " << racAllocatedBlocks << " availableBlocks after rac schedule: " << availableBlocks << endl;
     EV << NOW << " LteSchedulerEnbUl::racschedule --------------------::[  END RAC-SCHEDULE  ]::--------------------" << endl;
 
     return (availableBlocks==0);
@@ -1036,7 +1037,6 @@ LteSchedulerEnbUl::scheduleBgRtx(MacNodeId bgUeId, double carrierFrequency, Code
 
             // record the allocation
             unsigned int size = assignedBlocks.size();
-            unsigned int cwAllocatedBlocks =0;
             unsigned int allocatedBytes = 0;
             for(unsigned int i = 0; i < size; ++i)
             {
@@ -1046,7 +1046,6 @@ LteSchedulerEnbUl::scheduleBgRtx(MacNodeId bgUeId, double carrierFrequency, Code
                 Band b = bandLim->at(i).band_;
 
                 allocatedBytes += assignedBytes.at(i);
-                cwAllocatedBlocks +=assignedBlocks.at(i);
                 allocatedRbMapEntry[i] += assignedBlocks.at(i);
 
                 EV << "\t Cw->" << allocatedCw << "/" << MAX_CODEWORDS << endl;

@@ -33,9 +33,10 @@ Define_Module(LteRealisticChannelModel);
 
 simsignal_t LteRealisticChannelModel::rcvdSinrDl_ = registerSignal("rcvdSinrDl");
 simsignal_t LteRealisticChannelModel::rcvdSinrUl_ = registerSignal("rcvdSinrUl");
+simsignal_t LteRealisticChannelModel::rcvdSinrD2D_ = registerSignal("rcvdSinrD2D");
+
 simsignal_t LteRealisticChannelModel::measuredSinrDl_ = registerSignal("measuredSinrDl");
 simsignal_t LteRealisticChannelModel::measuredSinrUl_ = registerSignal("measuredSinrUl");
-simsignal_t LteRealisticChannelModel::distance_ = registerSignal("distance");
 
 void LteRealisticChannelModel::initialize(int stage)
 {
@@ -97,12 +98,6 @@ void LteRealisticChannelModel::initialize(int stage)
         binder_ = getBinder();
         //clear jakes fading map structure
         jakesFadingMap_.clear();
-
-        useRsrqFromLog_ = par("useRsrqFromLog").boolValue();
-        rsrqShift_ = par("rsrqShift");
-        rsrqScale_ = par("rsrqScale");
-        oldTime_ = -1;
-        oldRsrq_ = 0;
     }
 }
 
@@ -131,9 +126,6 @@ double LteRealisticChannelModel::getAttenuation(MacNodeId nodeId, Direction dir,
    {
        computeLosProbability(sqrDistance, nodeId);
    }
-
-   if(dir == DL)
-       emit(distance_,sqrDistance);
 
    //compute attenuation based on selected scenario and based on LOS or NLOS
    bool los = losMap_[nodeId];
@@ -410,36 +402,6 @@ double LteRealisticChannelModel::computeAngolarAttenuation(double hAngle, double
 
 std::vector<double> LteRealisticChannelModel::getSINR(LteAirFrame *frame, UserControlInfo* lteInfo)
 {
-   if (useRsrqFromLog_)
-   {
-       int time = -1, rsrq = oldRsrq_;
-       double currentTime = simTime().dbl();
-       if (currentTime > oldTime_+1)
-       {
-           std::ifstream file;
-
-           // open the rsrq file
-           file.clear();
-           file.open("rsrqFile.dat");
-
-           file >> time;
-           file >> rsrq;
-
-           file.close();
-
-           oldTime_ = simTime().dbl();
-           oldRsrq_ = rsrq;
-
-           std::cout << "LteRealisticChannelModel::getSINR - time["<<time<<"] rsrq["<<rsrq<<"]" << endl;
-       }
-
-       double sinr = rsrqScale_ * (rsrq + rsrqShift_);
-       std::vector<double> snrVector;
-       snrVector.resize(numBands_, sinr);
-
-       return snrVector;
-   }
-
    //get tx power
    double recvPower = lteInfo->getTxPower(); // dBm
 
@@ -758,36 +720,6 @@ std::vector<double> LteRealisticChannelModel::getSINR(LteAirFrame *frame, UserCo
 
 std::vector<double> LteRealisticChannelModel::getRSRP(LteAirFrame *frame, UserControlInfo* lteInfo)
 {
-   if (useRsrqFromLog_)
-   {
-       int time = -1, rsrq = oldRsrq_;
-       double currentTime = simTime().dbl();
-       if (currentTime > oldTime_+1)
-       {
-           std::ifstream file;
-
-           // open the rsrq file
-           file.clear();
-           file.open("rsrqFile.dat");
-
-           file >> time;
-           file >> rsrq;
-
-           file.close();
-
-           oldTime_ = simTime().dbl();
-           oldRsrq_ = rsrq;
-
-           std::cout << "LteRealisticChannelModel::getRSRP - time["<<time<<"] rsrq["<<rsrq<<"]" << endl;
-       }
-
-       double sinr = rsrqScale_ * (rsrq + rsrqShift_);
-       std::vector<double> snrVector;
-       snrVector.resize(numBands_, sinr);
-
-       return snrVector;
-   }
-
    //get tx power
    double recvPower = lteInfo->getTxPower(); // dBm
 
@@ -2224,9 +2156,8 @@ bool LteRealisticChannelModel::isError_D2D(LteAirFrame *frame, UserControlInfo* 
       << " - CQI[" << cqi << "]- random error extracted[" << er << "]" << endl;
 
    // emit SINR statistic
-   // TODO use a rcvdSinrD2D statistic
    if (collectSinrStatistics_ && usedRBs > 0)
-       emit(rcvdSinrUl_, sumSnr / usedRBs);
+       emit(rcvdSinrD2D_, sumSnr / usedRBs);
 
    if (er <= totalPer)
    {

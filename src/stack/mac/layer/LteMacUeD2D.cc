@@ -106,7 +106,7 @@ Packet* LteMacUeD2D::makeBsr(int size){
     macPkt->addTagIfAbsent<UserControlInfo>()->setDirection(UL);
 
     bsrTriggered_ = false;
-    EV << "LteMacUeD2D::makeBsr() - BSR with size " << size << "created" << endl;
+    EV << "LteMacUeD2D::makeBsr() - BSR with size " << size << " bytes created" << endl;
     return macPkt;
 }
 
@@ -173,13 +173,14 @@ void LteMacUeD2D::macPduMake(MacCid cid)
                     // Add the created BSR to the PDU List
                     if( macPktBsr != nullptr )
                     {
-                        LteChannelModel* channelModel = phy_->getChannelModel();
+                        // select channel model for given carrier frequency
+                        LteChannelModel* channelModel = phy_->getChannelModel(carrierFreq);
                         if (channelModel == NULL)
                             throw cRuntimeError("NRMacUe::macPduMake - channel model is a null pointer. Abort.");
                         else
                             macPduList_[channelModel->getCarrierFrequency()][ std::pair<MacNodeId, Codeword>( getMacCellId(), 0) ] = macPktBsr;
                         bsrAlreadyMade = true;
-                        EV << "LteMacUeD2D::macPduMake - BSR D2D created with size " << sizeBsr << "created" << endl;
+                        EV << "LteMacUeD2D::macPduMake - BSR D2D created with size " << sizeBsr << " bytes created" << endl;
                     }
 
                     bsrRtxTimer_ = bsrRtxTimerStart_;  // this prevent the UE to send an unnecessary RAC request
@@ -486,7 +487,7 @@ void LteMacUeD2D::handleMessage(cMessage* msg)
     if (incoming == down_[IN_GATE])
     {
         auto userInfo = pkt->getTag<UserControlInfo>();
-        
+
         if (userInfo->getFrameType() == D2DMODESWITCHPKT)
         {
             EV << "LteMacUeD2D::handleMessage - Received packet " << pkt->getName() <<
@@ -533,7 +534,7 @@ LteMacUeD2D::macHandleGrant(cPacket* pktAux)
         expirationCounter_[carrierFrequency] = grant->getExpiration();
     }
 
-    EV << NOW << "Node " << nodeId_ << " received grant of blocks " << grant->getTotalGrantedBlocks()
+    EV << NOW << " Node " << nodeId_ << " received grant of blocks " << grant->getTotalGrantedBlocks()
        << ", bytes " << grant->getGrantedCwBytes(0) <<" Direction: "<<dirToA(grant->getDirection()) << endl;
 
     // clearing pending RAC requests
@@ -617,13 +618,13 @@ void LteMacUeD2D::checkRAC()
         pkt->addTagIfAbsent<UserControlInfo>()->setDestId(getMacCellId());
         pkt->addTagIfAbsent<UserControlInfo>()->setDirection(UL);
         pkt->addTagIfAbsent<UserControlInfo>()->setFrameType(RACPKT);
- 
+
         auto racReq = makeShared<LteRac>();
 
         pkt->insertAtFront(racReq);
         sendLowerPackets(pkt);
 
-        EV << NOW << " Ue  " << nodeId_ << " cell " << cellId_ << " ,RAC request sent to PHY " << endl;
+        EV << NOW << " Ue  " << nodeId_ << " cell " << cellId_ << ", RAC request sent to PHY " << endl;
 
         // wait at least  "raRespWinStart_" TTIs before another RAC request
         raRespTimer_ = raRespWinStart_;
