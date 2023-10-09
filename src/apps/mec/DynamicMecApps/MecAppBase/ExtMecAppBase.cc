@@ -189,7 +189,6 @@ void ExtMecAppBase::socketDataArrived(inet::TcpSocket *socket,
     }
     else
     {
-        std::cout << "msg received is not http" << endl;
         handleReceivedMessage(socket->getSocketId(), msg);
     }
 

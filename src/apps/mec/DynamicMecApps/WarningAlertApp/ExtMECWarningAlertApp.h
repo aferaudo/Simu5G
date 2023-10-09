@@ -14,6 +14,8 @@
 #include "apps/mec/DynamicMecApps/MecAppBase/ExtMecAppBase.h"
 #include "apps/mec/WarningAlert/packets/WarningAlertPacket_m.h"
 
+#include "apps/mec/DynamicMecApps/stateutils/packets/MecAppSyncMessage_m.h"
+
 #include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/resources/DeviceInformation.h"
 
 
@@ -64,6 +66,9 @@ class ExtMECWarningAlertApp : public ExtMecAppBase
     std::string amsSubscriptionId;
     bool subscribed;
     bool ueRegistered;
+    MecAppSyncMessage *currentMsg;
+    omnetpp::cQueue completedMessageQueue; // for broken notification
+    cMessage* processStateMessage_;
     // ##### -------------- #####
 
 
@@ -102,9 +107,12 @@ class ExtMECWarningAlertApp : public ExtMecAppBase
 
     virtual void handleSelfMessage(cMessage *msg) override;
 
+    // handling service related messages
     virtual void handleLSMessage(inet::TcpSocket *serviceSocket);
     virtual void handleAMSMessage(inet::TcpSocket *serviceSocket);
 
+    // migration related methods
+    virtual void handleStateMigration();
 
     /* TCPSocket::CallbackInterface callback methods */
     virtual void established(int connId) override;
