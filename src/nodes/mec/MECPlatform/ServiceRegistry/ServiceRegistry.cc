@@ -9,10 +9,9 @@
 // and cannot be removed from it.
 //
 
-#include "ServiceRegistry.h"
+#include "nodes/mec/MECPlatform/ServiceRegistry/ServiceRegistry.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
 #include "common/utils/utils.h"
-
 
 Define_Module(ServiceRegistry);
 
@@ -121,7 +120,7 @@ void ServiceRegistry::handleGETRequest(const HttpRequestMessage *currentRequestM
         //look for query parameters
         if(!params.empty())
         {
-            std::vector<std::string> queryParameters = lte::utils::splitString(params, "&");
+            std::vector<std::string> queryParameters = simu5g::utils::splitString(params, "&");
             /*
             * supported paramater:
             * - ser_instance_id
@@ -139,13 +138,13 @@ void ServiceRegistry::handleGETRequest(const HttpRequestMessage *currentRequestM
                 if(it->rfind("ser_instance_id", 0) == 0) // cell_id=par1,par2
                 {
                     EV <<"ServiceRegistry::handleGETReques - parameters: " << endl;
-                    params = lte::utils::splitString(*it, "=");
+                    params = simu5g::utils::splitString(*it, "=");
                     if(params.size()!= 2) //must be param=values
                     {
                         Http::send400Response(socket);
                         return;
                     }
-                    splittedParams = lte::utils::splitString(params[1], ","); //it can an array, e.g param=v1,v2,v3
+                    splittedParams = simu5g::utils::splitString(params[1], ","); //it can an array, e.g param=v1,v2,v3
                     std::vector<std::string>::iterator pit  = splittedParams.begin();
                     std::vector<std::string>::iterator pend = splittedParams.end();
                     for(; pit != pend; ++pit){
@@ -155,8 +154,8 @@ void ServiceRegistry::handleGETRequest(const HttpRequestMessage *currentRequestM
                 }
                 else if(it->rfind("ser_name", 0) == 0)
                 {
-                    params = lte::utils::splitString(*it, "=");
-                    splittedParams = lte::utils::splitString(params[1], ","); //it can an array, e.g param=v1,v2,v3
+                    params = simu5g::utils::splitString(*it, "=");
+                    splittedParams = simu5g::utils::splitString(params[1], ","); //it can an array, e.g param=v1,v2,v3
                     std::vector<std::string>::iterator pit  = splittedParams.begin();
                     std::vector<std::string>::iterator pend = splittedParams.end();
                     for(; pit != pend; ++pit){
