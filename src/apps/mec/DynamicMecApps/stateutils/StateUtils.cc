@@ -71,7 +71,7 @@ namespace stateutils
 
         MecAppSyncMessage* msg = new MecAppSyncMessage();
 
-        std::vector<std::string> header = lte::utils::splitString(data, "\r\n");
+        std::vector<std::string> header = simu5g::utils::splitString(data, "\r\n");
 
         msg->setContentLength(std::stoi(header[0]));
         msg->setRemainingDataToRecv(std::stoi(header[0]));
