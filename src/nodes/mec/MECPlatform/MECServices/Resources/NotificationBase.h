@@ -24,10 +24,7 @@
 #include "nodes/mec/MECPlatform/MECServices/RNIService/resources/AssociateId.h"
 
 /*
- * This abstract class maintains common information of Application Mobility Service notifications:
- * - MobilityProcedureNotification
- * - AdjacentAppInfoNotification
- * ExpiryNotification should be modeled as an internal timer
+ * This abstract class maintains common information of all ETSI notifications
  * */
 class NotificationBase : public AttributeBase{
   protected:
@@ -41,7 +38,7 @@ class NotificationBase : public AttributeBase{
     virtual ~NotificationBase();
 
     virtual nlohmann::ordered_json toJson() const = 0;
-    virtual bool fromJson(const nlohmann::ordered_json& json) = 0;
+    virtual bool fromJson(const nlohmann::ordered_json& json);
     virtual EventNotification* handleNotification(FilterCriteriaBase *filters, bool noCheck=false) = 0;
 
 

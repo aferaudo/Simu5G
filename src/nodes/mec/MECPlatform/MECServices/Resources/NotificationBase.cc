@@ -24,3 +24,39 @@ NotificationBase::~NotificationBase() {
     // TODO Auto-generated destructor stub
 }
 
+
+
+bool NotificationBase::fromJson(const nlohmann::ordered_json& json)
+{
+    EV << "NotificationBase::Building NotificationBase attribute from json" << endl;
+    if(!json.contains("notificationType") || !json.contains("_links"))
+    {
+        EV << "NotificationBase::Some required parameters is missing!" << endl;
+        return false;
+    }
+
+    if(json.contains("timeStamp"))
+    {
+        timestamp_.setSeconds(json["timeStamp"]["seconds"]);
+        timestamp_.setNanoSeconds(json["timeStamp"]["nanoSeconds"]);
+    }
+    if(json.contains("associateId"))
+    
+    {
+        for(auto& it : json["associateId"].items())
+        {
+            AssociateId a;
+
+            nlohmann::ordered_json val = it.value();
+
+            a.setType(val["type"]);
+            a.setValue(val["value"]);
+            associateId_.push_back(a);
+        }
+    }
+
+    // This should be checked inside the notification class
+    // notificationType_ = json["notificationType"];
+
+    links_ = json["_links"]["href"];
+}

@@ -110,10 +110,10 @@ bool MobilityProcedureSubscription::fromJson(const nlohmann::ordered_json& json)
     if(json.contains("_links"))
         links_ = json["_links"]["self"]["href"];
 
-    if(json.contains("epiryDeadline"))
+    if(json.contains("expiryDeadline"))
     {
-        expiryDeadline.setSeconds(json["epiryDeadline"]["seconds"]);
-        expiryDeadline.setNanoSeconds(json["epiryDeadline"]["nanoSeconds"]);
+        expiryDeadline.setSeconds(json["expiryDeadline"]["seconds"]);
+        expiryDeadline.setNanoSeconds(json["expiryDeadline"]["nanoSeconds"]);
         expiryDeadline.setValid(true);
     }
     else
