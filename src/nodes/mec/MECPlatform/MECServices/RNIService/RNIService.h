@@ -16,6 +16,7 @@
 #include "nodes/mec/MECPlatform/MECServices/RNIService/resources/L2Meas.h"
 
 
+
 /**
  * Radio Network Information Service (RNIS)
  * This class inherits the MECServiceBase module interface for the implementation 
@@ -37,13 +38,20 @@ class RNIService: public MecServiceBase
     virtual void initialize(int stage) override;
     virtual void finish() override;
 
+    virtual void handleStartOperation(inet::LifecycleOperation *operation) override;
     virtual void handleGETRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket) override;
     virtual void handlePOSTRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket)   override;
     virtual void handlePUTRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket)    override;
     virtual void handleDELETERequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket) override;
 
+
+    // subscription related methods
+    virtual void handleSubscriptionRequest(SubscriptionBase *subscription, inet::TcpSocket* socket, const nlohmann::ordered_json& request);
+
     virtual ~RNIService();
 
+  private:
+    void printAllSubscriptions();
 
 };
 

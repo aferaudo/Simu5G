@@ -26,6 +26,8 @@
 #include "inet/networklayer/contract/ipv4/Ipv4Address.h"
 
 #include "nodes/mec/MECPlatform/MECServices/Resources/SubscriptionBase.h"
+#include "nodes/mec/MECPlatform/MECServices/RNIService/resources/CellChangeSubscription.h"
+
 Define_Module(RNIService);
 
 
@@ -47,6 +49,11 @@ void RNIService::initialize(int stage)
     }
 }
 
+void RNIService::handleStartOperation(inet::LifecycleOperation *operation)
+{
+    MecServiceBase::handleStartOperation(operation);
+    baseSubscriptionLocation_ = host_+ baseUriSubscriptions_;
+}
 
 void RNIService::handleGETRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket)
 {
@@ -157,8 +164,30 @@ void RNIService::handleGETRequest(const HttpRequestMessage *currentRequestMessag
 
     else if (uri.compare(baseUriSubscriptions_) == 0) //subs
     {
-        // TODO implement subscription?
-        Http::send404Response(socket);
+        EV << "RNIService::Queries information on subscriptions for notifications" << endl; 
+
+        uri.erase(0, baseUriSubscriptions_.length());
+        
+        // we assume that the uri is in the form /subscriptions/sub{subscriptionId}
+        if(uri.length() > 0 && uri.find("sub") != std::string::npos)
+        {
+            EV << "RNIService::retrieving information of subscriber: " << uri << endl;
+            int id = std::stoi(uri.erase(0, std::string("sub").length())); // sub is the prefix added in subscription phase
+
+            if(subscriptions_.find(id) != subscriptions_.end())
+            {
+                EV << "RNIService::subscriber found!" << endl;
+                Http::send200Response(socket, subscriptions_[id]->toJson().dump().c_str());
+            }
+            else
+            {
+                EV << "RNIService::subscriber not found" << endl;
+                Http::send404Response(socket);
+            }
+        
+        } 
+
+
     }
     else // not found
     {
@@ -167,12 +196,138 @@ void RNIService::handleGETRequest(const HttpRequestMessage *currentRequestMessag
 
 }
 
-void RNIService::handlePOSTRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket){}
+void RNIService::handlePOSTRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket)
+{
 
-void RNIService::handlePUTRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket){}
+    EV << "RNIService::handlePOSTRequest - Received a POST request" << endl;
+    std::string uri = currentRequestMessageServed->getUri();
+
+    if(uri.compare(baseUriSubscriptions_) == 0)
+    {
+        nlohmann::ordered_json request = nlohmann::json::parse(currentRequestMessageServed->getBody());
+        if(request.contains("subscriptionType"))
+        {
+            SubscriptionBase *subscription = nullptr;
+            if(request["subscriptionType"] == "CellChangeSubscription")
+            {
+                subscription = new CellChangeSubscription(subscriptionId_, socket, baseSubscriptionLocation_, eNodeB_);
+            }
+            // TODO define other type of subscriptions
+            if(subscription == nullptr)
+            {
+                EV << "RNIService::Subscription type not recognized" << endl;
+                Http::send400Response(socket);
+            }
+            else
+                // This method helps to avoid repeated code for the other type of subscription
+                handleSubscriptionRequest(subscription, socket, request); 
+        }
+        else
+        {
+            EV << "RNIService::handlePOSTRequest - bad request: subscriptionType not found" << endl;
+            Http::send400Response(socket);
+        }
+
+        
+    }
+    else // not found
+    {
+        Http::send404Response(socket);
+    }
+
+}
+
+void RNIService::handlePUTRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket)
+{
+    EV << "RNIService::handlePUTRequest - Received a PUT request" << endl;
+    std::string uri = currentRequestMessageServed->getUri();
+    if(uri.find(baseUriSubscriptions_) == 0)
+    {
+        // subscription update
+        uri.erase(0, baseUriSubscriptions_.length());
+        EV << "AMS::Received subscriptions update from " << uri << endl;
+
+        nlohmann::ordered_json request = nlohmann::json::parse(currentRequestMessageServed->getBody());
+        SubscriptionBase *subscription = nullptr;
+
+        if(request["subscriptionType"] == "CellChangeSubscription")
+        {
+            subscription = new CellChangeSubscription(subscriptionId_, socket, baseSubscriptionLocation_, eNodeB_);
+        }
+        // other type of subscriptions
+        // ...
+
+        if(subscription == nullptr)
+        {
+            EV << "RNIService::Subscription type not recognized" << endl;
+            Http::send400Response(socket);
+        }
+        else
+        {
+            // TODO
+            // check if the subscription exists
+            // if it exists, update it
+            // else send 404
+            // ...
+
+            uri.erase(0,uri.find(baseUriSubscriptions_+"sub") + baseUriSubscriptions_.length() + 3);
+
+            auto it = subscriptions_.find(std::atoi(uri.c_str()));
+            if(it != subscriptions_.end())
+            {   
+                bool res = subscription->fromJson(request);
+                if(res)
+                {
+                    subscription->set_links(baseSubscriptionLocation_);
+                    subscriptions_[it->first] = subscription;
+                    EV << "RNIService::handlePUTRequest - Updated subsciber [" << it->first << "]" << endl;
+                    
+                    // debug
+                    printAllSubscriptions();
+                    Http::send200Response(socket, request.dump().c_str());
+                }
+                else
+                {
+                    EV << "RNIService::Body Error" << endl;
+                    Http::send400Response(socket);
+                }
+            }
+            else
+            {
+                EV << "RNIService::handlePUTRequest - subscriber not found" << endl;
+                Http::send404Response(socket);
+                return;
+            }
+            
+        }
+
+
+    }
+    
+
+}
 
 void RNIService::handleDELETERequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket)
 {
+    EV << "RNIService::handleDELETERequest - Received a DELETE request" << endl;
+    std::string uri = currentRequestMessageServed->getUri();
+    if(uri.compare(baseUriSubscriptions_) == 0)
+    {
+        uri.erase(0,uri.find(baseUriSubscriptions_+"sub") + baseUriSubscriptions_.length() + 3);
+        auto it = subscriptions_.find(std::atoi(uri.c_str()));
+        if(it == subscriptions_.end())
+        {   
+            EV << "RNIService::handleDELETERequest - subscriber not found" << endl;
+            return;
+        }
+        subscriptions_.erase(it);
+        printAllSubscriptions();
+        Http::send204Response(socket);
+    }
+    else
+    { // not found
+        Http::send404Response(socket);
+    }
 }
 
 void RNIService::finish()
@@ -183,6 +338,49 @@ void RNIService::finish()
 
 RNIService::~RNIService(){
 
+}
+
+void RNIService::handleSubscriptionRequest(SubscriptionBase *subscription, inet::TcpSocket* socket, const nlohmann::ordered_json& request)
+{
+    EV << "RNIService::handleSubscriptionRequest - " << subscription->getSubscriptionType() << endl;
+    
+    bool res = subscription->fromJson(request);
+    if(res)
+    {
+        // valid subscription body
+        subscription->set_links(baseSubscriptionLocation_);
+        subscriptions_[subscriptionId_] = subscription;
+
+        // sending response
+        nlohmann::ordered_json response = subscription->toJson();
+        response["subscriptionId"] = subscriptionId_;
+
+        Http::send201Response(socket, response.dump().c_str());
+
+        EV << "RNIService::handleSubscriptionRequest - Added new subsciber [" << subscriptionId_ << "]" << endl;
+        subscriptionId_++;
+
+        // printing all subscriptions
+        printAllSubscriptions();
+    }
+    else
+    {
+        EV << "RNIService::handleSubscriptionRequest - bad request" << endl;
+        Http::send400Response(socket);
+        return;
+    }
+    return;
+}
+
+
+void RNIService::printAllSubscriptions()
+{
+    auto it  = subscriptions_.begin();
+    auto end = subscriptions_.end();
+    for(; it != end; ++it)
+    {
+        EV << "SubscriptionId: " << it->first << " " << it->second->toJson() << endl;
+    }
 }
 
 
