@@ -35,7 +35,7 @@ nlohmann::ordered_json FilterCriteriaAssocHo::toJson() const
     val["ecgi"] = nlohmann::ordered_json::array();
     for(auto it = ecgi_.begin(); it != ecgi_.end(); ++it )
     {
-        val["associateId"].push_back(it->toJson());
+        val["ecgi"].push_back(it->toJson());
     }
     return val;
 }

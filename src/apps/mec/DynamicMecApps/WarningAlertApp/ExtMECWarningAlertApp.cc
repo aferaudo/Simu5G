@@ -328,7 +328,6 @@ void ExtMECWarningAlertApp::handleMp1Message(int connId)
 void ExtMECWarningAlertApp::handleServiceMessage(int index)
 {
     inet::TcpSocket *serviceSocket_ = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(servicesData_[index]->sockid));
-    std::cout << "Received Service Message at " << simTime()<< endl;
 
     if(std::strcmp(servicesData_[index]->name.c_str(), "LocationService") == 0)
     {

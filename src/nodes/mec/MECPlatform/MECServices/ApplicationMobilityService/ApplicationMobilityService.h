@@ -34,7 +34,8 @@ using namespace omnetpp;
  * Authors:
  * Alessandro Calvio
  * Angelo Feraudo
- *
+ *  
+ * Currently this version of AMS support intra-host migration (vehicular computing)
  *
  *  */
 struct SubscriptionLinkList

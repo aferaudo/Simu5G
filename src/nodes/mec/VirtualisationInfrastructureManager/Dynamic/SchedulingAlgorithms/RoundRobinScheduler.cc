@@ -26,7 +26,7 @@ int RoundRobinScheduler::scheduleRemoteResources(ResourceDescriptor &r)
         int key = it.first;
         HostDescriptor descriptor = (it.second);
 
-        if (it.first == vim_->getParentModule()->getId()){
+        if (it.first == vim_->getParentModule()->getId() && vim_->par("skipLocalResources")){
             //considers only remote resources
             continue;
         }
