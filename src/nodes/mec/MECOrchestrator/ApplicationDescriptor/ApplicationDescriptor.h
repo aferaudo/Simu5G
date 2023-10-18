@@ -32,6 +32,8 @@ class ApplicationDescriptor
         std::string appProvider_;
         std::string appInfoName_;
         std::string appDescription_;
+        std::string appDeploymentSetting_; // this specify if and where a MecApp should be deployed
+        std::string appDeploymentLocation_; // this spcify if a MecApp should be deployed locally or remotely
         ResourceDescriptor virtualResourceDescritor_;
         std::vector<std::string> appServicesRequired_;
         std::vector<std::string> appServicesProduced_;
@@ -60,6 +62,8 @@ class ApplicationDescriptor
         std::string getAppProvider() const { return appProvider_; }
         std::string getAppInfoName() const { return appInfoName_; }
         std::string getAppDescription() const { return appDescription_; }
+        std::string getAppDeploymentSetting() const { return appDeploymentSetting_; }
+        std::string getAppDeploymentLocation() const { return appDeploymentLocation_; }
 
         std::string getOmnetppServiceRequired() const { return omnetppServiceRequired_; }
 

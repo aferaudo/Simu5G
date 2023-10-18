@@ -279,7 +279,17 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
      */
     void findBestMecHost(std::string deviceAppId, const ApplicationDescriptor& appDesc);
 
+    /*
+    This method is responsible for deploying a specified MEC application on a specified MEC host (or * all). 
+    The deviceAppId parameter is used to identify the device that made the request. 
+    The appDesc parameter contains the computation and MEC services requirements of the MEC application to be deployed. 
+    The location parameter specifies the MEC host where the MEC application should be deployed.
 
+    The method does not return anything, as the deployment process happens through messages.
+
+    */
+    void deployOnSpecifiedMecHost(std::string deviceAppId, const ApplicationDescriptor& appDesc, std::string location);
+    
     /*
      * src: nodes/mec/MECOrchestrator/MecOrchestrator.h
      * The list of the MEC app descriptor to be onboarded at initialization time is

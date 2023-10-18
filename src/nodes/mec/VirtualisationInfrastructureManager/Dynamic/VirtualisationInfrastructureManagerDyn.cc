@@ -432,8 +432,18 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
     double ram = msg->getRequiredRam();
     double cpu = msg->getRequiredCpu();
     double disk = msg->getRequiredDisk();
-
-    int bestHostKey = findBestHostDyn(ram,disk,cpu);
+    int bestHostKey = -1;
+    if(std::strcmp(msg->getDeploymentLocation(), "local") == 0)
+    {
+        // if local is specified allocate on local resources
+        EV << "VirtualisationInfrastructureManagerDyn::instantiateMEApp - local deployment" << endl;
+        bestHostKey = getParentModule()->getId();
+    }
+    else
+    {
+        // if not specified allocate always on remote resources
+        bestHostKey = findBestHostDyn(ram,disk,cpu);
+    }
     if(bestHostKey == -1){
         std::cout << "VirtualisationInfrastructureManagerDyn::instantiateMEApp sending false response" << endl;
         // Response to Mepm

@@ -56,6 +56,7 @@ class InstantiationApplicationRequest extends GeneralMessage
     string requiredService;
     string providedService;
     string mp1Address;
+    string deploymentLocation = "unknown";
     int mp1Port;
     bool isMigrating = false;
     

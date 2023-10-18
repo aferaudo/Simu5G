@@ -97,6 +97,16 @@ ApplicationDescriptor::ApplicationDescriptor(const char* fileName)
         externalPort = 0;
     }
 
+    if(jsonFile.contains("appDeployment"))
+    {
+        appDeploymentSetting_ = jsonFile["appDeployment"];
+    }
+
+    if(jsonFile.contains("appDeploymentLocation"))
+    {
+        appDeploymentLocation_ = jsonFile["appDeploymentLocation"];
+    }
+
     this->printApplicationDescriptor();
 
 }

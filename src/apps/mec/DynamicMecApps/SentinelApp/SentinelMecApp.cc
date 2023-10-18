@@ -119,6 +119,7 @@ void SentinelMecApp::handleMp1Message(int connId)
 {
     HttpMessageStatus *msgStatus = (HttpMessageStatus*) mp1Socket_->getUserData();
     mp1HttpMessage = (HttpBaseMessage*) msgStatus->httpMessageQueue.front();
+    responseCounter_ --;
     try
     {
         nlohmann::json jsonBody = nlohmann::json::parse(mp1HttpMessage->getBody()); // get the JSON structure

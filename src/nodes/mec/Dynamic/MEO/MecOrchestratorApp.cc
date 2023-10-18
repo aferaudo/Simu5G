@@ -249,6 +249,10 @@ void MecOrchestratorApp::handleCreateContextMessage(CreateContextAppMessage* con
     // Registering message in pending request
     pendingRequests.insert(std::pair<std::string, CreateContextAppMessage*>(contAppMsg->getDevAppId(), contAppMsg->dup()));
 
+    if(desc.getAppDeploymentSetting() != "")
+    {
+        deployOnSpecifiedMecHost(contAppMsg->getDevAppId(), desc, desc.getAppDeploymentSetting());
+    }
     findBestMecHost(contAppMsg->getDevAppId(), desc);
 }
 
@@ -522,7 +526,8 @@ void MecOrchestratorApp::startMECApp(CreateContextAppMessage* contAppMsg, MECHos
     instAppRequest->setUeAppID(atoi(contAppMsg->getDevAppId()));
     instAppRequest->setMEModuleName(appDesc.getAppName().c_str());
     instAppRequest->setMEModuleType(appDesc.getAppProvider().c_str());
-
+    if(appDesc.getAppDeploymentLocation().size() != 0)
+        instAppRequest->setDeploymentLocation(appDesc.getAppDeploymentLocation().c_str());
 
     instAppRequest->setRequiredCpu(appDesc.getVirtualResources().cpu);
     instAppRequest->setRequiredRam(appDesc.getVirtualResources().ram);
@@ -638,6 +643,11 @@ void MecOrchestratorApp::findBestMecHost(std::string deviceAppId, const Applicat
             responseMap[key].push_back(responseEntry);
         }
     }
+
+}
+
+void MecOrchestratorApp::deployOnSpecifiedMecHost(std::string deviceAppId, const ApplicationDescriptor& appDesc, std::string location)
+{
 
 }
 
@@ -831,6 +841,7 @@ void MecOrchestratorApp::printAvailableAppDescs()
     for(auto it = mecApplicationDescriptors_.begin(); it != mecApplicationDescriptors_.end(); ++it)
     {
         EV << "MEOApp::App Name: " << it->second.getAppName() << ", Description" << it->second.getAppDescription()<< endl;
+        EV << "MEOApp::DeploymentSetting: " << it->second.getAppDeploymentSetting() << endl;
         EV << "MEOAPP::Required services:" << endl;
         std::vector<std::string> requiredServices = it->second.getAppServicesRequired();
         for(int i = 0; i < requiredServices.size(); i++)
