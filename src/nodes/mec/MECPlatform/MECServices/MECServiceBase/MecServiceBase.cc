@@ -196,8 +196,27 @@ void MecServiceBase::handleMessageWhenUp(cMessage *msg)
 {
     if (msg->isSelfMessage()) {
         EV << " MecServiceBase::handleMessageWhenUp - "<< msg->getName() << endl;
-        if(strcmp(msg->getName(), "serveSubscription") == 0)
-        {
+        handleSelfMessage(msg);
+    }
+    else {
+        inet::TcpSocket *socket = check_and_cast_nullable<inet::TcpSocket *>(socketMap.findSocketFor(msg));
+        if (socket)
+            socket->processMessage(msg);
+        else if (serverSocket.belongsToSocket(msg))
+            serverSocket.processMessage(msg);
+        else {
+    //            throw cRuntimeError("Unknown incoming message: '%s'", msg->getName());
+            EV_ERROR << "message " << msg->getFullName() << "(" << msg->getClassName() << ") arrived for unknown socket \n";
+            delete msg;
+        }
+    }
+
+}
+
+void MecServiceBase::handleSelfMessage(omnetpp::cMessage *msg)
+{
+    if(strcmp(msg->getName(), "serveSubscription") == 0)
+    {
 //            maybe the service wants to perform some operations in case the subId is not present,
 //            so the service base just calls the manageSubscription() method.
 //            bool res = false;
@@ -213,30 +232,17 @@ void MecServiceBase::handleMessageWhenUp(cMessage *msg)
 //                return false;
 //            }
 //      }
-            bool res = manageSubscription();
-            scheduleNextEvent(!res);
-        }
-        else if(strcmp(msg->getName(), "serveRequest") == 0)
-        {
-            bool res = manageRequest();
-            scheduleNextEvent(!res);
-        }
-        else
-        {
-            delete msg;
-        }
+        bool res = manageSubscription();
+        scheduleNextEvent(!res);
     }
-    else {
-        inet::TcpSocket *socket = check_and_cast_nullable<inet::TcpSocket *>(socketMap.findSocketFor(msg));
-        if (socket)
-            socket->processMessage(msg);
-        else if (serverSocket.belongsToSocket(msg))
-            serverSocket.processMessage(msg);
-        else {
-    //            throw cRuntimeError("Unknown incoming message: '%s'", msg->getName());
-            EV_ERROR << "message " << msg->getFullName() << "(" << msg->getClassName() << ") arrived for unknown socket \n";
-            delete msg;
-        }
+    else if(strcmp(msg->getName(), "serveRequest") == 0)
+    {
+        bool res = manageRequest();
+        scheduleNextEvent(!res);
+    }
+    else
+    {
+        delete msg;
     }
 
 }

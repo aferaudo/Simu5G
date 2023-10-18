@@ -30,6 +30,8 @@ class RNIService: public MecServiceBase
   private:
 
     L2Meas L2MeasResource_;
+    cMessage *antennaMonitorMsg_;
+    double antennaMonitorInterval_;
     
   public:
     RNIService();
@@ -38,12 +40,13 @@ class RNIService: public MecServiceBase
     virtual void initialize(int stage) override;
     virtual void finish() override;
 
+    virtual void handleSelfMessage(cMessage *msg) override;
     virtual void handleStartOperation(inet::LifecycleOperation *operation) override;
     virtual void handleGETRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket) override;
     virtual void handlePOSTRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket)   override;
     virtual void handlePUTRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket)    override;
     virtual void handleDELETERequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket) override;
-
+    virtual bool manageSubscription() override;
 
     // subscription related methods
     virtual void handleSubscriptionRequest(SubscriptionBase *subscription, inet::TcpSocket* socket, const nlohmann::ordered_json& request);

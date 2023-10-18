@@ -157,6 +157,7 @@ class MecServiceBase: public inet::ApplicationBase, public inet::TcpSocket::ICal
         virtual void initialize(int stage) override;
         virtual int  numInitStages() const override { return inet::NUM_INIT_STAGES; }
         virtual void handleMessageWhenUp(omnetpp::cMessage *msg) override;
+        virtual void handleSelfMessage(omnetpp::cMessage *msg);
         virtual void finish() override;
         virtual void refreshDisplay() const override;
 

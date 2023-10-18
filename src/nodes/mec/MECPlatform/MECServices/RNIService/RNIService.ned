@@ -53,6 +53,8 @@ simple RNIService like IMECService, IApp
     	
     	string scopeOfLocality = default("MEC_HOST");
     	bool consumedLocalOnly = default(true);        
+
+        double monitoringInterval @unit(s) = default(-1s); // monitoring antenna handover
         
         @display("i=block/app");
         @signal[requestQueueSize];

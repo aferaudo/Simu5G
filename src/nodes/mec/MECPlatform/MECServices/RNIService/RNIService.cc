@@ -28,6 +28,8 @@
 #include "nodes/mec/MECPlatform/MECServices/Resources/SubscriptionBase.h"
 #include "nodes/mec/MECPlatform/MECServices/RNIService/resources/CellChangeSubscription.h"
 
+#include "nodes/mec/MECPlatform/EventNotification/CellChangeEvent.h"
+
 Define_Module(RNIService);
 
 
@@ -46,6 +48,8 @@ void RNIService::initialize(int stage)
     if (stage == inet::INITSTAGE_APPLICATION_LAYER) {
         L2MeasResource_.addEnodeB(eNodeB_);
         baseSubscriptionLocation_ = host_+ baseUriSubscriptions_ + "/";
+        antennaMonitorInterval_ = par("monitoringInterval").doubleValue();
+        antennaMonitorMsg_ = antennaMonitorInterval_ > 0 ? new cMessage("antennaMonitorTimer") : nullptr;
     }
 }
 
@@ -53,6 +57,42 @@ void RNIService::handleStartOperation(inet::LifecycleOperation *operation)
 {
     MecServiceBase::handleStartOperation(operation);
     baseSubscriptionLocation_ = host_+ baseUriSubscriptions_;
+}
+
+void RNIService::handleSelfMessage(cMessage *msg)
+{
+    
+    if(std::strcmp(msg->getName(), "antennaMonitorTimer") == 0)
+    {
+        // Recovering handover status from antenna for each subscription
+        // (send notificaiton?)
+        if(subscriptions_.size() > 0)
+        {
+            // TODO
+            // 1. For each associate id of each subscriber, check if the ue is in handover
+            // 2. If the ue is in handover, send a notification to the subscriber 
+            for(auto subscriber : subscriptions_)
+            {
+                if(subscriber.second->getSubscriptionType() == "CellChangeSubscription")
+                {
+                    CellChangeSubscription *sub = check_and_cast<CellChangeSubscription*>(subscriber.second);
+                    FilterCriteriaAssocHo *filters = check_and_cast<FilterCriteriaAssocHo*>(sub->getFilterCriteria());
+                    std::vector<AssociateId> associateIds = filters->getAssociateId();
+                    for(auto associateId : associateIds)
+                    {
+                        // TODO
+                        // 1. Check if the ue is in handover
+                        // 2. If the ue is in handover, send a notification to the subscriber'
+                    }
+                }
+            }
+        }
+        if(!antennaMonitorMsg_->isScheduled())
+            scheduleAt(simTime() + antennaMonitorInterval_, antennaMonitorMsg_);
+        return;
+    }
+
+    MecServiceBase::handleSelfMessage(msg);
 }
 
 void RNIService::handleGETRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket)
@@ -211,6 +251,12 @@ void RNIService::handlePOSTRequest(const HttpRequestMessage *currentRequestMessa
             if(request["subscriptionType"] == "CellChangeSubscription")
             {
                 subscription = new CellChangeSubscription(subscriptionId_, socket, baseSubscriptionLocation_, eNodeB_);
+
+                // scheduling monitoring of antenna
+                if(antennaMonitorMsg_->isScheduled())
+                    cancelEvent(antennaMonitorMsg_);
+                    
+                scheduleAt(simTime() + 0, antennaMonitorMsg_);
             }
             // TODO define other type of subscriptions
             if(subscription == nullptr)
@@ -371,6 +417,13 @@ void RNIService::handleSubscriptionRequest(SubscriptionBase *subscription, inet:
         return;
     }
     return;
+}
+
+
+bool RNIService::manageSubscription()
+{
+    // TODO
+    return true;
 }
 
 
