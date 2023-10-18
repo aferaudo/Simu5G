@@ -311,13 +311,14 @@ void RNIService::handleDELETERequest(const HttpRequestMessage *currentRequestMes
 {
     EV << "RNIService::handleDELETERequest - Received a DELETE request" << endl;
     std::string uri = currentRequestMessageServed->getUri();
-    if(uri.compare(baseUriSubscriptions_) == 0)
+    if(uri.find(baseUriSubscriptions_) == 0)
     {
         uri.erase(0,uri.find(baseUriSubscriptions_+"sub") + baseUriSubscriptions_.length() + 3);
         auto it = subscriptions_.find(std::atoi(uri.c_str()));
         if(it == subscriptions_.end())
         {   
             EV << "RNIService::handleDELETERequest - subscriber not found" << endl;
+            Http::send404Response(socket);
             return;
         }
         subscriptions_.erase(it);

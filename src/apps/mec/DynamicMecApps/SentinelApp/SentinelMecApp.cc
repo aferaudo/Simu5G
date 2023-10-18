@@ -179,9 +179,30 @@ void SentinelMecApp::handleRNIMessage(inet::TcpSocket *socket)
         HttpResponseMessage *rspMsg = dynamic_cast<HttpResponseMessage*>(serviceHttpMessage);
         if(rspMsg->getCode() == 201)
         {
-            // Correct subscription
             EV << "SentinelMecApp::handling RNI response - subscription ok: " << rspMsg->getBody() << endl;
+            nlohmann::json jsonBody = nlohmann::json::parse(rspMsg->getBody());
+            if(!jsonBody.empty())
+            {
+                // Correct subscription
+                std::stringstream stream;
+                stream << "sub" << jsonBody["subscriptionId"];
+                subId_ = stream.str();
+
+                EV << "SentinelMecApp::handling RNI response - subscription id: " << subId_ << endl; 
+            }
+            
         }
+        else if(rspMsg->getCode() == 204)
+        {
+            EV << "SentinelMecApp::handling RNI response - delete subscription ok" << endl;
+            responseCounter_ --;
+        }
+        else
+        {
+            EV << "SentinelMecApp::handling RNI response - not recognized code error: " << rspMsg->getCode() << ", body:\n" << rspMsg->getBody() << endl;
+        }
+
+
     }
 
 }
@@ -224,7 +245,14 @@ void SentinelMecApp::established(int connId)
 
 void SentinelMecApp::handleTermination()
 {
-    // TODO - Generated method body
+    inet::TcpSocket *rniSocket = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(servicesData_[RNI]->sockid));
+
+    // delete subscription
+    sendDeleteCellChangeSubscription(rniSocket);
+
+
+    scheduleAt(simTime()+0.01, terminationMessage_);
+    
 }
 
 void SentinelMecApp::sendCellChangeSubscription(inet::TcpSocket *socket)
@@ -250,5 +278,9 @@ void SentinelMecApp::sendCellChangeSubscription(inet::TcpSocket *socket)
 
 void SentinelMecApp::sendDeleteCellChangeSubscription(inet::TcpSocket *socket)
 {
-    // TODO - Generated method body
+    responseCounter_ ++;
+    std::string uristring = "/example/rni/v2/subscriptions/" + subId_;
+    std::string host = socket->getRemoteAddress().str()+":"+std::to_string(socket->getRemotePort());
+
+    Http::sendDeleteRequest(socket, host.c_str(), uristring.c_str());
 }
