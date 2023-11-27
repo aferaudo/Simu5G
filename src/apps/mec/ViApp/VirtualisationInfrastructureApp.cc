@@ -264,6 +264,8 @@ RunningAppEntry* VirtualisationInfrastructureApp::handleInstantiation(Instantiat
     module->par("mp1Address") = data->getMp1Address();
     module->par("mp1Port") = data->getMp1Port();
     module->par("isMigrating") = data->isMigrating();
+    std::cout << "Initialization packet size: " << par("stateSize").intValue() << endl;
+    module->par("packetSize") = par("stateSize").intValue();
 
 
     module->finalizeParameters();

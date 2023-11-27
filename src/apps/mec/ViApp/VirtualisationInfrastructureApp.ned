@@ -39,6 +39,9 @@ simple VirtualisationInfrastructureApp like IApp
     	// MECApp Port management
     	int portRangeStart = default(20000);
     	int portRangeEnd = default(portRangeStart + 5000); // Port assigned for migration
+
+		// MECApp state size -- for testing purposes
+		int stateSize @unit("B");
     	
    	gates:
         output socketOut;

@@ -30,7 +30,7 @@ namespace stateutils
     bool parseStateData(int sockId, std::string& packet, omnetpp::cQueue& messageQueue, MecAppSyncMessage** currentMsg);
     MecAppSyncMessage* parseHeader(const std::string &data);
     MsgState addStateChunk(std::string* data, MecAppSyncMessage* currentMsg);
-    std::string getPayload(const inet::Ptr<const MecAppSyncMessage>& msg);
+    std::string getPayload(const inet::Ptr<const MecAppSyncMessage>& msg, int &dim);
 }
 
 #endif /* APPS_MEC_DYNAMICMECAPPS_STATEUTILS_STATEUTILS_H_ */

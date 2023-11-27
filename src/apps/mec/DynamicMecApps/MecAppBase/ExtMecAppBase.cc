@@ -251,7 +251,6 @@ void ExtMecAppBase::connect(inet::TcpSocket *socket,
     }
     else {
         EV_INFO << "Connecting to " << address << " port=" << port << endl;
-
         socket->connect(address, port);
     }
 }

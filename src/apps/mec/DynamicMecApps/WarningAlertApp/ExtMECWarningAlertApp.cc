@@ -38,6 +38,9 @@
 
 #include "apps/mec/DynamicMecApps/stateutils/StateUtils.h"
 
+#include "common/utils/utils.h"
+
+
 Define_Module(ExtMECWarningAlertApp);
 
 using namespace omnetpp;
@@ -73,7 +76,7 @@ void ExtMECWarningAlertApp::initialize(int stage)
         return;
 
     //retrieving parameters
-    size_ = par("packetSize");
+    size_ = par("packetSize").intValue();
 
     // set Udp Socket
     ueSocket.setOutputGate(gate("socketOut"));
@@ -182,6 +185,8 @@ void ExtMECWarningAlertApp::handleSelfMessage(cMessage *msg)
                << "address: " << migrationAddress.str() << ", port: " << migrationPort << endl;
 
        // Connecting to the new mec app
+    //    amsStateSocket_->renewSocket();
+    //    std::cout << "Calling connect!" << endl;
        connect(amsStateSocket_, migrationAddress, migrationPort);
     }
     else if(strcmp(msg->getName(),"processStateMessage") == 0)
@@ -905,9 +910,26 @@ void ExtMECWarningAlertApp::sendState()
     jsonState_["radius"] = radius;
     jsonState_["status"] = status;
     syncMessage->setState(jsonState_.dump().c_str());
-    syncMessage->setContentLength(jsonState_.dump().size());
+    // syncMessage->setContentLength(jsonState_.dump().size());
+    // std::cout << "size: " << size_ << endl;
+    int dim = 0;
+    
+    syncMessage->setContentLength(size_);
+    int minimum_size = stateutils::getPayload(inet::staticPtrCast<const MecAppSyncMessage>(syncMessage), dim).size();
+    // std::cout << "minimum_size: " << minimum_size << endl;
+    // std::cout << "header dim: " << dim << endl;
+    int value = 0;
+    if(size_ != 1000 && size_ != 10000 && size_ != 100000 && size_ != 1000000 && size_ != 10000000 && size_ != 100000000 && size_ != 1000000000)
+        value = size_ - dim;
+    else
+        value = (size_ - dim)+1;
 
-    syncMessage->setChunkLength(inet::B(stateutils::getPayload(inet::staticPtrCast<const MecAppSyncMessage>(syncMessage)).size()));
+    
+    syncMessage->setContentLength(value);
+    // std::cout << "size-dim: " << value << endl;
+    // std::cout << "Minimum size: " << stateutils::getPayload(inet::staticPtrCast<const MecAppSyncMessage>(syncMessage), dim).size() << endl;
+    // syncMessage->setChunkLength(inet::B(stateutils::getPayload(inet::staticPtrCast<const MecAppSyncMessage>(syncMessage),dim).size()));
+    syncMessage->setChunkLength(inet::B(size_));
     syncMessage->addTagIfAbsent<inet::CreationTimeTag>()->setCreationTime(simTime());
     packet->insertAtBack(syncMessage);
     
@@ -952,7 +974,9 @@ void ExtMECWarningAlertApp::handleStateMigration()
     std::string module_name = std::string(getName());
 
     EV << "ExtMECWarningAlertApp::Received state: " <<  syncMessage->getState() << endl;
-    nlohmann::json jsonState_ = nlohmann::json::parse(syncMessage->getState());
+    std::cout << "ExtMECWarningAlertApp::Error happen to be here: " << simTime() << endl;
+    std::string state = deleteIrrelevantContentFromState(syncMessage->getState());
+    nlohmann::json jsonState_ = nlohmann::json::parse(state);
 
     if(!syncMessage->isAck())
     {
@@ -1003,7 +1027,8 @@ void ExtMECWarningAlertApp::handleStateMigration()
             jsonState_["uePort"] = ueAppPort;
             ack->setState(jsonState_.dump().c_str());
             ack->setContentLength(jsonState_.dump().size());
-            ack->setChunkLength(inet::B(stateutils::getPayload(inet::staticPtrCast<const MecAppSyncMessage>(ack)).size()));
+            int dim = 0;
+            ack->setChunkLength(inet::B(stateutils::getPayload(inet::staticPtrCast<const MecAppSyncMessage>(ack), dim).size()));
             ack->addTagIfAbsent<inet::CreationTimeTag>()->setCreationTime(simTime());
 
 
@@ -1052,3 +1077,8 @@ nlohmann::ordered_json ExtMECWarningAlertApp::getSubsciptionAMSBody()
     return subscriptionBody_;
 }
 
+std::string ExtMECWarningAlertApp::deleteIrrelevantContentFromState(std::string state)
+{
+    std::vector<std::string> newState = simu5g::utils::splitString(state, "?");
+    return newState[0];
+}

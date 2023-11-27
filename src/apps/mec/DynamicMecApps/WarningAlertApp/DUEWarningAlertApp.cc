@@ -101,6 +101,8 @@ void DUEWarningAlertApp::initialize(int stage)
     simtime_t startTime = par("startTime");
     EV << "DUEWarningAlertApp::initialize - starting sendStartMEWarningAlertApp() in " << startTime << " seconds " << endl;
     scheduleAt(simTime() + startTime, selfStart_);
+    
+    migrationEndSignal_ = registerSignal("migrationEnd");
 
     //testing
     EV << "DUEWarningAlertApp::initialize - sourceAddress: " << sourceSimbolicAddress << " [" << inet::L3AddressResolver().resolve(sourceSimbolicAddress).str()  <<"]"<< endl;
@@ -397,6 +399,8 @@ void DUEWarningAlertApp::handleMEAppInfo(cMessage *msg)
         mecAppAddress_ = inet::L3AddressResolver().resolve(pkt->getIpAdddress());
         mecAppPort_ = pkt->getPort();
         EV << "DUEWarningAlertApp::mecapp location updated!" << endl;
+        // std::cout << "Migration end signal: " << simTime() << endl;
+        emit(migrationEndSignal_, simTime());
     }
 }
 

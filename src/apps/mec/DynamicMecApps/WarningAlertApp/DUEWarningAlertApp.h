@@ -86,6 +86,7 @@ class DUEWarningAlertApp: public cSimpleModule
     cModule* pingAppModule;
 
     static simsignal_t logicTerminated_;
+    simsignal_t migrationEndSignal_;
 
     // uses to write in a log a file
     bool log;

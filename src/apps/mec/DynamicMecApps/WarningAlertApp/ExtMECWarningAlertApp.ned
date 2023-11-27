@@ -31,7 +31,7 @@ simple ExtMECWarningAlertApp like IMECApp, IApp
         @signal[migrationTime];
         @statistic[migration](source=migrationTime; record=vector);
   			
-        int packetSize = default(10);
+        int packetSize @unit("B") = default(10kB);
         string interfaceTableModule = default("");
         
         int mecAppIndex = default(0);

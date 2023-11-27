@@ -30,12 +30,12 @@ namespace stateutils
     
     MsgState addStateChunk(std::string* data, MecAppSyncMessage* msg)
     {
-        std::cout << "Entering addStateChunk" << endl;
+        // std::cout << "Entering addStateChunk" << endl;
         int length = data->length();
         int remainingLength = msg->getRemainingDataToRecv();
         // debug
-        std::cout << "stateutils::addStateChunk: length: " << length << endl;
-        std::cout << "stateutils::addStateChunk: remainingLength: " << remainingLength << endl;
+        // std::cout << "stateutils::addStateChunk: length: " << length << endl;
+        // std::cout << "stateutils::addStateChunk: remainingLength: " << remainingLength << endl;
 
         if(remainingLength == 0)
         {
@@ -52,6 +52,7 @@ namespace stateutils
 
         data->erase(0, remainingLength);
         msg->setRemainingDataToRecv(remainingLength - (length - data->length()));
+        // std::cout << "stateutils::addStateChunk: remainingLength after processing: " << msg->getRemainingDataToRecv() << endl;
 
         if(data->length() == 0 && msg->getRemainingDataToRecv() == 0)
         {
@@ -71,8 +72,8 @@ namespace stateutils
 
         MecAppSyncMessage* msg = new MecAppSyncMessage();
 
-        std::vector<std::string> header = lte::utils::splitString(data, "\r\n");
-
+        std::vector<std::string> header = simu5g::utils::splitString(data, "\r\n");
+        
         msg->setContentLength(std::stoi(header[0]));
         msg->setRemainingDataToRecv(std::stoi(header[0]));
         msg->setContentType(header[1].c_str());
@@ -147,7 +148,7 @@ namespace stateutils
         return completeMsg;
     }
 
-    std::string getPayload(const inet::Ptr<const MecAppSyncMessage>& msg)
+    std::string getPayload(const inet::Ptr<const MecAppSyncMessage>& msg, int &dim)
     {
         std::string crlf = "\r\n";
         std::string payload = std::to_string(msg->getContentLength()) + crlf;
@@ -155,7 +156,7 @@ namespace stateutils
         payload += std::to_string(msg->isAck()) + crlf;
         payload += std::to_string(msg->getResult()) + crlf;
         payload += std::to_string(msg->getArrivalTime().dbl()) + crlf;
-
+        dim = payload.length() + crlf.length();
         payload += crlf + std::string(msg->getState());
 
         return payload;

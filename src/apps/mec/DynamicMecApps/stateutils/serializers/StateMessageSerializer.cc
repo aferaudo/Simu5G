@@ -29,7 +29,8 @@ void StateMessageSerializer::serialize(MemoryOutputStream &stream,
         EV << "StateMessageSerializer::serialize - stream length before: " << stream.getLength() << endl;
 
         const auto &applicationPacket = staticPtrCast<const MecAppSyncMessage>(chunk);
-        std::string payload = stateutils::getPayload(applicationPacket);
+        int dim = 0;
+        std::string payload = stateutils::getPayload(applicationPacket, dim);
         stream.writeBytes((const uint8_t*)payload.c_str(), B(payload.size()));
         EV << "StateMessageSerializer::serialize - stream length after: " << stream.getLength() << endl;
 

@@ -98,6 +98,7 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 
         // statistics collection initialization
         allocationTimeSignal_ = registerSignal("allocationTime");
+        migrationStartSignal_ = registerSignal("migrationStart");
     }
 
     inet::ApplicationBase::initialize(stage);
@@ -1244,7 +1245,9 @@ void VirtualisationInfrastructureManagerDyn::mobilityTrigger(
     trigger->setAppInstanceId(appInstanceId.c_str());
     trigger->setChunkLength(inet::B(appInstanceId.size()));
     toSend->insertAtBack(trigger);
-
+    // std::string migrationString = std::string(appInstanceId) + ":" + std::string(simTime());
+    std::cout << "Triggering migration: " << simTime() << endl;
+    emit(migrationStartSignal_, simTime());
     socket.sendTo(toSend, mepmAddress, mepmPort);
 
 }

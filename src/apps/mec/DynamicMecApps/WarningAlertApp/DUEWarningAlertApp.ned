@@ -34,7 +34,10 @@ simple DUEWarningAlertApp like IApp
 {
     parameters:       
          @display("i=block/source");
-         @signal[logicTerminated](type=string);   
+         @signal[logicTerminated](type=string);
+         @signal[migrationEnd](type=long);
+         @statistic[migrationEnd](source=migrationEnd; unit=s; record=last; interpolationmode=none);
+   
         
         //connection infos
         int localPort = default(4000);

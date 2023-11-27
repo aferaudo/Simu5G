@@ -146,6 +146,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
 
     // Statistics collection
     simsignal_t allocationTimeSignal_;
+    simsignal_t migrationStartSignal_;
 
 
     cRNG *crng;

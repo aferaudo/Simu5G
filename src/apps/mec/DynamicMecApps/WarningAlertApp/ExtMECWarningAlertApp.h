@@ -127,6 +127,7 @@ class ExtMECWarningAlertApp : public ExtMecAppBase
 
   private:
     nlohmann::ordered_json getSubsciptionAMSBody();
+    std::string deleteIrrelevantContentFromState(std::string state);
 };
 
 #endif
