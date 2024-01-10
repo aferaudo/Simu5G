@@ -48,13 +48,21 @@ bool CellChangeNotification::fromJson(const nlohmann::ordered_json& json)
         return false;
     }
 
-    if (!json.contains("hoStatus") || !json.contains("srcEcgi") || !json.contains("trgEcgi"))
+    if (!json.contains("srcEcgi") || !json.contains("trgEcgi"))
     {
         EV << "CellChangeNotification::fromJson - missing mandatory fields" << endl;
         return false;
     }
 
-    hoStatus_ = FilterCriteriaAssocHo::getHoStatusFromString(json["hoStatus"]);
+    
+    if(!json.contains("hoStatus"))
+    {
+        // In case hoStatus is not included in the subscription request
+        EV << "CellChangeNotification::fromJson - hoStatus not included adding default value" << endl;
+        hoStatus_ = HoStatus::COMPLETED;
+    }
+    else
+        hoStatus_ = FilterCriteriaAssocHo::getHoStatusFromString(json["hoStatus"]);
 
     // FIXME plmn from json
     srcEcgi_.setCellId(json["srcEcgi"]["cellId"]);
