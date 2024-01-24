@@ -71,19 +71,21 @@ nlohmann::ordered_json L2Meas::toJson() const {
 		cellArray.push_back(cellInfo.toJson());
 	}
 
-	if(cellArray.size() > 1){
-		val["cellInfo"] = cellArray;
-    }
-	else if(cellArray.size() == 1){
-		val["cellInfo"] = cellArray[0];
-	}
+    val["cellInfo"] = cellArray;
+	// if(cellArray.size() > 1){
+	// 	val["cellInfo"] = cellArray;
+    // }
+	// else if(cellArray.size() == 1){
+	// 	val["cellInfo"] = cellArray[0];
+	// }
 
-	if(ueArray.size() > 1){
-		val["cellUEInfo"] = ueArray;
-    }
-	else if(ueArray.size() == 1){
-		val["cellUEInfo"] = ueArray[0];
-	}
+    val["cellUEInfo"] = ueArray;
+	// if(ueArray.size() > 1){
+	// 	val["cellUEInfo"] = ueArray;
+    // }
+	// else if(ueArray.size() == 1){
+	// 	val["cellUEInfo"] = ueArray[0];
+	// }
 	
 	//  l2Meas["L2Meas"] = val;
     //  return l2Meas;
@@ -206,12 +208,13 @@ nlohmann::ordered_json L2Meas::toJsonUe(std::vector<inet::Ipv4Address>& uesID) c
 
 	}
 
-	if(ueArray.size() > 1){
-        val["cellUEInfo"] = ueArray;
-	}
-    else if(ueArray.size() == 1){
-        val["cellUEInfo"] = ueArray[0];
-    }
+    val["cellUEInfo"] = ueArray;
+	// if(ueArray.size() > 1){
+    //     val["cellUEInfo"] = ueArray;
+	// }
+    // else if(ueArray.size() == 1){
+    //     val["cellUEInfo"] = ueArray[0];
+    // }
 
 //  l2Meas["L2Meas"] = val;
 //	return l2Meas;
@@ -251,20 +254,20 @@ nlohmann::ordered_json L2Meas::toJsonCell(std::vector<MacCellId>& cellsID) const
                 }
             }
         }
-
-        if(cellArray.size() > 1){
-            val["cellInfo"] = cellArray;
-        }
-        else if(cellArray.size() == 1){
-            val["cellInfo"] = cellArray[0];
-        }
-
-        if(ueArray.size() > 1){
-            val["cellUEInfo"] = ueArray;
-        }
-        else if(ueArray.size() == 1){
-            val["cellUEInfo"] = ueArray[0];
-        }
+        val["cellInfo"] = cellArray;
+        // if(cellArray.size() > 1){
+        //     val["cellInfo"] = cellArray;
+        // }
+        // else if(cellArray.size() == 1){
+        //     val["cellInfo"] = cellArray[0];
+        // }
+        val["cellUEInfo"] = ueArray;
+        // if(ueArray.size() > 1){
+        //     val["cellUEInfo"] = ueArray;
+        // }
+        // else if(ueArray.size() == 1){
+        //     val["cellUEInfo"] = ueArray[0];
+        // }
         //  l2Meas["L2Meas"] = val;
         //  return l2Meas;
             return val;

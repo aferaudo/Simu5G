@@ -41,6 +41,8 @@ simple SentinelMecApp like IMECApp, IApp
         double requiredDisk @unit("B");
         double requiredCpu;
 
+        double ueMonitoringInterval @unit(s) = default(5s); // monitoring antenna handover
+
 		// IApp parameters
 		int timeToLive = default(-1); // if not -1, set the TTL (IPv4) or Hop Limit (IPv6) field of sent packets to this value
         int dscp = default(-1); // if not -1, set the DSCP (IPv4/IPv6) field of sent packets to this value

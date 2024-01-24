@@ -18,6 +18,11 @@
 
 Define_Module(SentinelMecApp);
 
+SentinelMecApp::~SentinelMecApp()
+{
+    cancelAndDelete(ueMonitorTimer_);
+}
+
 void SentinelMecApp::initialize(int stage)
 {
     ExtMecAppBase::initialize(stage);
@@ -35,6 +40,11 @@ void SentinelMecApp::initialize(int stage)
     servicesData_.push_back(serviceInfo);
 
     webHook_ = "/cellChangeNotification_" + std::to_string(getId());
+
+    ueMonitoringInterval_ = par("ueMonitoringInterval").doubleValue();
+    ueMonitorTimer_ = new cMessage("ueMonitorTimer");
+
+    cellIdRegistered_ = false;
 
     cMessage *msg = new cMessage("connectMp1");
     scheduleAt(simTime() + 0, msg);
@@ -75,6 +85,17 @@ void SentinelMecApp::handleSelfMessage(omnetpp::cMessage *msg)
            }
         }
     }
+    else if(strcmp(msg->getName(), "ueMonitorTimer") == 0)
+    {
+        EV << "SentinelMecApp::handleSelfMessage - monitoring the antennas" << endl;
+        inet::TcpSocket *rniSocket = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(servicesData_[RNI]->sockid));
+        sendGetL2Meas(rniSocket);
+    }
+    else
+    {
+        EV_ERROR << "SentinelMecApp::handleSelfMessage - message not recognized" << endl;
+    }
+
 }
 
 void SentinelMecApp::handleHttpMessage(int connId)
@@ -178,7 +199,21 @@ void SentinelMecApp::handleRNIMessage(inet::TcpSocket *socket)
         // Manage subscription response and polling
         EV << "SentinelMecApp::handling RNI response" << endl;
         HttpResponseMessage *rspMsg = dynamic_cast<HttpResponseMessage*>(serviceHttpMessage);
-        if(rspMsg->getCode() == 201)
+        if(rspMsg->getCode() == 200)
+        {
+            EV << "SentinelMecApp::handling RNI response - get L2 meas ok" << endl;
+            // responseCounter_ --;
+            nlohmann::json jsonBody = nlohmann::json::parse(rspMsg->getBody());
+            EV << "SentinelMecApp::handling RNI response - get L2 meas body: " << jsonBody.dump().c_str() << endl;
+            
+            // Processing the response
+            processL2MeasResponse(jsonBody);
+            
+            // Scheduling again the request
+            if(!ueMonitorTimer_->isScheduled())
+                scheduleAt(simTime()+ueMonitoringInterval_, ueMonitorTimer_);
+        }
+        else if(rspMsg->getCode() == 201)
         {
             EV << "SentinelMecApp::handling RNI response - subscription ok: " << rspMsg->getBody() << endl;
             nlohmann::json jsonBody = nlohmann::json::parse(rspMsg->getBody());
@@ -232,8 +267,8 @@ void SentinelMecApp::established(int connId)
         if(std::strcmp(servicesData_[index]->name.c_str(), "RNIService") == 0)
         {
             EV << "SentinelMecApp::established - connected to RNIService" << endl;
-
-            sendCellChangeSubscription(socket_);
+            sendGetL2Meas(socket_);
+            // sendCellChangeSubscription(socket_);
         }
 
     }
@@ -279,9 +314,70 @@ void SentinelMecApp::sendCellChangeSubscription(inet::TcpSocket *socket)
 
 void SentinelMecApp::sendDeleteCellChangeSubscription(inet::TcpSocket *socket)
 {
-    responseCounter_ ++;
+    EV << "SentinelMecApp::sendDeleteCellChangeSubscription" << endl;
+    // responseCounter_ ++;
     std::string uristring = "/example/rni/v2/subscriptions/" + subId_;
     std::string host = socket->getRemoteAddress().str()+":"+std::to_string(socket->getRemotePort());
 
     Http::sendDeleteRequest(socket, host.c_str(), uristring.c_str());
+}
+
+void SentinelMecApp::sendGetL2Meas(inet::TcpSocket *socket)
+{
+    /*
+    * In this case we need the infomation about all the antenna managed
+    * by that mechost. So, no need to specify cellId or ueipv*address
+    */
+    responseCounter_ ++;
+    EV << "SentinelMecApp::sendGetL2Meas" << endl;
+    std::string uristring = "/example/rni/v2/queries/layer2_meas";
+    std::string host = socket->getRemoteAddress().str()+":"+std::to_string(socket->getRemotePort());
+
+    Http::sendGetRequest(socket, host.c_str(), uristring.c_str());
+}
+
+void SentinelMecApp::processL2MeasResponse(const nlohmann::ordered_json& json)
+{
+    EV << "SentinelMecApp::processL2MeasResponse - cellinfo: " << json["cellInfo"] <<  endl;
+    
+    if(!cellIdRegistered_)
+    {
+        for (const auto& cellInfo : json["cellInfo"]) {
+            Plmn *plmn = new Plmn(cellInfo["ecgi"]["plmn"]["mcc"], cellInfo["ecgi"]["plmn"]["mnc"]);
+            Ecgi *ecgi = new Ecgi(cellInfo["ecgi"]["cellId"], *plmn);
+            cellIds_.push_back(ecgi);
+        }
+        cellIdRegistered_ = true;
+    }
+
+    EV << "SentinelMecApp::processL2MeasResponse - cellUEInfo: " << json["cellUEInfo"] <<  endl;
+
+    for (const auto& ueInfo : json["cellUEInfo"]) {
+        AssociateId a;
+
+        a.setType(ueInfo["associatedId"]["type"]);
+        a.setValue(ueInfo["associatedId"]["value"]);
+        if(!doesUeExist(a))
+        {
+            EV << "SentinelMecApp::processL2MeasRespons - NEW UE FOUND" << endl;
+            allUes_.push_back(a);
+        }
+    }
+
+    // debug
+    for (const auto& ue : allUes_) {
+        EV << "SentinelMecApp::processL2MeasResponse - ue: " << ue.getType() << " " << ue.getValue() << endl;
+    }
+
+}
+
+bool SentinelMecApp::doesUeExist(AssociateId& ue)
+{
+    for(auto a : allUes_)
+    {
+        if(a.getValue() == ue.getValue())
+            return true;
+    }
+    
+    return false;
 }

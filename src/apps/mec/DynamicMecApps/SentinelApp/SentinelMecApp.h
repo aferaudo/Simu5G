@@ -18,6 +18,10 @@
 
 #include <omnetpp.h>
 #include "apps/mec/DynamicMecApps/MecAppBase/ExtMecAppBase.h"
+#include "nodes/mec/MECPlatform/MECServices/RNIService/resources/AssociateId.h"
+#include "nodes/mec/MECPlatform/MECServices/RNIService/resources/Ecgi.h"
+#include <vector>
+#include <map>
 
 using namespace omnetpp;
 
@@ -43,11 +47,30 @@ class SentinelMecApp : public ExtMecAppBase
   // RNI notification parameters
   std::string webHook_;
 
+  // This interval is used too monitor the antennas when new subscription happens
+  double ueMonitoringInterval_;
+  cMessage *ueMonitorTimer_;
+
+  // registring ues under the cell
+  std::vector<AssociateId> allUes_;
+  std::vector<AssociateId> computingUes_;
+
+  // registering cellIds (this may be not necessary and could be done only once)
+  std::vector<Ecgi*> cellIds_;
+
+  // FIXME refactor
+  bool cellIdRegistered_;
+  
+  bool doesUeExist(AssociateId& ue);
+
+  public:
+    ~SentinelMecApp();
+
   protected:
     virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
     virtual void initialize(int stage) override;
 
-
+    //  handling methods
     virtual void handleSelfMessage(omnetpp::cMessage *msg);
     virtual void handleHttpMessage(int connId);
     virtual void handleReceivedMessage(int sockId, inet::Packet *msg); // this method menage message received on a socket in listening mode
@@ -56,9 +79,15 @@ class SentinelMecApp : public ExtMecAppBase
     virtual void handleUeMessage(omnetpp::cMessage *msg);
     virtual void established(int connId);
     virtual void handleTermination(); //delete registrations
+
+    // Cell monitoring request methods
+    virtual void sendGetL2Meas(inet::TcpSocket *socket);
     virtual void sendCellChangeSubscription(inet::TcpSocket *socket);
     virtual void sendDeleteCellChangeSubscription(inet::TcpSocket *socket);
     virtual void handleRNIMessage(inet::TcpSocket *socket);
+
+    // Cell monitoring utility methods
+    virtual void processL2MeasResponse(const nlohmann::ordered_json& json);
 
 };
 

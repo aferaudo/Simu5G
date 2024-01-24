@@ -49,7 +49,7 @@ void RNIService::initialize(int stage)
         L2MeasResource_.addEnodeB(eNodeB_);
         baseSubscriptionLocation_ = host_+ baseUriSubscriptions_ + "/";
         antennaMonitorInterval_ = par("monitoringInterval").doubleValue();
-        antennaMonitorMsg_ = antennaMonitorInterval_ > 0 ? new cMessage("antennaMonitorTimer") : nullptr;
+        antennaMonitorMsg_ = new cMessage("antennaMonitorTimer");
     }
 }
 
@@ -197,6 +197,7 @@ void RNIService::handleGETRequest(const HttpRequestMessage *currentRequestMessag
         }
         else{
             //no query params
+            EV << "RNIService::handleGETRequest - no query params sending " << L2MeasResource_.toJson().dump().c_str()  << endl;
             Http::send200Response(socket,L2MeasResource_.toJson().dump().c_str());
             return;
         }
@@ -250,6 +251,7 @@ void RNIService::handlePOSTRequest(const HttpRequestMessage *currentRequestMessa
             SubscriptionBase *subscription = nullptr;
             if(request["subscriptionType"] == "CellChangeSubscription")
             {
+                // TODO change this with from JSON
                 subscription = new CellChangeSubscription(subscriptionId_, socket, baseSubscriptionLocation_, eNodeB_);
 
                 // scheduling monitoring of antenna
