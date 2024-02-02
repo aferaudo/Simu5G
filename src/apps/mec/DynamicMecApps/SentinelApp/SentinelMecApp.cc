@@ -45,6 +45,7 @@ void SentinelMecApp::initialize(int stage)
     ueMonitorTimer_ = new cMessage("ueMonitorTimer");
 
     cellIdRegistered_ = false;
+    cellChangeSubscription_ = false;
 
     cMessage *msg = new cMessage("connectMp1");
     scheduleAt(simTime() + 0, msg);
@@ -291,7 +292,7 @@ void SentinelMecApp::handleTermination()
     
 }
 
-void SentinelMecApp::sendCellChangeSubscription(inet::TcpSocket *socket)
+void SentinelMecApp::sendCellChangeSubscription(inet::TcpSocket *socket, std::string method)
 {
     std::string uristring = "/example/rni/v2/subscriptions";
     std::string host = socket->getRemoteAddress().str()+":"+std::to_string(socket->getRemotePort());
@@ -303,12 +304,32 @@ void SentinelMecApp::sendCellChangeSubscription(inet::TcpSocket *socket)
     // subscriptionBody_["websockNotifConfig"] =
     subscriptionBody_["filterCriteriaAssocHo"]["appInstanceId"] = getName();
     subscriptionBody_["filterCriteriaAssocHo"]["associateId"] = nlohmann::ordered_json::array();
+
+    for(auto ue : allUes_)
+    {
+        AssociateId ueId;
+        ueId.setType(ue.getType());
+        ueId.setValue(ue.getValue());
+        subscriptionBody_["filterCriteriaAssocHo"]["associateId"].push_back(ueId.toJson());
+    }
+
     subscriptionBody_["filterCriteriaAssocHo"]["hoStatus"] = nlohmann::ordered_json::array();
     subscriptionBody_["filterCriteriaAssocHo"]["hoStatus"].push_back(hoStatusString[IN_PREPARATION]); 
     // subscriptionBody_["filterCriteriaAssocHo"]["ecgi"] = nlohmann::ordered_json::array();
     subscriptionBody_["requestTestNotification"] = false;
 
-    Http::sendPostRequest(socket, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
+    if(std::strcmp(method.c_str(), "POST") == 0)
+    {
+        Http::sendPostRequest(socket, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
+    }
+    else if(std::strcmp(method.c_str(), "PUT") == 0)
+    {
+        Http::sendPutRequest(socket, subscriptionBody_.dump().c_str(), host.c_str(), uristring.c_str());
+    }
+    else
+    {
+        EV_ERROR << "SentinelMecApp::sendCellChangeSubscription - method not recognized" << endl;
+    }    
 
 }   
 
@@ -357,10 +378,12 @@ void SentinelMecApp::processL2MeasResponse(const nlohmann::ordered_json& json)
 
         a.setType(ueInfo["associatedId"]["type"]);
         a.setValue(ueInfo["associatedId"]["value"]);
-        if(!doesUeExist(a))
+        if(allUes_.empty() || !doesUeExist(a))
         {
             EV << "SentinelMecApp::processL2MeasRespons - NEW UE FOUND" << endl;
-            allUes_.push_back(a);
+            allUes_.push_back(a); 
+            // if a new UE is found, we need to ask for their resources
+            beaconUeResources(a);
         }
     }
 
@@ -380,4 +403,25 @@ bool SentinelMecApp::doesUeExist(AssociateId& ue)
     }
     
     return false;
+}
+
+
+void SentinelMecApp::beaconUeResources(AssociateId &ue)
+{
+    // TODO - Generated method body
+    EV << "Not implemented yet" << endl;
+    
+
+    // TODO move the following code to the method managing the adding of new resources
+    
+    inet::TcpSocket *rniSocket = check_and_cast<inet::TcpSocket*> (sockets_.getSocketById(servicesData_[RNI]->sockid));
+    if(!cellChangeSubscription_)
+    {
+        sendCellChangeSubscription(rniSocket);
+        cellChangeSubscription_ = true;
+    }
+    else
+    {
+        sendCellChangeSubscription(rniSocket, "PUT");
+    }
 }

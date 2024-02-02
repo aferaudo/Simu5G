@@ -259,6 +259,8 @@ void RNIService::handlePOSTRequest(const HttpRequestMessage *currentRequestMessa
                     cancelEvent(antennaMonitorMsg_);
                     
                 scheduleAt(simTime() + 0, antennaMonitorMsg_);
+                printAllSubscriptions();
+
             }
             // TODO define other type of subscriptions
             if(subscription == nullptr)
@@ -312,7 +314,6 @@ void RNIService::handlePUTRequest(const HttpRequestMessage *currentRequestMessag
         }
         else
         {
-            // TODO
             // check if the subscription exists
             // if it exists, update it
             // else send 404
@@ -328,11 +329,13 @@ void RNIService::handlePUTRequest(const HttpRequestMessage *currentRequestMessag
                 {
                     subscription->set_links(baseSubscriptionLocation_);
                     subscriptions_[it->first] = subscription;
+                    request["subscriptionId"] = subscriptionId_;
                     EV << "RNIService::handlePUTRequest - Updated subsciber [" << it->first << "]" << endl;
                     
                     // debug
+                    EV << "called print all sub in PUT " << endl;
                     printAllSubscriptions();
-                    Http::send200Response(socket, request.dump().c_str());
+                    Http::send201Response(socket, request.dump().c_str());
                 }
                 else
                 {

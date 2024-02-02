@@ -60,6 +60,8 @@ class SentinelMecApp : public ExtMecAppBase
 
   // FIXME refactor
   bool cellIdRegistered_;
+
+  bool cellChangeSubscription_;
   
   bool doesUeExist(AssociateId& ue);
 
@@ -82,13 +84,15 @@ class SentinelMecApp : public ExtMecAppBase
 
     // Cell monitoring request methods
     virtual void sendGetL2Meas(inet::TcpSocket *socket);
-    virtual void sendCellChangeSubscription(inet::TcpSocket *socket);
+    virtual void sendCellChangeSubscription(inet::TcpSocket *socket, std::string method="POST");
     virtual void sendDeleteCellChangeSubscription(inet::TcpSocket *socket);
     virtual void handleRNIMessage(inet::TcpSocket *socket);
 
     // Cell monitoring utility methods
     virtual void processL2MeasResponse(const nlohmann::ordered_json& json);
 
+    // Ue resource beaconing
+    virtual void beaconUeResources(AssociateId &ue);
 };
 
 #endif
