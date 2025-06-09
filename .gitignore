@@ -81,3 +81,7 @@ vim files
 
 #.vscode
 .vscode/c_cpp_properties.json
+
+
+.nedexclusion
+.project

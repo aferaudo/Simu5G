@@ -331,6 +331,8 @@ void DeviceApp::handleSelfMessage(cMessage *msg){
             delete UALCMPMessage;
         UALCMPMessage = nullptr;
     }
+
+
 }
 
 void DeviceApp::initialize(int stage){
@@ -369,6 +371,8 @@ void DeviceApp::initialize(int stage){
 
     cMessage *msg = new cMessage("connect");
     scheduleAt(simTime()+0.0 , msg);
+
+
 }
 
 void DeviceApp::handleMessage(omnetpp::cMessage *msg)

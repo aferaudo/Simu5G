@@ -14,6 +14,11 @@
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/SchedulingAlgorithms/RoundRobinScheduler.h"
 #include "nodes/mec/VirtualisationInfrastructureManager/Dynamic/SchedulingAlgorithms/GaussianBasedScheduler/GaussianScheduler.h"
 
+#include "nodes/mec/Federator/Messages/MEFmessages_m.h"
+#include "inet/networklayer/common/L3Address.h"
+#include "inet/transportlayer/common/L4PortTag_m.h"
+#include "inet/networklayer/contract/ipv4/Ipv4Address.h"
+
 Define_Module(VirtualisationInfrastructureManagerDyn);
 
 VirtualisationInfrastructureManagerDyn::VirtualisationInfrastructureManagerDyn()
@@ -225,6 +230,95 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
             EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: ServiceMobilityRequest" << endl;
             handleMobilityRequest(msg);
         }
+        else if(!strcmp(msg->getName(), "appRequestAPPtoVIM"))
+        {
+            EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: appRequestAPPtoVIM" << endl;
+
+            inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+            auto data = pPacket->peekData<AppRequest>();
+
+            bool found = false;
+            std::string requestAppId = data->getAppId();
+            std::string requestAppName = data->getAppName();
+
+
+            //Controllo se c'è
+            for(const auto& pair : handledApp){
+                    const auto& app = pair.second;
+
+                    bool matchAppId = !requestAppId.empty() && app->appInstanceId == requestAppId;
+                    bool matchAppName = !requestAppName.empty() && app->moduleName == requestAppName;
+
+                    if(matchAppId || matchAppName){
+                        EV << "VirtualisationInfrastructureManagerDyn::appRequestAPPtoVIM: FOUND" << endl;
+
+                        //Ritorno instanza
+
+                        found = true;
+
+                        inet::Packet* pktdup = new inet::Packet("appResponseVIMtoAPP");
+                        auto request = inet::makeShared<AppResponse>();
+
+                        request->setAppId(data->getAppId());
+                        request->setAppName(data->getAppName());
+                        request->setAppAddress(app->endpoint.addr.str().c_str());
+                        request->setAppPort(app->endpoint.port);
+                        request->setIpRequest(data->getIpRequest());
+                        request->setPortRequest(data->getPortRequest());
+                        request->setIpMefRequest(data->getIpMefRequest());
+                        request->setHostId(data->getHostId());
+
+                        request->setChunkLength(inet::B(64));
+                        pktdup->insertAtBack(request);
+
+                        EV << "VirtualisationInfrastructureManagerDyn::appRequestAPPtoVIM - sending to:  " << inet::L3AddressResolver().resolve(getParentModule()->getFullPath().c_str()) << ":" << data->getPortRequest() << endl;
+                        socket.sendTo(pktdup, inet::L3AddressResolver().resolve(getParentModule()->getFullPath().c_str()), data->getPortRequest());
+
+                        break;
+                    }
+            }
+
+            if(!found){
+                inet::Packet *packetResp = new inet::Packet("appRequestVIMtoMEO");
+                auto request = inet::makeShared<AppRequest>();
+
+                request->setAppName(data->getAppName());
+                request->setIpRequest(data->getIpRequest());
+                request->setPortRequest(data->getPortRequest());
+                request->setHostId(getParentModule()->getParentModule()->getId());
+
+                request->setChunkLength(inet::B(64));
+                packetResp->insertAtBack(request);
+
+
+                EV << "VirtualisationInfrastructureManagerDyn::appRequestAPPtoVIM at MEO - request: PongApp " << endl;
+                socket.sendTo(packetResp, meoAddress, meoPort);
+            }
+
+
+        }
+        else if(!strcmp(msg->getName(), "appResponseMEOtoVIM")){
+                inet::Packet* pPacket = check_and_cast<inet::Packet*>(msg);
+                auto data = pPacket->peekData<AppResponse>();
+
+                inet::Packet* pktdup = new inet::Packet("appResponseVIMtoAPP");
+                auto request = inet::makeShared<AppResponse>();
+
+                request->setAppId(data->getAppId());
+                request->setAppName(data->getAppName());
+                request->setAppAddress(data->getAppAddress());
+                request->setAppPort(data->getAppPort());
+                request->setIpRequest(data->getIpRequest());
+                request->setPortRequest(data->getPortRequest());
+                request->setIpMefRequest(data->getIpMefRequest());
+                request->setHostId(data->getHostId());
+
+                request->setChunkLength(inet::B(64));
+                pktdup->insertAtBack(request);
+
+                EV << "VirtualisationInfrastructureManagerDyn::appResponseMEOtoVIM - sending to:  " << inet::L3AddressResolver().resolve(getParentModule()->getFullPath().c_str()) << ":" << data->getPortRequest() << endl;
+                socket.sendTo(pktdup, inet::L3AddressResolver().resolve(getParentModule()->getFullPath().c_str()), data->getPortRequest());
+            }
         delete msg;
     }
     else{
@@ -1233,6 +1327,8 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
     responsePkt->setInstanceId(appName.str().c_str());
     responsePkt->setMecAppRemoteAddress(entry->endpoint.addr);
     responsePkt->setMecAppRemotePort(entry->endpoint.port);
+    //Francesco Milione modify non abilitata
+    //responsePkt->setMecAppRemotePort(migrationPort);
     responsePkt->setContextId(entry->contextID);
     responsePkt->setChunkLength(inet::B(1000));
     toSend->insertAtBack(responsePkt);

@@ -45,6 +45,8 @@
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpResponseMessage/HttpResponseMessage.h"
 
 
+#include "nodes/mec/Federator/Messages/MEFmessages_m.h"
+
 Define_Module(UALCMPApp);
 
 UALCMPApp::UALCMPApp()
@@ -124,24 +126,58 @@ void UALCMPApp::handleStartOperation(inet::LifecycleOperation *operation)
 
 void UALCMPApp::handleMessageWhenUp(cMessage *msg)
 {
-    if(msg->arrivedOn("fromMecOrchestrator"))
+    if (msg->arrivedOn("fromMecOrchestrator"))
     {
-        // manage here the messages from mecOrchestrator
-        UALCMPMessage * lcmMsg = check_and_cast<UALCMPMessage*>(msg);
-        if(strcmp(lcmMsg->getType(), ACK_CREATE_CONTEXT_APP) == 0)
-        {
-            handleCreateContextAppAckMessage(lcmMsg);
-        }
-        else if(strcmp(lcmMsg->getType(), ACK_DELETE_CONTEXT_APP) == 0)
-        {
-            handleDeleteContextAppAckMessage(lcmMsg);
+        // Caso 1: messaggi UALCMP interni
+        if (auto lcmMsg = dynamic_cast<UALCMPMessage*>(msg)) {
+            if (strcmp(lcmMsg->getType(), ACK_CREATE_CONTEXT_APP) == 0) {
+                handleCreateContextAppAckMessage(lcmMsg);
+            }
+            else if (strcmp(lcmMsg->getType(), ACK_DELETE_CONTEXT_APP) == 0) {
+                handleDeleteContextAppAckMessage(lcmMsg);
+            }
+
+            pendingRequests.erase(lcmMsg->getRequestId());
+            delete lcmMsg;
+            return;
         }
 
-        pendingRequests.erase(lcmMsg->getRequestId());
+        // Caso 2: pacchetti OMNeT con chunk
+        if (auto pkt = dynamic_cast<inet::Packet*>(msg)) {
+            auto chunk = pkt->peekAtFront<StartAppContextChunk>();
+
+            EV << "UALCMP: ricevuto StartAppContextChunk: " << chunk->getAppName() << endl;
+
+            auto createContext = new CreateContextAppMessage();
+            createContext->setOnboarded(chunk->getAppIsOnboarded());
+            createContext->setDevAppId(std::to_string(chunk->getDevAppId()).c_str());
+
+            if (chunk->getAppIsOnboarded()) {
+
+                std::string appNameStr = chunk->getAppName();
+                const ApplicationDescriptor* desc = mecOrchestrator_->getApplicationDescriptorByAppName(appNameStr);
+
+                createContext->setAppDId(desc->getAppDId().c_str());
+            } else {
+                createContext->setAppPackagePath(chunk->getAppPackageSource());
+            }
+
+            createContext->setType(CREATE_CONTEXT_APP);
+            createContext->setRequestId(requestSno++);
+            createContext->setConnectionId(0);
+            pendingRequests[requestSno] = {0, requestSno, nlohmann::json()};
+
+            send(createContext, "toMecOrchestrator");
+            delete pkt;
+            return;
+        }
+
+        // fallback se msg non è né un Packet né un UALCMPMessage
+        EV_WARN << "UALCMPApp: messaggio non riconosciuto su fromMecOrchestrator\n";
         delete msg;
-
         return;
     }
+
     else
     {
         if(!msg->isSelfMessage())

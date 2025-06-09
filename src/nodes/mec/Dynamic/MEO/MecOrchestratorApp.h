@@ -185,6 +185,8 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
     std::queue<ResourceRequest*> resourceRequestQueue_;
     cMessage* processResourceRequest_;
 
+    int lastUsedHostIndex;
+
 
   public:
     MecOrchestratorApp ();
@@ -200,6 +202,9 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
     int localPort;
     inet::L3Address localIPAddress;
     inet::UdpSocket socket;
+
+    int MEFPort;
+    inet::L3Address MEFAddress;
 
     virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
     virtual void initialize(int stage) override;
@@ -278,6 +283,7 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
      * deviceApp identifier - device that made the request
      */
     void findBestMecHost(std::string deviceAppId, const ApplicationDescriptor& appDesc);
+    void findBestMecHostFake(std::string deviceAppId, const ApplicationDescriptor& appDesc);
 
     /*
     This method is responsible for deploying a specified MEC application on a specified MEC host (or * all). 
@@ -309,6 +315,14 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
      */
     const ApplicationDescriptor& onboardApplicationPackage(const char* fileName);
 
+
+    void handleReqMECSystemInfo(inet::Packet *packet);
+    void handleAppRequestVIMtoMEO(inet::Packet* contAppMsg);
+    void handleAppRequestMEFtoMEO(inet::Packet* contAppMsg);
+    void handleAppResponseMEFtoMEO(inet::Packet* contAppMsg);
+
+    void handleAppMigrationRequest();
+    void handleAppMigrationRequestMEFtoMEO(inet::Packet* contAppMsg);
 
 };
 

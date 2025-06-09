@@ -37,6 +37,8 @@ class  DMecAppBaseDyn : public DMecAppBase
         virtual void handleUeMessage(omnetpp::cMessage *msg) override {};
         virtual void established(int connId) override = 0;
 
+        virtual void handleGenericMessage(omnetpp::cMessage *msg) override {};
+
         /* inet::TcpSocket::CallbackInterface callback methods */
         virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *msg, bool urgent) override;
 

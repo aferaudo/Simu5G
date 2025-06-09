@@ -24,6 +24,11 @@
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h" // TODO add this messages to our list
 #include "inet/networklayer/common/L3AddressTag_m.h"
 
+#include "nodes/mec/Federator/Messages/MEFmessages_m.h"
+#include "inet/networklayer/common/L3Address.h"
+#include "inet/transportlayer/common/L4PortTag_m.h"
+#include "inet/networklayer/contract/ipv4/Ipv4Address.h"
+
 Define_Module(MecOrchestratorApp);
 
 MecOrchestratorApp::MecOrchestratorApp()
@@ -33,6 +38,7 @@ MecOrchestratorApp::MecOrchestratorApp()
     mecApplicationDescriptors_.clear();
     contextIdCounter = 0;
     processResourceRequest_ = nullptr;
+    lastUsedHostIndex = -1;
 }
 
 MecOrchestratorApp::~MecOrchestratorApp()
@@ -71,6 +77,16 @@ void MecOrchestratorApp::handleStartOperation(inet::LifecycleOperation *operatio
     // Testing
 //    cMessage *tester = new cMessage("Test");
 //    scheduleAt(simTime()+0.8, tester);
+
+    const char *localMEFAddress = par("MEFAddress");
+    MEFAddress = *localMEFAddress ? inet::L3AddressResolver().resolve(localMEFAddress) : inet::L3Address();
+    MEFPort = par("MEFPort");
+
+
+    cMessage *tester = new cMessage("Migration");
+    //scheduleAt(simTime()+1.7, tester);
+
+
 }
 
 void MecOrchestratorApp::handleMessageWhenUp(omnetpp::cMessage *msg)
@@ -95,6 +111,90 @@ void MecOrchestratorApp::handleMessageWhenUp(omnetpp::cMessage *msg)
                 scheduleAt(simTime(), processResourceRequest_);
             }
             return;
+        }else if(std::strcmp(msg->getName(),"TestRegistration") == 0){
+            inet::Packet *packetResp = new inet::Packet("Registration");
+
+            auto response = inet::makeShared<SystemInfo>();
+            response->setSystemId("111111111");
+            response->setSystemName("systemName");
+            response->setSystemProvider("systemProvider");
+
+            response->setChunkLength(inet::B(64));
+            packetResp->insertAtBack(response);
+
+            socket.sendTo(packetResp, MEFAddress, MEFPort);
+        }else if(std::strcmp(msg->getName(),"TestCancellation") == 0){
+            inet::Packet *packetResp = new inet::Packet("Cancellation");
+
+            auto response = inet::makeShared<SystemInfo>();
+            response->setSystemId("111111111");
+            response->setSystemName("systemName");
+            response->setSystemProvider("systemProvider");
+
+            response->setChunkLength(inet::B(64));
+            packetResp->insertAtBack(response);
+
+            socket.sendTo(packetResp, MEFAddress, MEFPort);
+        }else if(std::strcmp(msg->getName(),"TestUpdate") == 0){
+            inet::Packet *packetResp = new inet::Packet("Update");
+
+            auto response = inet::makeShared<SystemInfo>();
+            response->setSystemId("111111111");
+            response->setSystemName("systemName1");
+            response->setSystemProvider("systemProvider");
+
+            response->setChunkLength(inet::B(64));
+            packetResp->insertAtBack(response);
+
+            socket.sendTo(packetResp, MEFAddress, MEFPort);
+        }else if(std::strcmp(msg->getName(),"TestRequestSystem") == 0){
+
+            inet::Packet *packetResp = new inet::Packet("MECSystemReq");
+
+            auto response = inet::makeShared<SystemInfo>();
+            response->setSystemId("222222222");
+
+            response->setChunkLength(inet::B(64));
+            packetResp->insertAtBack(response);
+
+            socket.sendTo(packetResp, MEFAddress, MEFPort);
+        }
+        else if(std::strcmp(msg->getName(),"TestRequestApp") == 0){
+
+            inet::Packet *packetResp = new inet::Packet("appRequestAPPtoMEO");
+
+            auto request = inet::makeShared<AppRequest>();
+
+            request->setAppName("PongApp");
+
+            request->setChunkLength(inet::B(64));
+            packetResp->insertAtBack(request);
+
+            socket.sendTo(packetResp, localIPAddress, par("localPort"));
+
+        }
+        else if(std::strcmp(msg->getName(),"InitApp") == 0){
+
+            inet::Packet *pkt = new inet::Packet("StartAppContext");
+            auto chunk = inet::makeShared<StartAppContextChunk>();
+
+            chunk->setAppName("PingApp");
+            chunk->setAppPackageSource("ApplicationDescriptors/PingApp.json");
+            chunk->setAppIsOnboarded(true);
+            chunk->setDevAppId(1);
+
+            pkt->insertAtBack(chunk);
+            send(pkt, "toUALCMP");
+
+
+        }
+        else if(std::strcmp(msg->getName(),"Migration") == 0){
+
+            if(strcmp(par("localAddress"), "mecOrchestrator1") ==0){
+                handleAppMigrationRequest();
+            }
+
+
         }
 
 
@@ -140,11 +240,115 @@ void MecOrchestratorApp::socketDataArrived(inet::UdpSocket *socket, inet::Packet
     {
         handleTerminationResponse(packet);
     }
+    else if(std::strcmp(packet->getName(),"ACK") == 0){
+        auto data = packet->peekData<AckPk>();
+
+        EV << "MECOrchestrator ACK recived: " << data->getAckId() << endl;
+    }
+    else if(std::strcmp(packet->getName(),"MECSystemInfoRes") == 0){
+        auto data = packet->peekData<SystemInfo>();
+
+        EV << "MECOrchestrator MECSystemInfoRes recived: " << data->getSystemId() << " " << data->getSystemName() << data->getSystemProvider() <<  endl;
+    }
+    else if(std::strcmp(packet->getName(),"ReqMECSystemInfo") == 0){
+        handleReqMECSystemInfo(packet);
+    }
+    else if(std::strcmp(packet->getName(), "appRequestVIMtoMEO") == 0)
+    {
+        handleAppRequestVIMtoMEO(packet);
+    }
+    else if(std::strcmp(packet->getName(), "appRequestMEFtoMEO") == 0)
+    {
+        handleAppRequestMEFtoMEO(packet);
+    }
+    else if(std::strcmp(packet->getName(), "appResponseMEFtoMEO") == 0)
+    {
+        handleAppResponseMEFtoMEO(packet);
+    }
+    else if(std::strcmp(packet->getName(), "appMigrationRequestMEFtoMEO") == 0)
+    {
+        handleAppMigrationRequestMEFtoMEO(packet);
+    }
     else
     {
         EV << "MEOApp::Not recognized packet!"<< endl;
     }
 
+}
+
+void MecOrchestratorApp::handleAppMigrationRequestMEFtoMEO(inet::Packet *contAppMsg){
+    auto data = contAppMsg->peekData<AppMigrationRequest>();
+
+    inet::Packet *pkt = new inet::Packet("StartAppContext");
+    auto chunk = inet::makeShared<StartAppContextChunk>();
+
+    chunk->setAppName(data->getAppName());
+    chunk->setAppPackageSource(data->getAppPackageSource());
+    chunk->setAppIsOnboarded(data->getAppIsOnboarded());
+    chunk->setDevAppId(data->getDevAppId());
+
+
+    pkt->insertAtBack(chunk);
+    send(pkt, "toUALCMP");
+}
+
+void MecOrchestratorApp::handleAppMigrationRequest(){
+
+    std::string appName = "PingApp";
+    std::string appPackageSource = "ApplicationDescriptors/PingApp.json";
+
+    inet::Packet *pkt = new inet::Packet("appMigrationRequestMEOtoMEF");
+    auto request = inet::makeShared<AppMigrationRequest>();
+
+    request->setAppName(appName.c_str());
+    request->setAppPackageSource(appPackageSource.c_str());
+    request->setAppIsOnboarded(true);
+    request->setDevAppId(1);
+
+
+    for(const auto& pair : meAppMap){
+            const mecApp_s& app = pair.second;
+
+            if(app.mecAppName == appName){
+                EV << "MEO::handleAppMigrationRequest: FOUND info: " << app.mecAppAddress <<":"<< app.mecAppPort<< endl;
+
+                request->setAppAddress(app.mecAppAddress.str().c_str());
+                request->setAppPort(app.mecAppPort);
+
+                break;
+            }
+    }
+
+    request->setChunkLength(inet::B(64));
+    pkt->insertAtBack(request);
+
+    EV << "MEO::handleAppMigrationRequest: send at  " << MEFAddress <<":"<< MEFPort << endl;
+
+
+    socket.sendTo(pkt, MEFAddress, MEFPort);
+}
+
+
+void MecOrchestratorApp::handleReqMECSystemInfo(inet::Packet *packet)
+{
+    auto data = packet->peekData<SystemInfo>();
+
+    EV << "MECOrchestrator MEF request: " << data->getSystemId() <<  endl;
+
+    if(std::strcmp(data->getSystemId(),"111111111") == 0){
+        inet::Packet *packetResp = new inet::Packet("MEFSystemInfoRes");
+
+        auto response = inet::makeShared<SystemInfo>();
+        response->setSystemId("111111111");
+        response->setSystemName("systemName");
+        response->setSystemProvider("systemProvider");
+        response->setIpMefRequest(data->getIpMefRequest());
+
+        response->setChunkLength(inet::B(64));
+        packetResp->insertAtBack(response);
+
+        socket.sendTo(packetResp, MEFAddress, MEFPort);
+    }
 }
 
 void MecOrchestratorApp::handleRegistration(inet::Packet *packet)
@@ -253,7 +457,7 @@ void MecOrchestratorApp::handleCreateContextMessage(CreateContextAppMessage* con
     {
         deployOnSpecifiedMecHost(contAppMsg->getDevAppId(), desc, desc.getAppDeploymentSetting());
     }
-    findBestMecHost(contAppMsg->getDevAppId(), desc);
+    findBestMecHostFake(contAppMsg->getDevAppId(), desc);
 }
 
 void MecOrchestratorApp::handleResourceReply(inet::Packet *packet)
@@ -424,6 +628,222 @@ void MecOrchestratorApp::handleResourceReply(inet::Packet *packet)
 
 }
 
+void MecOrchestratorApp::handleAppRequestVIMtoMEO(inet::Packet* contAppMsg){
+    auto data = contAppMsg->peekData<AppRequest>();
+
+    auto srcAddr = contAppMsg->getTag<inet::L3AddressInd>()->getSrcAddress();
+    int srcPort = contAppMsg->getTag<inet::L4PortInd>()->getSrcPort();
+
+    //Controllo se l'instanza c'è
+    bool found = false;
+
+    std::string requestAppId = data->getAppId();
+    std::string requestAppName = data->getAppName();
+
+    for(const auto& pair : meAppMap){
+        const mecApp_s& app = pair.second;
+
+        bool matchAppId = !requestAppId.empty() && app.appDId == requestAppId;
+        bool matchAppName = !requestAppName.empty() && app.mecAppName == requestAppName;
+
+        if(matchAppId || matchAppName){
+            EV << "MEO::handleAppRequestVIMtoMEO: FOUND info: " << app.mecAppAddress <<":"<< app.mecAppPort<< endl;
+
+            //Ritorno instanza
+
+            found = true;
+
+            inet::Packet* pktdup = new inet::Packet("appResponseMEOtoVIM");
+            auto request = inet::makeShared<AppResponse>();
+
+            request->setAppId(data->getAppId());
+            request->setAppName(data->getAppName());
+            request->setAppAddress(app.mecAppAddress.str().c_str());
+            request->setAppPort(app.mecAppPort);
+            request->setHostId(data->getHostId());
+            request->setPortRequest(data->getPortRequest());
+
+            request->setChunkLength(inet::B(64));
+            pktdup->insertAtBack(request);
+
+            inet::L3Address destIp;
+            int destPort = -1;
+
+            //Cerco il vim
+
+            for(auto &entry : mecHosts)
+            {
+                if(entry->mecHostId == data->getHostId())
+                {
+                    destIp = entry->vimHostIp;
+                    destPort = entry->vimPort;
+
+                    break;
+                }
+            }
+
+
+            if(destPort == -1)
+            {
+                EV << "MEO::handleAppRequestVIMtoMEO - ERROR vim not found" << endl;
+            }else{
+                EV << "MEO::handleAppRequestVIMtoMEO - sending to:  " << destIp << ":" << destPort << endl;
+                socket.sendTo(pktdup, destIp, destPort);
+            }
+
+            break;
+        }
+    }
+
+    if(!found){
+        inet::Packet* pktdup = new inet::Packet("appRequestMEOtoMEF");
+        auto request = inet::makeShared<AppRequest>();
+
+        request->setAppId(data->getAppId());
+        request->setAppName(data->getAppName());
+        //request->setIpRequest(srcAddr.str().c_str());
+        //request->setPortRequest(srcPort);
+        request->setIpRequest(data->getIpRequest());
+        request->setPortRequest(data->getPortRequest());
+        request->setHostId(data->getHostId());
+
+        request->setChunkLength(inet::B(64));
+        pktdup->insertAtBack(request);
+
+        EV << "MEO::handleAppRequestAPPtoMEO - sending to MEF request:  " << MEFAddress << ":" << MEFPort << endl;
+        socket.sendTo(pktdup, MEFAddress, MEFPort);
+
+    }
+}
+
+void MecOrchestratorApp::handleAppRequestMEFtoMEO(inet::Packet* contAppMsg){
+    auto data = contAppMsg->peekData<AppRequest>();
+
+    auto srcAddr = contAppMsg->getTag<inet::L3AddressInd>()->getSrcAddress();
+    int srcPort = contAppMsg->getTag<inet::L4PortInd>()->getSrcPort();
+
+    //Controllo se l'instanza c'è
+    bool found = false;
+
+    std::string requestAppId = data->getAppId();
+    std::string requestAppName = data->getAppName();
+
+    for(const auto& pair : meAppMap){
+
+        const mecApp_s& app = pair.second;
+        EV << "MEO::DEBUG:" << app.mecAppName<< endl;
+
+        bool matchAppId = !requestAppId.empty() && app.appDId == requestAppId;
+        bool matchAppName = !requestAppName.empty() && app.mecAppName == requestAppName;
+
+        EV_INFO << "------ Stampa mecApp_s ------" << endl;
+        EV_INFO << "contextId: " << app.contextId << endl;
+        EV_INFO << "appDId: " << app.appDId << endl;
+        EV_INFO << "mecAppName: " << app.mecAppName << endl;
+        EV_INFO << "mecAppIsntanceId: " << app.mecAppIsntanceId << endl;
+        EV_INFO << "mecUeAppID: " << app.mecUeAppID << endl;
+
+        if (app.mecHostDesc != nullptr) {
+            EV_INFO << "mecHostDesc " << app.mecHostDesc->toString() << endl;
+        } else {
+            EV_INFO << "mecHostDesc: nullptr" << endl;
+        }
+
+        EV_INFO << "ueSymbolicAddres: " << app.ueSymbolicAddres << endl;
+        EV_INFO << "ueAddress: " << app.ueAddress << endl;
+        EV_INFO << "uePort: " << app.uePort << endl;
+        EV_INFO << "mecAppAddress: " << app.mecAppAddress << endl;
+        EV_INFO << "mecAppPort: " << app.mecAppPort << endl;
+        EV_INFO << "isEmulated: " << (app.isEmulated ? "true" : "false") << endl;
+        EV_INFO << "lastAckStartSeqNum: " << app.lastAckStartSeqNum << endl;
+        EV_INFO << "lastAckStopSeqNum: " << app.lastAckStopSeqNum << endl;
+        EV_INFO << "-----------------------------" << endl;
+
+        if(matchAppId || matchAppName){
+            EV << "MEO::handleAppRequestMEFtoMEO: FOUND info: "<< app.mecAppAddress <<":"<< app.mecAppPort<< endl;
+
+
+            //Ritorno instanza
+
+            found = true;
+
+            inet::Packet* pktdup = new inet::Packet("appResponseMEOtoMEF");
+            auto request = inet::makeShared<AppResponse>();
+
+            request->setAppId(data->getAppId());
+            request->setAppName(data->getAppName());
+            request->setAppAddress(app.mecAppAddress.str().c_str());
+            request->setAppPort(app.mecAppPort);
+            request->setIpRequest(data->getIpRequest());
+            request->setPortRequest(data->getPortRequest());
+            request->setIpMefRequest(data->getIpMefRequest());
+            request->setHostId(data->getHostId());
+
+            request->setChunkLength(inet::B(64));
+            pktdup->insertAtBack(request);
+
+            EV << "MEO::handleAppRequestMEFtoMEO - sending to MEF request:  " << MEFAddress << ":" << MEFPort << endl;
+            socket.sendTo(pktdup, MEFAddress, MEFPort);
+
+            break;
+        }
+    }
+
+    if(!found){
+        EV << "MEO::handleAppRequestMEFtoMEO - NOTHING" << endl;
+    }
+}
+
+
+void MecOrchestratorApp::handleAppResponseMEFtoMEO(inet::Packet* contAppMsg){
+    auto data = contAppMsg->peekData<AppResponse>();
+
+    inet::Packet* pktdup = new inet::Packet("appResponseMEOtoVIM");
+    auto request = inet::makeShared<AppResponse>();
+
+    request->setAppId(data->getAppId());
+    request->setAppName(data->getAppName());
+    request->setAppAddress(data->getAppAddress());
+    request->setAppPort(data->getAppPort());
+    request->setIpRequest(data->getIpRequest());
+    request->setPortRequest(data->getPortRequest());
+    request->setIpMefRequest(data->getIpMefRequest());
+    request->setHostId(data->getHostId());
+
+    request->setChunkLength(inet::B(64));
+    pktdup->insertAtBack(request);
+
+    inet::L3Address destIp;
+    int destPort = -1;
+
+    //Cerco il vim
+    for(auto &entry : mecHosts)
+    {
+        if(entry->mecHostId == data->getHostId())
+        {
+            destIp = entry->vimHostIp;
+            destPort = entry->vimPort;
+
+            break;
+        }
+    }
+
+
+    if(destPort == -1)
+    {
+        EV << "MEO::handleAppResponseMEFtoMEO - ERROR vim not found" << endl;
+    }else{
+        EV << "MEO::handleAppResponseMEFtoMEO - sending to:  " << destIp << ":" << destPort << endl;
+        socket.sendTo(pktdup, destIp, destPort);
+    }
+
+
+
+
+
+}
+
+
 void MecOrchestratorApp::handleInstantiationResponse(inet::Packet *packet)
 {
     auto data = packet->peekData<InstantiationApplicationResponse>();
@@ -484,9 +904,6 @@ void MecOrchestratorApp::handleInstantiationResponse(inet::Packet *packet)
         // send successful ack
         sendCreateAppContextAck(true, itUALCMPRequest->second->getRequestId(), appResponse->getContextId(), "", amsUri);
 
-        // delete pending request
-        delete itUALCMPRequest->second;
-        pendingRequests.erase(itUALCMPRequest);
 
     }else
     {
@@ -601,6 +1018,50 @@ void MecOrchestratorApp::stopMECApp(UALCMPMessage* msg)
     // sending message to the MEPM
     socket.sendTo(packet, itMeApp->second.mecHostDesc->mepmHostIp, itMeApp->second.mecHostDesc->mepmPort);
 
+}
+
+void MecOrchestratorApp::findBestMecHostFake(std::string deviceAppId, const ApplicationDescriptor& appDesc)
+{
+    EV << "MEOApp::findBestMecHost - alternating between MecHosts..." << endl;
+
+    std::string key = deviceAppId;
+    int totalHosts = mecHosts.size();
+    if (totalHosts == 0) return;
+
+    // ricerca in modo circolare a partire dal prossimo
+    for (int i = 0; i < totalHosts; ++i) {
+        int index = (lastUsedHostIndex + 1 + i) % totalHosts;
+        auto& it = mecHosts[index];
+        if (it->vimPort != -1 && it->mepmPort != -1) {
+            lastUsedHostIndex = index; // aggiorna l'ultimo usato
+
+            EV << "MEOApp::Using MECHost - id: " << it->mecHostId << endl;
+            MECHostResponseEntry *responseEntry = new MECHostResponseEntry;
+            responseEntry->mecHostID = it->mecHostId;
+
+            ResourceRequest *r = new ResourceRequest();
+            inet::Packet* pktMM3 = makeAvailableServiceRequestPacket(it->mepmHostIp, it->mepmPort, deviceAppId, appDesc);
+            inet::Packet* pktMM4 = makeResourceRequestPacket(it->vimHostIp, it->vimPort, deviceAppId,
+                                                              appDesc.getVirtualResources().cpu,
+                                                              appDesc.getVirtualResources().ram,
+                                                              appDesc.getVirtualResources().disk);
+
+            r->pktMM3 = pktMM3;
+            r->pktMM4 = pktMM4;
+            r->vimHostAddress = it->vimHostIp;
+            r->mepmHostAddress = it->mepmHostIp;
+            r->vimPort = it->vimPort;
+            r->mepmPort = it->mepmPort;
+            resourceRequestQueue_.push(r);
+            responseEntry->requestTime = simTime().dbl();
+
+            if (!processResourceRequest_->isScheduled())
+                scheduleAt(simTime(), processResourceRequest_);
+
+            responseMap[key].push_back(responseEntry);
+            break; // termina dopo il primo valido trovato (round robin)
+        }
+    }
 }
 
 

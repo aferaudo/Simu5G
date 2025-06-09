@@ -1,19 +1,4 @@
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-// 
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Lesser General Public License for more details.
-// 
-// You should have received a copy of the GNU Lesser General Public License
-// along with this program.  If not, see http://www.gnu.org/licenses/.
-// 
-
-package simu5g.nodes.mec.Dynamic.MEO;
+package simu5g.nodes.mec.Federator;
 
 import inet.linklayer.ppp.PppInterface;
 import inet.networklayer.common.InterfaceTable;
@@ -24,44 +9,31 @@ import inet.applications.contract.IApp;
 import inet.transportlayer.udp.Udp;
 import inet.transportlayer.tcp.Tcp;
 import inet.common.MessageDispatcher;
-import inet.linklayer.contract.IEthernetInterface;
 import inet.linklayer.ethernet.EthernetInterface;
-import inet.applications.contract.IApp;
+import inet.linklayer.contract.IEthernetInterface;
 import inet.node.ethernet.Eth10G;
-import inet.networklayer.common.InterfaceTable;
 import inet.linklayer.contract.ILoopbackInterface;
 
-
-
-//
-// @author Alessandro Calvio
-// @author Angelo Feraudo
-//
-module MecOrchestratorHost
+module Federator
 {
     parameters:
         @networkNode();
-        bool hasIpv4 = default(true);
+		string name = default("");
+		
+		bool hasIpv4 = default(true);
         bool hasIpv6 = default(false);
         int numExtEthInterfaces = default(0); 
         
         *.interfaceTableModule = default(absPath(".interfaceTable"));
-    gates:
 
-        //to external networks (internet)
-        inout pppg[];
+    gates:
+		inout pppg[];
         inout ethg[];
 
-        output toUALCMP;
-        input fromUALCMP;
+    submodules:
         
-        //Francesco Milione added
-        output toFederator;
-        input fromFederator;
-submodules:
-		
-		meoApp: MecOrchestratorApp {
-            @display("p=549.69,74.045,row");
+        federatorApp: FederatorApp {
+            @display("p=550,100,row");
         }
         
         interfaceTable: InterfaceTable {
@@ -130,17 +102,15 @@ submodules:
             parameters:
                 @display("p=750,676,row,150");
         }
+        
 
     connections allowunconnected:
-
+        
         //# 
         //# MECOrchestrator to transport layer connections
         //#        
-        meoApp.socketOut --> at.in++;
-        meoApp.socketIn <-- at.out++;
-
-        meoApp.toUALCMP --> toUALCMP;
-        meoApp.fromUALCMP <-- fromUALCMP;
+        federatorApp.socketOut --> at.in++;
+        federatorApp.socketIn <-- at.out++;
 
         at.out++ --> udp.appIn;
         at.in++ <-- udp.appOut;
@@ -191,5 +161,6 @@ submodules:
         // loopback
         lo.upperLayerOut --> nl.in++;
         lo.upperLayerIn <-- nl.out++;
-    
+        
+
 }

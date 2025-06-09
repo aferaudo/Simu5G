@@ -116,6 +116,8 @@ protected:
     virtual void handleUeMessage(omnetpp::cMessage *msg) = 0;
     virtual void established(int connId) = 0;
 
+    virtual void handleGenericMessage(omnetpp::cMessage *msg) = 0;
+
     virtual void connect(inet::TcpSocket* socket, const inet::L3Address& address, const int port);
 
     /* inet::TcpSocket::CallbackInterface callback methods */

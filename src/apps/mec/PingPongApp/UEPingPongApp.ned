@@ -13,34 +13,30 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
-package simu5g.nodes.mec.Dynamic.MEO;
+package simu5g.apps.mec.PingPongApp;
 
 import inet.applications.contract.IApp;
+import simu5g.nodes.mec.MECPlatform.IMECApp;
 
-// @author Alessandro Calvio
-// @author Angelo Feraudo
 
-simple MecOrchestratorApp like IApp
-{
+simple UEPingPongApp like IApp
+{ 
     parameters:
-        @display("i=block/app");
-        int localPort;
-        string localAddress = default("");
+        @display("i=block/source"); 
         
-        // List of onboarded appliaction package
-        string mecApplicationPackageList = default("");
+        string deviceAppAddress;
+        int deviceAppPort;
+        double startTime @unit(s);
+        int localPort = default(4242);
         
-        //Francesco Milione added
-        string MEFAddress;
-        int MEFPort;
+        int tos = default(-1);
         
+        string mecAppName = default("PingPongApp");
+        
+        int packetSize = default(10);
+        bool logger = default(false);
+        string interfaceTableModule = default("");
     gates:
-	    output socketOut;
         input socketIn;
-        
-		output toUALCMP;
-        input fromUALCMP;
-}
-
-
-
+        output socketOut;
+}      

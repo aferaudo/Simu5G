@@ -195,6 +195,9 @@ void DMecAppBase::handleMessage(cMessage *msg)
         else if(serverSocket_.belongsToSocket(msg))
         {
             serverSocket_.processMessage(msg);
+        }else{
+            EV << "DMecAppBaseDyn::Messaggio generico " << msg->getName() << endl;
+            handleGenericMessage(msg);
         }
 
     }
