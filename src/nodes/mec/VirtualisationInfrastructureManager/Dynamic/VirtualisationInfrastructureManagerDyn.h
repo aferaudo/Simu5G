@@ -154,6 +154,18 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
     cOvalFigure *circle;
 
 
+    inet::TcpSocket rniSocket;
+    inet::L3Address rniAddress;
+    int rniPort;
+
+    std::unordered_map<std::string, int> ueToSubscriptionId;
+    std::string bufferRNI;
+    HttpBaseMessage* currentHttpMessageBufferRNI_ = nullptr;
+
+    std::map<std::string, double> startTimes;
+
+
+
     public:
         VirtualisationInfrastructureManagerDyn();
         ~VirtualisationInfrastructureManagerDyn();
@@ -283,6 +295,14 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
          * */
         virtual void socketEstablished(inet::TcpSocket *socket) override;
 
+
+        //Francesco
+        virtual void socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent) override;
+
+        void connectRNIService();
+        void sendRNISubscription();
+        void sendRNISubscriptionForUe(const inet::L3Address& ueIp);
+        void deleteRNISubscription(int subscriptionId);
     private:
 
         void initResource();
@@ -304,7 +324,7 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         void handleInstantiationResponse(cMessage*);
         void handleTerminationResponse(cMessage*);
 
-        inet::Packet* createInstantiationRequest(MecAppEntryDyn &, std::string requiredOmnetppService="NULL", bool migration = false);
+        inet::Packet* createInstantiationRequest(MecAppEntryDyn &, std::string requiredOmnetppService="NULL", bool migration = false, std::string addressMigration = "", int portMigration = -1);
         /*
          * Method that migrates from dynamic resources to local resources
          */
@@ -313,6 +333,10 @@ class VirtualisationInfrastructureManagerDyn: public SubscriberBase
         void mobilityTrigger(std::string appInstanceId);
 
         void printPredictedOccupancyTimes();
+
+
+        void mobilityTriggerFederation(std::string appInstanceId, int idApp, int cellId, std::string ueIpAddress);
+
 };
 
 #endif

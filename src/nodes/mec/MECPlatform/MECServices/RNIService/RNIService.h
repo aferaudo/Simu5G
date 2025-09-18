@@ -35,6 +35,8 @@ class RNIService: public MecServiceBase
     
   public:
     RNIService();
+
+    virtual void notifyCellChange(int imsi, int newCellId);
   protected:
 
     virtual void initialize(int stage) override;
@@ -47,6 +49,7 @@ class RNIService: public MecServiceBase
     virtual void handlePUTRequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket)    override;
     virtual void handleDELETERequest(const HttpRequestMessage *currentRequestMessageServed, inet::TcpSocket* socket) override;
     virtual bool manageSubscription() override;
+
 
     // subscription related methods
     virtual void handleSubscriptionRequest(SubscriptionBase *subscription, inet::TcpSocket* socket, const nlohmann::ordered_json& request);

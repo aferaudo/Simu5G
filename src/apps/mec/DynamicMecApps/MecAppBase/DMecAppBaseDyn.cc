@@ -2,6 +2,8 @@
 
 #include "apps/mec/DynamicMecApps/MecAppBase/DMecAppBaseDyn.h"
 
+#include "nodes/mec/Federator/Messages/MEFmessages_m.h"
+
 using namespace omnetpp;
 using namespace inet;
 
@@ -161,13 +163,39 @@ void DMecAppBaseDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *ms
     }
     else if (serverSocket_.belongsToSocket(msg))
     {
+        /*
        EV << "MECAppNaseDyn::it is a state message" << endl;
+
        stateMessage = check_and_cast<inet::Packet*>(msg)->dup();
+
        if(vi == nullptr)
            throw cRuntimeError("DMecAppBase::socketDataArrived - vi is null (state)!");
        double time = vi->calculateProcessingTime(mecAppId, 150);
        if(!processedStateResponse->isScheduled())
            scheduleAt(simTime()+time, processedStateResponse);
+
+*/
+
+        auto pk = check_and_cast<inet::Packet*>(msg);
+
+        auto slice = pk->peekAtFront<inet::SliceChunk>();
+        if (slice != nullptr) {
+            auto base = inet::dynamicPtrCast<const MigrateState>(slice->getChunk());
+
+
+            inet::b totalLen = base ? base->getChunkLength() : b(0);
+            inet::b sliceLen = slice->getChunkLength();
+            inet::b endPos   = slice->getOffset() + sliceLen;
+
+
+            if (endPos >= totalLen) {
+                stateMessage = check_and_cast<inet::Packet*>(msg)->dup();
+                double time = vi->calculateProcessingTime(mecAppId, 150);
+                scheduleAt(simTime() + time, processedStateResponse);
+            }
+
+        }
+
 
     }
     else

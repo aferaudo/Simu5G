@@ -90,6 +90,8 @@ struct MECHostResponseEntry
     //MECHostDescriptor mecHostDesc;
     int mecHostID;
 
+    double nRichiesta = -1;
+
     std::string toString() const
     {
         return "ResponseEntry::mecHostId: " + std::to_string(mecHostID)
@@ -186,6 +188,23 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
     cMessage* processResourceRequest_;
 
     int lastUsedHostIndex;
+
+    std::string saveMigration;
+
+    simsignal_t totalHandoverMigrationTime = registerSignal("handoverMigrationTime");
+
+    simsignal_t handoverInt = registerSignal("handoverInt");
+    simsignal_t handoverFed = registerSignal("handoverFed");
+    simsignal_t msgFederationTrigger = registerSignal("msgFederationTrigger");
+
+
+    std::map<std::string, simtime_t> handoverStartTime;
+
+    std::unordered_map<std::string, std::pair<std::string, int>> migrationInfo;
+
+    std::map<std::string, double> startTimes;
+    std::map<std::string, double> startTimesInit;
+
 
 
   public:
@@ -284,6 +303,7 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
      */
     void findBestMecHost(std::string deviceAppId, const ApplicationDescriptor& appDesc);
     void findBestMecHostFake(std::string deviceAppId, const ApplicationDescriptor& appDesc);
+    void findMecHostByTargetId(std::string deviceAppId, const ApplicationDescriptor& appDesc, int target);
 
     /*
     This method is responsible for deploying a specified MEC application on a specified MEC host (or * all). 
@@ -321,8 +341,11 @@ class MecOrchestratorApp : public inet::ApplicationBase, public inet::UdpSocket:
     void handleAppRequestMEFtoMEO(inet::Packet* contAppMsg);
     void handleAppResponseMEFtoMEO(inet::Packet* contAppMsg);
 
-    void handleAppMigrationRequest();
+    void handleAppMigrationRequest(inet::Packet *contAppMsg);
     void handleAppMigrationRequestMEFtoMEO(inet::Packet* contAppMsg);
+    void handleAckMEFtoMEO(inet::Packet *contAppMsg);
+
+    void clearResponseMapByAppIdAndRequest(std::string deviceAppId);
 
 };
 

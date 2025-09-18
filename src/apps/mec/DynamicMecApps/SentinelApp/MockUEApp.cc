@@ -132,6 +132,7 @@ void MockUEApp::handleMessage(cMessage *msg)
 
             }
         }
+        delete packet;
     }
     else
     {

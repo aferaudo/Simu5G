@@ -14,6 +14,8 @@
 #include "inet/networklayer/common/L3AddressResolver.h"
 
 #include <string>
+#include <random>
+#include <chrono>
 #include "DeviceAppMessages/DeviceAppPacket_Types.h"
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpRequestMessage/HttpRequestMessage.h"
 #include "nodes/mec/MECPlatform/MECServices/packets/HttpResponseMessage/HttpResponseMessage.h"
@@ -38,11 +40,15 @@ DeviceApp::DeviceApp()
 
 DeviceApp::~DeviceApp()
 {
+    std::cout << ">> [DeviceApp::~DeviceApp()] destructor called" << std::endl;
+
     cancelAndDelete(processedUALCMPMessage);
     while(!completedMessageQueue.isEmpty())
     {
         completedMessageQueue.pop();
     }
+    std::cout << ">> [DeviceApp::~DeviceApp()] destructor end" << std::endl;
+
 }
 
 
@@ -71,7 +77,10 @@ void DeviceApp::handleUALCMPMessage()
                         nlohmann::json appInfo = jsonResponseBody["appList"];
                         if(appName.compare(appInfo.at(i)["appName"]) == 0)
                         {
-                            jsonRequestBody["associateDevAppId"] = std::to_string(getId());
+                            std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
+                            std::uniform_int_distribution<int> dist(1000, 9999);
+                            int id = dist(rng);
+                            jsonRequestBody["associateDevAppId"] = std::to_string(id);
                             jsonRequestBody["appInfo"]["appDId"] = appInfo.at(i)["appDId"];// "WAMECAPP_External"; //startPk->getMecAppDId()
                             //    jsonBody["appInfo"]["appPackageSource"] = "ApplicationDescriptors/WarningAlertApp.json";
 

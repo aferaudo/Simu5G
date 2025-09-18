@@ -75,6 +75,12 @@ void X2AppServer::handleMessage(cMessage *msg)
 
         Packet* pkt = check_and_cast<Packet*>(msg);
 
+
+        std::string packetName = pkt->getName();
+        if (packetName.find("X2HandoverControlMsg") != std::string::npos) {
+                EV << ">> [X2AppServer::handleMessage] - HANDOVER detected. Notifying RNIS/MEC App" << endl;
+        }
+
         // generate a Sctp packet and sent to lower layer
         generateAndSend(pkt);
     }

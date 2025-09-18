@@ -27,6 +27,14 @@
 Define_Module(FederatorApp);
 
 
+FederatorApp::FederatorApp() {
+
+}
+
+FederatorApp::~FederatorApp() {
+}
+
+
 void FederatorApp::initialize()
 {
     EV << "FederatorApp inizializzato!\n";
@@ -34,14 +42,19 @@ void FederatorApp::initialize()
 
     appName = par("appName").stdstringValue();
     systemRegistrer.clear();
+    appRegistry.clear();
 
 
     socket.setOutputGate(gate("socketOut"));
 
     cMessage *bindMsg = new cMessage("bindSocket");
-    scheduleAt(simTime() + 1.0, bindMsg);
+    scheduleAt(simTime() + 0.01, bindMsg);
+
+    cMessage *reg = new cMessage("sendRegistration");
+    scheduleAt(simTime() + 0.02, reg);
 
     socket.setCallback(this);
+
 
 }
 
@@ -58,7 +71,32 @@ void FederatorApp::handleMessage(cMessage *msg){
             localAddress = par("MEOAddress");
             MEOAddress = *localAddress ? inet::L3AddressResolver().resolve(localAddress) : inet::L3Address();
             MEOPort = par("MEOPort");
+
+
+
+
+        }else if (strcmp(msg->getName(), "sendRegistration") == 0) {
+            const char *localAddress = par("MEFBrokerAddress");
+            MEFBrokerAddress = *localAddress ? inet::L3AddressResolver().resolve(localAddress) : inet::L3Address();
+            MEFBrokerPort = par("MEFBrokerPort");
+            inet::Packet *packetResp = new inet::Packet("RegistrationFederator");
+            auto response = inet::makeShared<FederatorInfo>();
+
+            response->setAddress(par("localAddress"));
+            response->setPort(par("localPort"));
+            response->setTempo(simTime().dbl());
+
+            response->setChunkLength(inet::B(1024));
+
+            packetResp->insertAtBack(response);
+
+            socket.sendTo(packetResp, MEFBrokerAddress, MEFBrokerPort);
+
+            EV << "Send Federation Registration at: " << localAddress << MEFBrokerPort << endl;
+
         }
+
+        delete msg;
 
     }
     else if (socket.belongsToSocket(msg))
@@ -66,9 +104,11 @@ void FederatorApp::handleMessage(cMessage *msg){
         socket.processMessage(msg);
     }
     else{
-        EV << "MEFApp::Not recognised message!";
+        EV << "MEFApp::Not recognised message! : " << msg->getName();
+
+        delete msg;
     }
-    delete msg;
+
 }
 
 std::string FederatorApp::generateUniqueId(){
@@ -121,25 +161,37 @@ void FederatorApp::socketDataArrived(inet::UdpSocket *socket, inet::Packet *pack
     {
         handleAppRequestMEOtoMEF(packet);
     }
-    else if(std::strcmp(packet->getName(), "appRequestMEFtoMEF") == 0)
+    else if(std::strcmp(packet->getName(), "appRequestMEFBtoMEF") == 0)
     {
-        handleAppRequestMEFtoMEF(packet);
+        handleAppRequestMEFBtoMEF(packet);
     }
     else if(std::strcmp(packet->getName(), "appResponseMEOtoMEF") == 0)
     {
         handleAppResponseMEOtoMEF(packet);
     }
-    else if(std::strcmp(packet->getName(), "appResponseMEFtoMEF") == 0)
+    else if(std::strcmp(packet->getName(), "appResponseMEFBtoMEF") == 0)
     {
-        handleAppResponseMEFtoMEF(packet);
+        handleAppResponseMEFBtoMEF(packet);
     }
     else if(std::strcmp(packet->getName(), "appMigrationRequestMEOtoMEF") == 0)
     {
-        handleAppMigrationReqeustMEOtoMEF(packet);
+        handleAppMigrationRequestMEOtoMEF(packet);
     }
     else if(std::strcmp(packet->getName(), "appMigrationRequestMEFtoMEF") == 0)
     {
-        handleAppMigrationReqeustMEFtoMEF(packet);
+        handleAppMigrationRequestMEFBtoMEF(packet);
+    }
+    else if(std::strcmp(packet->getName(), "appMigrationRequestMEFBtoMEF") == 0)
+    {
+        handleAppMigrationRequestMEFBtoMEF(packet);
+    }
+    else if(std::strcmp(packet->getName(), "ackMEOtoMEF") == 0)
+    {
+        handleAckMEOtoMEF(packet);
+    }
+    else if(std::strcmp(packet->getName(), "ackMEFBtoMEF") == 0)
+    {
+        handleAckMEFBtoMEFF(packet);
     }
     else
     {
@@ -327,7 +379,7 @@ void FederatorApp::handleForwardReqToMEF(inet::Packet *packet){
 
                 response->setIpMefRequest(data->getIpMefRequest());
 
-                response->setChunkLength(inet::B(64));
+                response->setChunkLength(inet::B(1024));
                 request->insertAtBack(response);
 
                 notHave = false;
@@ -349,7 +401,7 @@ void FederatorApp::handleForwardReqToMEF(inet::Packet *packet){
         response->setSystemProvider(data->getSystemProvider());
         response->setIpMefRequest(data->getIpMefRequest());
 
-        response->setChunkLength(inet::B(64));
+        response->setChunkLength(inet::B(1024));
         request->insertAtBack(response);
 
         //INVIA AL MEO
@@ -373,7 +425,7 @@ void FederatorApp::handleMECSystemInfoRes(inet::Packet *packet){
     response->setSystemProvider(data->getSystemProvider());
     response->setIpMefRequest(data->getIpMefRequest());
 
-    response->setChunkLength(inet::B(64));
+    response->setChunkLength(inet::B(1024));
     request->insertAtBack(response);
     //INVIA AL MEO
     socket.sendTo(request, MEOAddress, MEOPort);
@@ -393,7 +445,7 @@ void FederatorApp::handleMEFSystemInfoRes(inet::Packet *packet){
     response->setSystemName(data->getSystemName());
     response->setSystemProvider(data->getSystemProvider());
 
-    response->setChunkLength(inet::B(64));
+    response->setChunkLength(inet::B(1024));
     request->insertAtBack(response);
 
     inet::L3Address ip = inet::L3Address(data->getIpMefRequest());
@@ -412,7 +464,7 @@ void FederatorApp::handleAppRequestMEOtoMEF(inet::Packet *contAppMsg){
     auto data = contAppMsg->peekData<AppRequest>();
 
     //Inolto al MEF e aggiungo il mio indirizzo
-    inet::Packet* pktdup = new inet::Packet("appRequestMEFtoMEF");
+    inet::Packet* pktdup = new inet::Packet("appRequestMEFtoMEFB");
     auto request = inet::makeShared<AppRequest>();
 
     request->setAppId(data->getAppId());
@@ -422,21 +474,18 @@ void FederatorApp::handleAppRequestMEOtoMEF(inet::Packet *contAppMsg){
     request->setIpMefRequest(localAddress);
     request->setHostId(data->getHostId());
 
-    request->setChunkLength(inet::B(64));
+    request->setChunkLength(inet::B(1024));
     pktdup->insertAtBack(request);
 
-    //INVIA A TUTTI I MEF
-    if( strcmp(localAddress, "federator1")==0){
-        EV << "MEF::handleAppRequestMEOtoMEF - sending to:  " << "federator2" << ":" << "1000" << endl;
-        socket.sendTo(pktdup, inet::L3AddressResolver().resolve("federator2"), 1000);
-    }else{
-        EV << "MEF::handleAppRequestMEOtoMEF - sending to:  " << "federator1" << ":" << "1000" << endl;
-        socket.sendTo(pktdup, inet::L3AddressResolver().resolve("federator1"), 1000);
-    }
+
+    //INVIA Al BROKER
+
+    EV << "MEF::handleAppRequestMEOtoMEF - sending to:  " << MEFBrokerAddress.str().c_str() << ":" << MEFBrokerPort << endl;
+    socket.sendTo(pktdup, MEFBrokerAddress, MEFBrokerPort);
 
 }
 
-void FederatorApp::handleAppRequestMEFtoMEF(inet::Packet *contAppMsg){
+void FederatorApp::handleAppRequestMEFBtoMEF(inet::Packet *contAppMsg){
     const char *localAddress = par("localAddress");
 
     auto data = contAppMsg->peekData<AppRequest>();
@@ -452,10 +501,10 @@ void FederatorApp::handleAppRequestMEFtoMEF(inet::Packet *contAppMsg){
     request->setIpMefRequest(data->getIpMefRequest());
     request->setHostId(data->getHostId());
 
-    request->setChunkLength(inet::B(64));
+    request->setChunkLength(inet::B(1024));
     pktdup->insertAtBack(request);;
 
-    EV << "MEF::handleAppRequestMEFtoMEF - sending to:  " << MEOAddress << ":" << MEOPort << endl;
+    EV << "MEF::handleAppRequestMEFBtoMEF - sending to:  " << MEOAddress << ":" << MEOPort << endl;
     socket.sendTo(pktdup, MEOAddress, MEOPort);
 
 
@@ -464,7 +513,7 @@ void FederatorApp::handleAppRequestMEFtoMEF(inet::Packet *contAppMsg){
 void FederatorApp::handleAppResponseMEOtoMEF(inet::Packet *contAppMsg){
     auto data = contAppMsg->peekData<AppResponse>();
 
-    inet::Packet* pktdup = new inet::Packet("appResponseMEFtoMEF");
+    inet::Packet* pktdup = new inet::Packet("appResponseMEFtoMEFB");
     auto request = inet::makeShared<AppResponse>();
 
     request->setAppId(data->getAppId());
@@ -476,17 +525,18 @@ void FederatorApp::handleAppResponseMEOtoMEF(inet::Packet *contAppMsg){
     request->setIpMefRequest(data->getIpMefRequest());
     request->setHostId(data->getHostId());
 
-    request->setChunkLength(inet::B(64));
+    request->setChunkLength(inet::B(1024));
     pktdup->insertAtBack(request);
 
 
-    EV << "MEF::handleAppResponseMEOtoMEF - sending to:  " << data->getIpMefRequest() << ":" << "1000" << endl;
-    socket.sendTo(pktdup, inet::L3AddressResolver().resolve(data->getIpMefRequest()), 1000);
+    //INVIA Al BROKER
 
+    EV << "MEF::handleAppRequestMEOtoMEF - sending to:  " << MEFBrokerAddress.str().c_str() << ":" << MEFBrokerPort << endl;
+    socket.sendTo(pktdup, MEFBrokerAddress, MEFBrokerPort);
 
 }
 
-void FederatorApp::handleAppResponseMEFtoMEF(inet::Packet *contAppMsg){
+void FederatorApp::handleAppResponseMEFBtoMEF(inet::Packet *contAppMsg){
     auto data = contAppMsg->peekData<AppResponse>();
 
     inet::Packet* pktdup = new inet::Packet("appResponseMEFtoMEO");
@@ -501,7 +551,7 @@ void FederatorApp::handleAppResponseMEFtoMEF(inet::Packet *contAppMsg){
     request->setIpMefRequest(data->getIpMefRequest());
     request->setHostId(data->getHostId());
 
-    request->setChunkLength(inet::B(64));
+    request->setChunkLength(inet::B(1024));
     pktdup->insertAtBack(request);
 
 
@@ -513,13 +563,13 @@ void FederatorApp::handleAppResponseMEFtoMEF(inet::Packet *contAppMsg){
 
 
 
-void FederatorApp::handleAppMigrationReqeustMEOtoMEF(inet::Packet *contAppMsg){
+void FederatorApp::handleAppMigrationRequestMEOtoMEF(inet::Packet *contAppMsg){
     const char *localAddress = par("localAddress");
 
     auto data = contAppMsg->peekData<AppMigrationRequest>();
 
     //Inolto al MEF e aggiungo il mio indirizzo
-    inet::Packet* pktdup = new inet::Packet("appMigrationRequestMEFtoMEF");
+    inet::Packet* pktdup = new inet::Packet("appMigrationRequestMEFtoMEFB");
     auto request = inet::makeShared<AppMigrationRequest>();
 
     request->setAppName(data->getAppName());
@@ -528,22 +578,31 @@ void FederatorApp::handleAppMigrationReqeustMEOtoMEF(inet::Packet *contAppMsg){
     request->setDevAppId(data->getDevAppId());
     request->setAppAddress(data->getAppAddress());
     request->setAppPort(data->getAppPort());
+    request->setGbNode(data->getGbNode());
+    request->setIpMefRequest(localAddress);
+    request->setUeIpAddress(data->getUeIpAddress());
+    request->setStartTime(data->getStartTime());
 
-    request->setChunkLength(inet::B(64));
+    EV << "DEBUGACK: " << localAddress << endl;
+
+    request->setChunkLength(inet::B(1024));
     pktdup->insertAtBack(request);
 
-    //INVIA A TUTTI I MEF
-    if( strcmp(localAddress, "federator1")==0){
-        EV << "MEF::handleAppMigrationReqeustMEOtoMEF - sending to:  " << "federator2" << ":" << "1000" << endl;
-        socket.sendTo(pktdup, inet::L3AddressResolver().resolve("federator2"), 1000);
-    }else{
-        EV << "MEF::handleAppMigrationReqeustMEOtoMEF - sending to:  " << "federator1" << ":" << "1000" << endl;
-        socket.sendTo(pktdup, inet::L3AddressResolver().resolve("federator1"), 1000);
-    }
+    //Inserisco le info dell'app con indirizzo e porta
+    appRegistry.push_back({data->getAppName(), data->getAppAddress(), data->getAppPort(), ""});
+    stampaTabellaApp();
 
+
+    //INVIA Al BROKER
+
+    EV << "MEF::handleAppMigrationReqeustMEOtoMEF - sending to:  " << MEFBrokerAddress.str().c_str() << ":" << MEFBrokerPort << endl;
+    socket.sendTo(pktdup, MEFBrokerAddress, MEFBrokerPort);
+
+
+    migration.push(simTime());
 }
 
-void FederatorApp::handleAppMigrationReqeustMEFtoMEF(inet::Packet *contAppMsg){
+void FederatorApp::handleAppMigrationRequestMEFBtoMEF(inet::Packet *contAppMsg){
     auto data = contAppMsg->peekData<AppMigrationRequest>();
 
     inet::Packet* pktdup = new inet::Packet("appMigrationRequestMEFtoMEO");
@@ -555,11 +614,87 @@ void FederatorApp::handleAppMigrationReqeustMEFtoMEF(inet::Packet *contAppMsg){
     request->setDevAppId(data->getDevAppId());
     request->setAppAddress(data->getAppAddress());
     request->setAppPort(data->getAppPort());
+    request->setGbNode(data->getGbNode());
+    request->setIpMefRequest(data->getIpMefRequest());
+    request->setUeIpAddress(data->getUeIpAddress());
+    request->setStartTime(data->getStartTime());
 
-    request->setChunkLength(inet::B(64));
+    request->setChunkLength(inet::B(1024));
     pktdup->insertAtBack(request);
 
-    EV << "MEF::handleAppMigrationReqeustMEFtoMEF - sending to:  " << MEOAddress << ":" << MEOPort << endl;
+    std::string ip = contAppMsg->getTag<inet::L3AddressInd>()->getSrcAddress().str();
+
+    //Inserisco le info dell'app con indirizzo e porta e anche da chi
+    appRegistry.push_back({data->getAppName(), data->getAppAddress(), data->getAppPort(), ip});
+
+    stampaTabellaApp();
+
+
+    EV << "MEF::handleAppMigrationReqeustMEFBtoMEF - sending to:  " << MEOAddress << ":" << MEOPort << endl;
     socket.sendTo(pktdup, MEOAddress, MEOPort);
 
 }
+
+void FederatorApp::handleAckMEOtoMEF(inet::Packet *contAppMsg){
+    auto data = contAppMsg->peekData<AckMigration>();
+
+    inet::Packet* pktdup = new inet::Packet("ackMEFtoMEFB");
+    auto request = inet::makeShared<AckMigration>();
+
+    request->setAppId(data->getAppId());
+    request->setIpMefRequest(data->getIpMefRequest());
+
+    request->setChunkLength(inet::B(1024));
+    pktdup->insertAtBack(request);
+
+    EV << "MEF::handleAckMEOtoMEF - sending to:  " << MEFBrokerAddress.str().c_str() << ":" << MEFBrokerPort << endl;
+    socket.sendTo(pktdup, MEFBrokerAddress, MEFBrokerPort);
+
+
+
+}
+
+
+void FederatorApp::handleAckMEFBtoMEFF(inet::Packet *contAppMsg){
+    auto data = contAppMsg->peekData<AckMigration>();
+
+    inet::Packet* pktdup = new inet::Packet("ackMEFtoMEO");
+    auto request = inet::makeShared<AckMigration>();
+
+    request->setAppId(data->getAppId());
+    request->setIpMefRequest(data->getIpMefRequest());
+
+    request->setChunkLength(inet::B(1024));
+    pktdup->insertAtBack(request);
+
+
+    EV << "MEF::handleAckMEFBtoMEFF - sending to:  " << MEOAddress << ":" << MEOPort << endl;
+    socket.sendTo(pktdup, MEOAddress, MEOPort);
+
+    if (!migration.empty()) {
+            simtime_t primo = migration.front();
+            simtime_t diff = simTime() - primo;
+            emit(federation, diff);
+
+            migration.pop();
+        }
+
+}
+
+void FederatorApp::stampaTabellaApp() {
+    EV << "---------------------------------------------------------------\n";
+    EV << "| Nome App     | Indirizzo        | Porta  | Indirizzo Federator |\n";
+    EV << "---------------------------------------------------------------\n";
+
+    for (const auto& app : appRegistry) {
+        EV << "| "
+                  << std::setw(12) << std::left << app.nomeApp << " | "
+                  << std::setw(15) << std::left << app.indirizzo << " | "
+                  << std::setw(6) << std::left << app.porta << " | "
+                  << std::setw(19) << std::left << (app.indirizzoFederator.empty() ? "-" : app.indirizzoFederator) << " |\n";
+    }
+
+    EV << "---------------------------------------------------------------\n";
+}
+
+

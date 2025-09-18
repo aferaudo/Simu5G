@@ -55,6 +55,9 @@ struct RunningAppEntry
     int migrationPort;
     cGate* inputGate;
     cGate* outputGate;
+
+    std::string addressMigration;
+    int portMigration;
 };
 
 class ClientResourceApp;

@@ -64,6 +64,9 @@ class InstantiationApplicationRequest extends GeneralMessage
     
     // statistics collection
     simtime_t startAllocationTime;
+    
+    string addressMigration;
+    int portMigration;
 }
 
 class InstantiationApplicationResponse extends GeneralMessage

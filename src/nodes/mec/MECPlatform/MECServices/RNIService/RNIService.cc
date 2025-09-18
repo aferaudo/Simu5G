@@ -46,10 +46,30 @@ void RNIService::initialize(int stage)
     MecServiceBase::initialize(stage);
 
     if (stage == inet::INITSTAGE_APPLICATION_LAYER) {
+        std::cout << "[RNIService]1" << std::endl;
         L2MeasResource_.addEnodeB(eNodeB_);
         baseSubscriptionLocation_ = host_+ baseUriSubscriptions_ + "/";
         antennaMonitorInterval_ = par("monitoringInterval").doubleValue();
         antennaMonitorMsg_ = new cMessage("antennaMonitorTimer");
+
+
+        /*
+        //test
+        AssociateId aid;
+        aid.setType("UE_IPV4_ADDRESS");
+        aid.setValue("ue1");
+        FilterCriteriaAssocHo* f = new FilterCriteriaAssocHo();
+        std::vector<AssociateId> ids;
+        ids.push_back(aid);
+        f->setAssociateId(ids);
+        CellChangeSubscription* fakeSub = new CellChangeSubscription(0, nullptr, baseSubscriptionLocation_, eNodeB_);
+        fakeSub->setFilterCriteria(f);
+        subscriptions_[0] = fakeSub;
+        scheduleAt(simTime() + 0, antennaMonitorMsg_);
+        //end test
+
+         */
+
     }
 }
 
@@ -66,6 +86,7 @@ void RNIService::handleSelfMessage(cMessage *msg)
     {
         // Recovering handover status from antenna for each subscription
         // (send notificaiton?)
+        EV << "[RNIService] subscriptions_.size()" << endl;
         if(subscriptions_.size() > 0)
         {
             // TODO
@@ -83,6 +104,7 @@ void RNIService::handleSelfMessage(cMessage *msg)
                         // TODO
                         // 1. Check if the ue is in handover
                         // 2. If the ue is in handover, send a notification to the subscriber'
+
                     }
                 }
             }
@@ -258,7 +280,8 @@ void RNIService::handlePOSTRequest(const HttpRequestMessage *currentRequestMessa
                 if(antennaMonitorMsg_->isScheduled())
                     cancelEvent(antennaMonitorMsg_);
                     
-                scheduleAt(simTime() + 0, antennaMonitorMsg_);
+                //Francesco Milione modify
+                //scheduleAt(simTime() + 0, antennaMonitorMsg_);
                 printAllSubscriptions();
 
             }
@@ -365,6 +388,7 @@ void RNIService::handleDELETERequest(const HttpRequestMessage *currentRequestMes
     if(uri.find(baseUriSubscriptions_) == 0)
     {
         uri.erase(0,uri.find(baseUriSubscriptions_+"sub") + baseUriSubscriptions_.length() + 3);
+        EV << "RNIService::handleDELETERequest - Received a DELETE request for " << uri << endl;
         auto it = subscriptions_.find(std::atoi(uri.c_str()));
         if(it == subscriptions_.end())
         {   
@@ -442,6 +466,51 @@ void RNIService::printAllSubscriptions()
     }
 }
 
+
+void RNIService::notifyCellChange(int imsi, int newCellId) {
+    Enter_Method_Silent();
+
+    EV << "RNIS: IMSI " << imsi << " si è spostato nella cella " << newCellId << ".\n";
+
+    //Trovo l'ip
+    cModule *root = getSimulation()->getSystemModule();
+    Binder *binder = check_and_cast<Binder *>(root->getSubmodule("binder"));
+    inet::Ipv4Address ueIp = binder->getIPv4Address(imsi);
+
+    /*
+    for (auto& subEntry : subscriptions_) {
+        // Cast sicuro a CellChangeSubscription*
+        CellChangeSubscription* cellSub = dynamic_cast<CellChangeSubscription*>(subEntry.second);
+        if (cellSub) {
+            cellSub->sendNotification(imsi, newCellId);
+        }
+    }
+    */
+    if(subscriptions_.size() > 0)
+    {
+        for(auto subscriber : subscriptions_)
+        {
+            if(subscriber.second->getSubscriptionType() == "CellChangeSubscription")
+            {
+                CellChangeSubscription *sub = check_and_cast<CellChangeSubscription*>(subscriber.second);
+                FilterCriteriaAssocHo *filters = check_and_cast<FilterCriteriaAssocHo*>(sub->getFilterCriteria());
+                std::vector<AssociateId> associateIds = filters->getAssociateId();
+                for(auto associateId : associateIds)
+                {
+                    // TODO
+                    // 1. Check if the ue is in handover
+                    // 2. If the ue is in handover, send a notification to the subscriber'
+                    if (associateId.getValue() == ueIp.str()) {
+                        EV << "IP UE combacia con associateId" << endl;
+                        sub->sendNotification(ueIp.str(), newCellId);
+                    }
+                }
+            }
+        }
+    }
+
+
+}
 
 
 

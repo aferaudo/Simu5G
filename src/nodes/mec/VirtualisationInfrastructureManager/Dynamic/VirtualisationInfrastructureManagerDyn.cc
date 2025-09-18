@@ -19,6 +19,14 @@
 #include "inet/transportlayer/common/L4PortTag_m.h"
 #include "inet/networklayer/contract/ipv4/Ipv4Address.h"
 
+// Utility: from Simu5G
+#include "nodes/mec/utils/httpUtils/httpUtils.h"
+#include "nodes/mec/MECPlatform/MECServices/packets/HttpRequestMessage/HttpRequestMessage.h"
+#include "nodes/mec/MECPlatform/MECServices/packets/HttpResponseMessage/HttpResponseMessage.h"
+#include "nodes/mec/utils/httpUtils/json.hpp"
+
+
+
 Define_Module(VirtualisationInfrastructureManagerDyn);
 
 VirtualisationInfrastructureManagerDyn::VirtualisationInfrastructureManagerDyn()
@@ -103,10 +111,88 @@ void VirtualisationInfrastructureManagerDyn::initialize(int stage)
 
         // statistics collection initialization
         allocationTimeSignal_ = registerSignal("allocationTime");
+
     }
 
     inet::ApplicationBase::initialize(stage);
 }
+
+void VirtualisationInfrastructureManagerDyn::connectRNIService(){
+    rniSocket.renewSocket();
+        rniSocket.setOutputGate(gate("socketOut"));
+        rniSocket.setCallback(this);
+
+        if (rniAddress.isUnspecified()) {
+            EV_ERROR << "VIM::connectRNIService - RNI address non risolto!\n";
+            return;
+        }
+
+        int port = par("rniPort").intValue();
+        EV << "VIM::connectRNIService - Connecting to " << rniAddress << " port=" << port << endl;
+        rniSocket.connect(rniAddress, port);
+}
+
+void VirtualisationInfrastructureManagerDyn::sendRNISubscription(){
+    EV << "VIM::socketEstablished - connesso a RNI. Invio POST." << endl;
+
+    std::string host = rniSocket.getRemoteAddress().str() + ":" + std::to_string(rniSocket.getRemotePort());
+    std::string uri = "/example/rni/v2/subscriptions";
+    nlohmann::ordered_json body;
+    body["subscriptionType"] = "CellChangeSubscription";
+    body["callbackReference"] = localAddress.str() + ":" + std::to_string(port) + webHook;
+    body["filterCriteriaAssocHo"]["appInstanceId"] = getName();
+
+    AssociateId id;
+    id.setType("UE_IPV4_ADDRESS");
+    id.setValue("ALL");
+    body["filterCriteriaAssocHo"]["associateId"] = nlohmann::json::array();
+    body["filterCriteriaAssocHo"]["associateId"].push_back(id.toJson());
+
+    body["filterCriteriaAssocHo"]["hoStatus"] = nlohmann::json::array();
+    body["filterCriteriaAssocHo"]["hoStatus"].push_back("IN_PREPARATION");
+    body["requestTestNotification"] = false;
+
+
+    Http::sendPostRequest(&rniSocket, body.dump().c_str(), host.c_str(), uri.c_str());
+}
+
+void VirtualisationInfrastructureManagerDyn::sendRNISubscriptionForUe(const inet::L3Address& ueIp)
+{
+    EV << "VIM::Invio sottoscrizione RNI per UE " << ueIp.str() << endl;
+
+    std::string host = rniSocket.getRemoteAddress().str() + ":" + std::to_string(rniSocket.getRemotePort());
+    std::string uri = "/example/rni/v2/subscriptions";
+
+    nlohmann::ordered_json body;
+    body["subscriptionType"] = "CellChangeSubscription";
+    body["callbackReference"] = localAddress.str() + ":" + std::to_string(port) + webHook;
+    body["filterCriteriaAssocHo"]["appInstanceId"] = getName();
+
+    // Inserimento dell'indirizzo UE come associateId
+    AssociateId id;
+    id.setType("UE_IPV4_ADDRESS");
+    id.setValue(ueIp.str());
+    body["filterCriteriaAssocHo"]["associateId"] = nlohmann::json::array();
+    body["filterCriteriaAssocHo"]["associateId"].push_back(id.toJson());
+
+    // opzionale: hoStatus
+    body["filterCriteriaAssocHo"]["hoStatus"] = nlohmann::json::array();
+    body["filterCriteriaAssocHo"]["hoStatus"].push_back("IN_PREPARATION");
+
+    body["requestTestNotification"] = false;
+
+    Http::sendPostRequest(&rniSocket, body.dump().c_str(), host.c_str(), uri.c_str());
+}
+
+void VirtualisationInfrastructureManagerDyn::deleteRNISubscription(int subscriptionId) {
+    std::string host = rniSocket.getRemoteAddress().str() + ":" + std::to_string(rniSocket.getRemotePort());
+    std::string uri = "/example/rni/v2/subscriptionssub" + std::to_string(subscriptionId);
+
+    Http::sendDeleteRequest(&rniSocket, host.c_str(), uri.c_str());
+}
+
+
+
 
 void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::LifecycleOperation *operation)
 {
@@ -164,6 +250,8 @@ void VirtualisationInfrastructureManagerDyn::handleStartOperation(inet::Lifecycl
 //    binder_->registerMecHostUpfAddress(mp1Address, gtpAddress);
 
 
+    rniAddress = inet::L3AddressResolver().resolve(par("rniAddress").stringValue());
+
     initResource();
 
     printResources();
@@ -199,6 +287,8 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
         // connectToBroker
         connectToBroker();
 
+        connectRNIService();
+
         // send MEC Orchestrastor registration
         sendMEORegistration();
         delete msg;
@@ -217,6 +307,8 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
         }else if(!strcmp(msg->getName(), "instantiationApplicationRequest") || !strcmp(msg->getName(), "terminationAppInstRequest")){
             EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE:" << msg->getName() << endl;
 
+            emit(registerSignal("numeroApp"), handledApp.size());
+
             handleMepmMessage(msg);
         }
         else if (!strcmp(msg->getName(), "ResourceRequest")){
@@ -228,7 +320,8 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
         else if(!strcmp(msg->getName(), "ServiceMobilityRequest"))
         {
             EV << "VirtualisationInfrastructureManagerDyn::handleMessage - TYPE: ServiceMobilityRequest" << endl;
-            handleMobilityRequest(msg);
+            //Francesco Milione l?ho eliminata per test
+            //handleMobilityRequest(msg);
         }
         else if(!strcmp(msg->getName(), "appRequestAPPtoVIM"))
         {
@@ -256,7 +349,7 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
 
                         found = true;
 
-                        inet::Packet* pktdup = new inet::Packet("appResponseVIMtoAPP");
+                        inet::Packet* pktdup = new inet::Packet("appResponseVIMtoAPPINT");
                         auto request = inet::makeShared<AppResponse>();
 
                         request->setAppId(data->getAppId());
@@ -320,6 +413,12 @@ void VirtualisationInfrastructureManagerDyn::handleMessageWhenUp(omnetpp::cMessa
                 socket.sendTo(pktdup, inet::L3AddressResolver().resolve(getParentModule()->getFullPath().c_str()), data->getPortRequest());
             }
         delete msg;
+    }
+    else if (rniSocket.belongsToSocket(msg)) {
+        EV << "VIM: Messaggio ricevuto su rniSocket: " << msg->getName() << endl;
+
+
+        rniSocket.processMessage(msg);
     }
     else{
         std::cout << "Else virtualisationinfrastracturedyn " << endl;
@@ -567,7 +666,6 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
 
     EV << "VirtualisationInfrastructureManagerDyn:: instantiate - MEP endpoint is " << mp1Address << ":" << mp1Port << endl;
 
-
     // request registration
     requestCounter++;
     MecAppEntryDyn newAppEntry;
@@ -588,7 +686,16 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
         newAppEntry.requiredServices.push_back(msg->getRequiredStandardService(i));
     }
 
-    inet::Packet* packet = createInstantiationRequest(newAppEntry, msg->getRequiredService());
+    bool useMigration;
+
+    if (strcmp(msg->getAddressMigration(), "") == 0) {
+        useMigration = false;
+    } else {
+        useMigration = true;
+    }
+
+
+    inet::Packet* packet = createInstantiationRequest(newAppEntry, msg->getRequiredService(), useMigration, msg->getAddressMigration(), msg->getPortMigration());
     waitingInstantiationRequests[std::to_string(msg->getUeAppID())] = newAppEntry;
     std::cout<<"instantiateMEAppReq " << waitingInstantiationRequests.size() << endl;
 
@@ -605,7 +712,12 @@ MecAppInstanceInfo* VirtualisationInfrastructureManagerDyn::instantiateMEApp(con
 
     EV << "VirtualisationInfrastructureManagerDyn:: instantiateMEApp - " << appInfo->instanceId << " - print" << endl;
     printResources();
-//    printRequests();
+    //printRequests();
+
+    EV << "DEBUG UEappID " << msg->getUeAppID() << endl;
+
+    //Francesco
+    sendRNISubscriptionForUe(msg->getUeIpAddress());
 
     return appInfo;
 }
@@ -623,6 +735,7 @@ bool VirtualisationInfrastructureManagerDyn::terminateMEApp(const TerminationApp
 
     //    Enter_Method_Silent();
 
+
     int ueAppID = atoi(msg->getDeviceAppId());
     bool migrated = false;
     MecAppEntryDyn *instantiatedApp = new MecAppEntryDyn();
@@ -636,6 +749,17 @@ bool VirtualisationInfrastructureManagerDyn::terminateMEApp(const TerminationApp
         std::string appInstanceId = std::string(msg->getAppInstanceId());
         EV << "VirtualisationInfrastructureManagerDyn:: terminate migrated app - looking for " << appInstanceId << " ID" << endl;
         bool found = false;
+
+        EV << "VirtualisationInfrastructureManagerDyn:: find " << appInstanceId << endl;
+                auto it1 = startTimes.find(appInstanceId);
+                if (it1 != startTimes.end()) {
+                    double start = it1->second;
+                    double delay = simTime().dbl() - start;
+                    EV << "EMIT" << endl;
+                    emit(registerSignal("total"), delay);
+
+                    startTimes.erase(it1);
+                }
         for(auto &app : migratingApps)
         {
             if(app.second.appInstanceId.compare(appInstanceId) == 0)
@@ -662,12 +786,15 @@ bool VirtualisationInfrastructureManagerDyn::terminateMEApp(const TerminationApp
 
         terminationpck->setSno(0); // this parameter is actually ignored in migration case - so it can be any value
         //std::cout<<"VIM::snumber: " << terminationpck->getSno() << endl;
+
     }
 
     if(!migrated)
     {
         // standard case - looking in handled app
         EV << "VirtualisationInfrastructureManagerDyn:: terminateMEApp - looking for " << ueAppID << " ID" << endl;
+
+
         std::cout << handledApp.size() << endl;
 
         auto it = handledApp.find(std::to_string(ueAppID));
@@ -692,6 +819,7 @@ bool VirtualisationInfrastructureManagerDyn::terminateMEApp(const TerminationApp
         instantiatedApp = it->second;
         terminationpck->setSno(msg->getRequestId());
     }
+
 
 
 
@@ -991,6 +1119,7 @@ void VirtualisationInfrastructureManagerDyn::handleMepmMessage(cMessage* msg){
 
 void VirtualisationInfrastructureManagerDyn::manageNotification()
 {
+
     if(currentHttpMessageServed_->getType() == RESPONSE)
     {
         HttpResponseMessage *response = dynamic_cast<HttpResponseMessage*> (currentHttpMessageServed_);
@@ -1093,6 +1222,8 @@ void VirtualisationInfrastructureManagerDyn::socketEstablished(
         EV << "VirtualisationInfrastructureManagerDyn::Preparing subscription body" << endl;
         subscriptionBody_ = infoToJson();
         sendSubscription();
+    }else if (socket == &rniSocket) {
+        //sendRNISubscription();
     }
 }
 
@@ -1114,6 +1245,7 @@ void VirtualisationInfrastructureManagerDyn::handleMobilityRequest(cMessage* msg
         EV << "VIM::managing migration from dynamic resources!" << endl;
         for(auto value : handledApp)
         {
+            EV << "DEBUG " << receivedData->getAppInstanceId() << " - " << value.second->appInstanceId.c_str() << endl;
             if(std::strcmp(receivedData->getAppInstanceId(), value.second->appInstanceId.c_str()) == 0)
             {
                 std::cout << "vim local instantiation " << receivedData->getAppInstanceId() << endl;
@@ -1163,7 +1295,7 @@ void VirtualisationInfrastructureManagerDyn::instantiateMEAppLocally(
 
 }
 inet::Packet* VirtualisationInfrastructureManagerDyn::createInstantiationRequest(
-        MecAppEntryDyn& meapp, std::string requiredOmnetppService, bool migration)
+        MecAppEntryDyn& meapp, std::string requiredOmnetppService, bool migration, std::string addressMigration, int portMigration)
 {
 
     inet::Packet* packet = new inet::Packet("Instantiation");
@@ -1181,6 +1313,11 @@ inet::Packet* VirtualisationInfrastructureManagerDyn::createInstantiationRequest
     registrationpck->setContextId(meapp.contextID);
     registrationpck->setIsMigrating(migration);
     registrationpck->setStartAllocationTime(simTime());
+
+    EV << "DEBUG INDIRIZZO: " << addressMigration << endl;
+    registrationpck->setAddressMigration(addressMigration.c_str());
+    registrationpck->setPortMigration(portMigration);
+
     registrationpck->setChunkLength(inet::B(sizeof(meapp) + mp1Address.str().size() + 16));
     packet->insertAtBack(registrationpck);
 
@@ -1207,6 +1344,7 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
         throw cRuntimeError("VirtualisationInfrastructureManagerDyn::handleMessage - InstantiationResponse - cannot find registered app");
     }
 
+
     MecAppEntryDyn *entry = new MecAppEntryDyn();
     entry->appInstanceId = it->second.appInstanceId;
     entry->contextID = it->second.contextID;
@@ -1220,6 +1358,8 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
     entry->endpoint.port = port;
     entry->requiredServices = it->second.requiredServices;
     auto existingApp = handledApp.find(std::to_string(entry->ueAppID));
+
+
     if(existingApp != handledApp.end() && port != -1)
     {
         printHandledApp();
@@ -1327,8 +1467,6 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
     responsePkt->setInstanceId(appName.str().c_str());
     responsePkt->setMecAppRemoteAddress(entry->endpoint.addr);
     responsePkt->setMecAppRemotePort(entry->endpoint.port);
-    //Francesco Milione modify non abilitata
-    //responsePkt->setMecAppRemotePort(migrationPort);
     responsePkt->setContextId(entry->contextID);
     responsePkt->setChunkLength(inet::B(1000));
     toSend->insertAtBack(responsePkt);
@@ -1336,11 +1474,45 @@ void VirtualisationInfrastructureManagerDyn::handleInstantiationResponse(
 
     entry->appInstanceId = appName.str();
     handledApp[std::to_string(ueAppID)] = entry;
+    //Francesco
+    //sendRNISubscriptionForUe(entry->endpoint.addr);
     printHandledApp();
     waitingInstantiationRequests.erase(it);
     printHandledApp();
 
     socket.sendTo(toSend, mepmAddress, mepmPort);
+
+
+
+    if (true) {
+        EV << "VIM: Detected MIGRAZIONE da VIM remoto, invio ServiceMobilityResponse per app " << entry->appInstanceId << endl;
+
+        inet::Packet* packet = new inet::Packet("ServiceMobilityResponse");
+        auto toSend = inet::makeShared<ServiceMobilityResponse>();
+
+        toSend->setAppInstanceId(entry->appInstanceId.c_str());
+        toSend->setTargetAddress(entry->endpoint.addr);
+        toSend->setTargetUePort(entry->endpoint.port);
+        toSend->setTargetPort(migrationPort);
+
+        toSend->setAssociateIdArraySize(1);
+        AssociateId associateId;
+        associateId.setType("UE_IPv4_ADDRESS");
+        associateId.setValue(entry->ueEndpoint.str());
+        toSend->setAssociateId(0, associateId);
+
+        int packetLength = entry->appInstanceId.size()
+                         + entry->endpoint.addr.str().size()
+                         + 4
+                         + associateId.getType().size()
+                         + associateId.getValue().size();
+        toSend->setChunkLength(inet::B(packetLength));
+
+        packet->insertAtBack(toSend);
+
+        socket.sendTo(packet, mepmAddress, mepmPort);
+    }
+
 }
 
 void VirtualisationInfrastructureManagerDyn::mobilityTrigger(
@@ -1352,6 +1524,42 @@ void VirtualisationInfrastructureManagerDyn::mobilityTrigger(
     toSend->insertAtBack(trigger);
 
     socket.sendTo(toSend, mepmAddress, mepmPort);
+
+}
+
+void VirtualisationInfrastructureManagerDyn::mobilityTriggerFederation(std::string appInstanceId, int idApp, int cellId, std::string ueIpAddress) {
+    inet::Packet* toSend = new inet::Packet("FederationMigrationTrigger");
+    auto trigger = inet::makeShared<FederationMigrationTrigger>();
+    trigger->setAppId(appInstanceId.c_str());
+    trigger->setGbNode(cellId);
+    trigger->setUeIpAddress(ueIpAddress.c_str());
+    trigger->setStartTime(simTime());
+    trigger->setAppIdMigration(idApp);
+
+
+    for(const auto& pair : handledApp){
+        const MecAppEntryDyn& app = *(pair.second);
+
+
+        if(app.appInstanceId == appInstanceId){
+            EV << "MEO::handleAppMigrationRequest: FOUND info" << endl;
+
+            trigger->setTargetAddress(app.endpoint.addr.str().c_str());
+            trigger->setTargetPort(app.endpoint.port);
+
+
+            break;
+        }
+    }
+
+
+
+    trigger->setChunkLength(inet::B(16384));
+    toSend->insertAtBack(trigger);
+
+
+    socket.sendTo(toSend, mepmAddress, mepmPort);
+    emit(registerSignal("handoverStop"), simTime());
 
 }
 
@@ -1467,3 +1675,216 @@ nlohmann::json VirtualisationInfrastructureManagerDyn::infoToJson()
 
     return jsonObj;
 }
+
+
+void VirtualisationInfrastructureManagerDyn::socketDataArrived(inet::TcpSocket *socket, inet::Packet *packet, bool urgent){
+    if (socket == &rniSocket) {
+        EV << "VIM::socketDataArrived inline da rniSocket!" << endl;
+
+        std::vector<uint8_t> bytes = packet->peekDataAsBytes()->getBytes();
+        delete packet;
+
+        HttpBaseMessage* currentHttpMessageBuffer = nullptr;
+
+        std::string msg(bytes.begin(), bytes.end());
+        bool res = Http::parseReceivedMsg(socket->getSocketId(), msg, completedMessageQueue, &bufferRNI, &currentHttpMessageBufferRNI_);
+
+        EV << "DEBUG: parseReceivedMsg res = " << res << ", queue size = " << completedMessageQueue.getLength() << endl;
+
+
+        if (res) {
+            while (completedMessageQueue.getLength() > 0) {
+                auto* httpMsg = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
+
+                if (httpMsg->getType() == RESPONSE) {
+                    auto* response = dynamic_cast<HttpResponseMessage*>(httpMsg);
+                    if (response->getCode() == 201) {
+                        EV << "VIM::RNI - Ricevuta risposta 201 Created alla sottoscrizione" << endl;
+                        EV << "Body risposta: " << response->getBody() << endl;
+
+                        try {
+                            nlohmann::json jsonResponse = nlohmann::json::parse(response->getBody());
+                            if (jsonResponse.contains("subscriptionId") && jsonResponse.contains("filterCriteriaAssocHo")) {
+                                int subId = jsonResponse["subscriptionId"];
+                                std::string ueIp = jsonResponse["filterCriteriaAssocHo"]["associateId"][0]["value"];
+                                ueToSubscriptionId[ueIp] = subId;
+                                EV << "VIM::Salvata sottoscrizione per UE " << ueIp << " con subscriptionId " << subId << endl;
+                            }
+                        } catch (std::exception &e) {
+                            EV_ERROR << "VIM::Errore parsing risposta 201 RNI: " << e.what() << endl;
+                        }
+                    }
+                }
+                else if (httpMsg->getType() == REQUEST) {
+                    auto* request = dynamic_cast<HttpRequestMessage*>(httpMsg);
+                    if (request && strcmp(request->getMethod(), "POST") == 0) {
+                        EV << "VIM::Received CellChange notification via socketDataArrived!" << endl;
+                        EV << "Body: " << request->getBody() << endl;
+
+                        try {
+                            nlohmann::json jsonBody = nlohmann::json::parse(request->getBody());
+                            std::string eventType = jsonBody["eventType"];
+                            std::string assocType = jsonBody["associateId"]["type"];
+                            std::string assocValue = jsonBody["associateId"]["value"];
+                            int cellId = jsonBody["cellId"];
+
+                            EV << "Parsed Event: " << eventType << ", UE: " << assocValue << ", new cellId: " << cellId << endl;
+
+                            inet::L3Address assocL3 = inet::L3Address(assocValue.c_str());
+                            bool found = false;
+
+                            for (auto meAppEntry = handledApp.begin(); meAppEntry != handledApp.end(); ++meAppEntry) {
+                                const inet::L3Address &currentEndpoint = meAppEntry->second->ueEndpoint;
+                                if (currentEndpoint == assocL3) {
+                                    EV << "VIM::APP " << meAppEntry->second->appInstanceId
+                                       << " matches ueEndpoint: migration starts... " << meAppEntry->second->ueAppID << endl;
+
+                                    mobilityTriggerFederation(meAppEntry->second->appInstanceId, meAppEntry->second->ueAppID, cellId, assocValue.c_str());
+
+                                    int id = ueToSubscriptionId[assocValue];
+                                    deleteRNISubscription(id);
+                                    found = true;
+
+                                    startTimes[std::to_string(meAppEntry->second->ueAppID)] = simTime().dbl();
+
+                                    break;
+                                }
+                            }
+
+                            if (!found) {
+                                EV_ERROR << "VIM::Nessuna app trovata per UE: " << assocValue << " cellId: " << cellId << endl;
+                            }
+
+                        } catch (std::exception &e) {
+                            EV_ERROR << "VIM::Parsing POST error: " << e.what() << endl;
+                        }
+                    }
+                }
+
+                delete httpMsg;
+            }
+        }
+    }
+
+        /*
+        std::vector<uint8_t> bytes = packet->peekDataAsBytes()->getBytes();
+        delete packet;
+
+        std::string msg(bytes.begin(), bytes.end());
+        cQueue completedMessageQueue;
+        std::string buffer;
+        HttpBaseMessage* currentHttpMessageBuffer = nullptr;
+
+        bool res = Http::parseReceivedMsg(socket->getSocketId(), msg, completedMessageQueue, &buffer, &currentHttpMessageBuffer);
+
+        EV << "DEBUG: parseReceivedMsg res = " << res << ", queue size = " << completedMessageQueue.getLength() << endl;
+        EV << "DEBUG: msg bytes string: [" << msg << "]" << endl;
+
+
+        if(res && !completedMessageQueue.isEmpty()) {
+            auto httpMsg = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
+
+            if (HttpRequestMessage* request = dynamic_cast<HttpRequestMessage*>(httpMsg)) {
+                if (std::strcmp(request->getMethod(), "POST") == 0) {
+                    EV << "VIM::Received CellChange notification via socketDataArrived!" << endl;
+                    EV << "Body: " << request->getBody() << endl;
+
+                    try {
+                        nlohmann::json jsonBody = nlohmann::json::parse(request->getBody());
+                        std::string eventType = jsonBody["eventType"];
+                        std::string assocType = jsonBody["associateId"]["type"];
+                        std::string assocValue = jsonBody["associateId"]["value"];
+                        int cellId = jsonBody["cellId"];
+
+                        EV << "Parsed Event: " << eventType << ", UE: " << assocValue << ", new cellId: " << cellId << endl;
+
+                        inet::L3Address assocL3 = inet::L3Address(assocValue.c_str());
+                        bool found = false;
+
+                        for (auto meAppEntry = handledApp.begin(); meAppEntry != handledApp.end(); ++meAppEntry)
+                        {
+                            const inet::L3Address &currentEndpoint = meAppEntry->second->ueEndpoint;
+
+                            if (currentEndpoint == assocL3)
+                            {
+                                EV << "VIM::APP " << meAppEntry->second->appInstanceId
+                                   << " matches ueEndpoint: migration starts..." << endl;
+
+                                mobilityTriggerFederation(meAppEntry->second->appInstanceId, cellId, meAppEntry->second->ueEndpoint.str().c_str());
+
+                                int id = ueToSubscriptionId[meAppEntry->second->ueEndpoint.str()];
+                                deleteRNISubscription(id);
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (!found)
+                        {
+                            std::cout << "ERROREGRAVE VIM::No matching app found for UE: " << assocValue
+                                    << ", IP: " << assocL3
+                                    << ", target cellId: " << cellId << endl;
+
+                            std::cout << "Current handledApp entries:" << endl;
+                            for (auto& app : handledApp)
+                            {
+                                std::cout << "  -> AppInstanceId: " << app.second->appInstanceId
+                                        << ", ueEndpoint: " << app.second->ueEndpoint << endl;
+                            }
+                        }
+
+
+                    } catch (std::exception &e) {
+                        EV_ERROR << "Parsing error: " << e.what() << endl;
+                    }
+                }else{
+                    EV_ERROR << "Fuori dentro " << endl;
+                }
+            }
+            else if (HttpResponseMessage* response = dynamic_cast<HttpResponseMessage*>(httpMsg)) {
+                /*
+                std::string statusLine = response->getStatus();
+                std::istringstream iss(statusLine);
+                std::string httpVersion;
+                int statusCode = 0;
+                std::string statusText;
+                iss >> httpVersion >> statusCode;
+                std::getline(iss, statusText); // opzionale
+
+                if (statusCode == 201){*//*
+                    EV << "VIM::RNI - Ricevuta risposta 201 Created alla sottoscrizione" << endl;
+                    EV << "Body risposta: " << response->getBody() << endl;
+
+                    try {
+                        nlohmann::json jsonResponse = nlohmann::json::parse(response->getBody());
+                        if (jsonResponse.contains("subscriptionId") && jsonResponse.contains("filterCriteriaAssocHo")) {
+                            int subId = jsonResponse["subscriptionId"];
+                            std::string ueIp = jsonResponse["filterCriteriaAssocHo"]["associateId"][0]["value"];
+
+                            ueToSubscriptionId[ueIp] = subId;
+                            EV << "VIM::Salvata sottoscrizione per UE " << ueIp << " con subscriptionId " << subId << endl;
+                        }
+                    } catch (std::exception &e) {
+                        EV_ERROR << "VIM::Errore parsing risposta 201 RNI: " << e.what() << endl;
+                    }
+                //}
+            }else{
+                EV_ERROR << "Fuori tutto "  << endl;
+            }
+
+            delete httpMsg;
+        }else{
+            EV_ERROR << "Fuori tutto "  << res << " " << completedMessageQueue.isEmpty() << endl;
+        }
+
+    }
+    else {
+        SubscriberBase::socketDataArrived(socket, packet, urgent);
+    }*/
+}
+
+
+
+
+
+

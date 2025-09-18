@@ -6,11 +6,12 @@
 #include "inet/transportlayer/contract/udp/UdpSocket.h"
 #include "apps/mec/DeviceApp/DeviceAppMessages/DeviceAppPacket_m.h"
 
+
 using namespace inet;
 
 class UEPingPongApp : public cSimpleModule
 {
-  protected:
+
     L3Address destAddress;
     int destPort;
     int localPort;
@@ -20,11 +21,23 @@ class UEPingPongApp : public cSimpleModule
 
     UdpSocket socket;
 
+    int lastMasterId = -1;
+
+
+
   protected:
-    virtual int numInitStages() const { return inet::NUM_INIT_STAGES; }
-    void initialize(int stage);
+    virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
+    void initialize(int stage) override;
     virtual void handleMessage(cMessage *msg) override;
     virtual void sendStart();
+    virtual void finish() override;
+
+    void receiveSignal(cComponent *source, simsignal_t signalID, cObject *obj, cObject *details);
+    int getCurrentCellId();
+
+  public:
+    UEPingPongApp();
+    virtual ~UEPingPongApp();
 
 };
 

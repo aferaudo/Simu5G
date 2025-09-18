@@ -13,43 +13,24 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
-package simu5g.nodes.mec.Dynamic.MEO;
+package simu5g.nodes.mec.Federator;
 
 import inet.applications.contract.IApp;
 
-// @author Alessandro Calvio
-// @author Angelo Feraudo
 
-simple MecOrchestratorApp like IApp
+simple FederatorBrokerApp like IApp
 {
     parameters:
         @display("i=block/app");
-        int localPort;
+        string appName;
         string localAddress = default("");
+        int localPort;
         
-        // List of onboarded appliaction package
-        string mecApplicationPackageList = default("");
-        
-        //Francesco Milione added
-        string MEFAddress;
-        int MEFPort;
-        string mapFile;
-        
-        @signal[handoverMigrationTime];
-		@statistic[handoverMigrationTime](record=vector; unit="ms");
-		
-		
-		
-		@signal[msgFederationTrigger];
-		@statistic[msgFederationTrigger](record=vector; unit="ms");
     gates:
-	    output socketOut;
         input socketIn;
-        
-		output toUALCMP;
-        input fromUALCMP;
-}
+	    output socketOut;
 
+}
 
 
 

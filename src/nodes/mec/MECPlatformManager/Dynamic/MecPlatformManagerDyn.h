@@ -127,6 +127,7 @@ class MecPlatformManagerDyn : public SubscriberBase
         void handleParkMigrationTrigger(inet::Packet*);
         void handleSubscription(std::string appInstanceId);
         bool checkServiceAvailability(const char* serviceName);
+        void handleFederationMigrationTrigger(inet::Packet* packet);
 
 };
 

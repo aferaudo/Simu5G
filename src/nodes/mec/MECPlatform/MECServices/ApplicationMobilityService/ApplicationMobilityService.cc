@@ -375,6 +375,7 @@ void ApplicationMobilityService::handleDELETERequest(const HttpRequestMessage *c
         uri.erase(0,uri.find(baseUriSubscriptions_+"sub") + baseUriSubscriptions_.length() + 3);
         EV << "AMS::Deleting " <<  uri << endl;
         auto it = subscriptions_.find(std::atoi(uri.c_str()));
+
         if(it == subscriptions_.end())
         {
             EV << "AMS:: delete subscription : subscriber " << uri << " not found" << endl;
@@ -466,9 +467,15 @@ void ApplicationMobilityService::handleNotificationCallback(const nlohmann::orde
     if(res){
         std::vector<std::string> appInstanceId = registrationResources_->getAppInstanceIds(notification->getAssociateId());
 
+        EV << "DEBUG:: appinstanceid ";
+        for (const auto &s : appInstanceId) {
+            EV << s << " ";
+        }
+        EV << endl;
         for(auto subscriber : subscriptions_)
         {
             EV << "AMS::processing subscriber: "<< subscriber.second->getSubscriptionId() << endl;
+            EV << "DEBUG::subsciber appinstanceid" << subscriber.second->getFilterCriteria()->getAppInstanceId() << endl;
             EventNotification *event = nullptr;
             if(subscriptionType==subscriber.second->getSubscriptionType())
             {

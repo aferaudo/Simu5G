@@ -29,6 +29,14 @@ simple FederatorApp like IApp
         string MEOAddress;
         int MEOPort;
         
+        
+        string MEFBrokerAddress;
+        int MEFBrokerPort;
+        
+        @signal[federation];
+		@statistic[federation](record=vector; unit="s");
+        
+        
     gates:
         input socketIn;
 	    output socketOut;

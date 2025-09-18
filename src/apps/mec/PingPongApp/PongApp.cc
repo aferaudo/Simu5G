@@ -11,10 +11,21 @@
 
 Define_Module(PongApp);
 
-PongApp::PongApp(): DMecAppBaseDyn() {}
+PongApp::PongApp() {
+
+}
 
 PongApp::~PongApp() {
-    socket.close();
+    std::cout << ">> [PongApp::finish()] destructor called" << std::endl;
+}
+
+void PongApp::finish() {
+    DMecAppBaseDyn::finish();
+
+    if (socket.getState() == inet::UdpSocket::CONNECTED)
+        socket.close();
+
+    std::cout << ">> [PongApp::finish()] called" << std::endl;
 }
 
 void PongApp::initialize(int stage) {
@@ -51,8 +62,10 @@ void PongApp::handleGenericMessage(cMessage* msg) {
             socket.sendTo(reply, src, srcPort);
         }
 
-        delete packet;
+
+        //delete packet;
     }
+    delete msg;
 }
 
 
@@ -60,10 +73,8 @@ void PongApp::handleSelfMessage(cMessage* msg) {
 
     EV << "PongApp:handleSelfMessage" << endl;
 
+    delete msg;
 }
 
 
 
-void PongApp::finish() {
-    DMecAppBaseDyn::finish();
-}

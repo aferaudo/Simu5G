@@ -75,12 +75,64 @@ class AppMigrationRequest extends inet::FieldsChunk{
     string appName;
     string appPackageSource;
     bool appIsOnboarded;
-    int devAppId;
+    string devAppId;
     
     string appAddress;
 	int appPort;
+	
+	int gbNode;
+	
+	string ueIpAddress;
+	
+	string ipMefRequest;
+	simtime_t startTime;
+    
+}
+
+class MecPingAppSyncMessage extends inet::FieldsChunk {
+    int contextId;
+    
+    int pingSending;
+
+    
+    bool isAck = false;
+    bool result = false;
+    
     
 }
 
 
+class FederationMigrationTrigger extends inet::FieldsChunk {
+    int gbNode;
+    string appId;
+    int appIdMigration;
+    
+    string ueIpAddress;
+    
+    int portMigration;
+    string addressMigration;
+    
+    int targetPort;
+    string targetAddress;
+    
+    simtime_t startTime;
+}
+
+class FederatorInfo extends inet::FieldsChunk {
+    int port;
+    string address;
+    double tempo;
+}
+
+class AckMigration extends inet::FieldsChunk {
+    string appId;
+    string ipMefRequest;
+}
+
+
+class MigrateState extends inet::FieldsChunk {
+    @packetData;
+    int pingSending; 
+    int port;
+}
     

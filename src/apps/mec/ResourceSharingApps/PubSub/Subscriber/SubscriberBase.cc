@@ -87,6 +87,7 @@ void SubscriberBase::handleMessageWhenUp(omnetpp::cMessage *msg)
 
             currentHttpMessageServed_ = httpMessageQueue_.front();
             httpMessageQueue_.pop();
+            EV << "MIO PRINT" << endl;
             manageNotification();
             EV << "SubscriberBase::http message to be processed: " << httpMessageQueue_.size() << endl;
             if(!nextEvent->isScheduled() && httpMessageQueue_.size() > 0)
@@ -206,6 +207,7 @@ void SubscriberBase::socketDataArrived(inet::TcpSocket *socket, inet::Packet *pa
         while(completedMessageQueue.getLength() > 0)
         {
             HttpBaseMessage* currentHttpMessage = check_and_cast<HttpBaseMessage*>(completedMessageQueue.pop());
+
             switch(appState)
             {
                 case SUB:

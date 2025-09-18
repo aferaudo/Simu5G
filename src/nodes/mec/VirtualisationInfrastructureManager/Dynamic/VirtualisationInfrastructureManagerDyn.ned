@@ -59,6 +59,9 @@ simple VirtualisationInfrastructureManagerDyn extends VirtualisationInfrastructu
     	string searchType @enum("BEST_FIRST", "ROUND_ROBIN") = default("BEST_FIRST");
     	bool skipLocalResources = default(true) @mutable;
     	
+    	
+    	string rniAddress;
+		int rniPort = default(10023);
     
     gates:
         output socketOut;

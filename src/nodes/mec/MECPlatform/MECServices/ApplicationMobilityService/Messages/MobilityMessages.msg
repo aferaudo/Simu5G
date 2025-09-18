@@ -47,5 +47,6 @@ class ServiceMobilityResponse extends inet::FieldsChunk
 class ParkMigrationTrigger extends inet::FieldsChunk
 {
     string appInstanceId;
+    
 }
 

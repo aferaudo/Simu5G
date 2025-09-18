@@ -20,6 +20,9 @@
  */
 
 #include "../MEO/MecOrchestratorApp.h"
+#include <random>
+#include <chrono>
+#include <string>
 
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h" // TODO add this messages to our list
 #include "inet/networklayer/common/L3AddressTag_m.h"
@@ -28,6 +31,8 @@
 #include "inet/networklayer/common/L3Address.h"
 #include "inet/transportlayer/common/L4PortTag_m.h"
 #include "inet/networklayer/contract/ipv4/Ipv4Address.h"
+
+#include "nodes/mec/MECPlatform/MECServices/ApplicationMobilityService/Messages/MobilityMessages_m.h"
 
 Define_Module(MecOrchestratorApp);
 
@@ -53,6 +58,9 @@ MecOrchestratorApp::~MecOrchestratorApp()
 
 void MecOrchestratorApp::initialize(int stage)
 {
+
+    saveMigration = "";
+
     if (stage == inet::INITSTAGE_LOCAL)
     {
         EV << "MEOApp::initialising parameters" << endl;
@@ -83,9 +91,12 @@ void MecOrchestratorApp::handleStartOperation(inet::LifecycleOperation *operatio
     MEFPort = par("MEFPort");
 
 
-    cMessage *tester = new cMessage("Migration");
+    //cMessage *tester = new cMessage("Migration");
     //scheduleAt(simTime()+1.7, tester);
 
+
+    //cMessage *tester = new cMessage("InitApp");
+    //scheduleAt(simTime()+1.7, tester);
 
 }
 
@@ -105,12 +116,12 @@ void MecOrchestratorApp::handleMessageWhenUp(omnetpp::cMessage *msg)
         }
         else if(std::strcmp(msg->getName(),"processResourceRequest") == 0)
         {
-            sendSRRequest();
-            if(resourceRequestQueue_.size() > 0 && !processResourceRequest_->isScheduled())
-            {
-                scheduleAt(simTime(), processResourceRequest_);
-            }
-            return;
+        sendSRRequest();
+        if(resourceRequestQueue_.size() > 0 && !processResourceRequest_->isScheduled())
+        {
+            scheduleAt(simTime(), processResourceRequest_);
+        }
+        return;
         }else if(std::strcmp(msg->getName(),"TestRegistration") == 0){
             inet::Packet *packetResp = new inet::Packet("Registration");
 
@@ -191,16 +202,15 @@ void MecOrchestratorApp::handleMessageWhenUp(omnetpp::cMessage *msg)
         else if(std::strcmp(msg->getName(),"Migration") == 0){
 
             if(strcmp(par("localAddress"), "mecOrchestrator1") ==0){
-                handleAppMigrationRequest();
+                //handleAppMigrationRequest();
             }
 
 
         }
 
 
-
-    }
     // handle message from the LCM proxy
+    }
     else if(msg->arrivedOn("fromUALCMP"))
     {
         EV << "MecOrchestrator::handleMessage - "  << msg->getName() << endl;
@@ -219,8 +229,7 @@ void MecOrchestratorApp::handleMessageWhenUp(omnetpp::cMessage *msg)
     return;
 }
 
-void MecOrchestratorApp::socketDataArrived(inet::UdpSocket *socket, inet::Packet *packet)
-{
+void MecOrchestratorApp::socketDataArrived(inet::UdpSocket *socket, inet::Packet *packet){
     EV << "MEOApp::Arrived packet on UDP socket " << socket->getSocketId() << ", packet name: " << packet->getName()<< endl;
 //    printAvailableAppDescs(); // Debugging
     if(std::strcmp(packet->getName(), "Registration") == 0)
@@ -267,65 +276,288 @@ void MecOrchestratorApp::socketDataArrived(inet::UdpSocket *socket, inet::Packet
     }
     else if(std::strcmp(packet->getName(), "appMigrationRequestMEFtoMEO") == 0)
     {
+        EV << "MEOApp::appMigrationRequestMEFtoMEO arrived!"<< endl;
         handleAppMigrationRequestMEFtoMEO(packet);
+    }
+    else if(std::strcmp(packet->getName(), "appMigrationRequestMEOtoMEF") == 0)
+    {
+        EV << "MEOApp::appMigrationRequestMEOtoMEF arrived!"<< endl;
+        handleAppMigrationRequestMEFtoMEO(packet);
+    }
+    else if(std::strcmp(packet->getName(),"FederationMigrationTrigger") == 0){
+        EV << "MEOApp::FederationMigrationTrigger arrived!"<< endl;
+        handleAppMigrationRequest(packet);
+    }
+    else if(std::strcmp(packet->getName(), "ackMEFtoMEO") == 0)
+    {
+        EV << "MEOApp::ackMEFtoMEO arrived!"<< endl;
+        handleAckMEFtoMEO(packet);
     }
     else
     {
         EV << "MEOApp::Not recognized packet!"<< endl;
     }
-
 }
 
-void MecOrchestratorApp::handleAppMigrationRequestMEFtoMEO(inet::Packet *contAppMsg){
-    auto data = contAppMsg->peekData<AppMigrationRequest>();
+void MecOrchestratorApp::handleAckMEFtoMEO(inet::Packet *contAppMsg){
 
-    inet::Packet *pkt = new inet::Packet("StartAppContext");
-    auto chunk = inet::makeShared<StartAppContextChunk>();
+    auto data = contAppMsg->peekData<AckMigration>();
 
-    chunk->setAppName(data->getAppName());
-    chunk->setAppPackageSource(data->getAppPackageSource());
-    chunk->setAppIsOnboarded(data->getAppIsOnboarded());
-    chunk->setDevAppId(data->getDevAppId());
+    inet::Packet *packet = new inet::Packet("terminationAppInstRequest");
+    auto deleteAppMsg = inet::makeShared<TerminationAppInstRequest>();
 
-
-    pkt->insertAtBack(chunk);
-    send(pkt, "toUALCMP");
-}
-
-void MecOrchestratorApp::handleAppMigrationRequest(){
-
-    std::string appName = "PingApp";
-    std::string appPackageSource = "ApplicationDescriptors/PingApp.json";
-
-    inet::Packet *pkt = new inet::Packet("appMigrationRequestMEOtoMEF");
-    auto request = inet::makeShared<AppMigrationRequest>();
-
-    request->setAppName(appName.c_str());
-    request->setAppPackageSource(appPackageSource.c_str());
-    request->setAppIsOnboarded(true);
-    request->setDevAppId(1);
-
+    EV << "MecOrchestratorApp::handleAckMEFtoMEO: arrived ack and send termination at: " << data->getAppId() << endl;
 
     for(const auto& pair : meAppMap){
             const mecApp_s& app = pair.second;
 
-            if(app.mecAppName == appName){
+            EV << app.mecAppIsntanceId << " - " << data->getAppId() << endl;
+            if(app.mecAppIsntanceId == data->getAppId()){
                 EV << "MEO::handleAppMigrationRequest: FOUND info: " << app.mecAppAddress <<":"<< app.mecAppPort<< endl;
 
-                request->setAppAddress(app.mecAppAddress.str().c_str());
-                request->setAppPort(app.mecAppPort);
+                deleteAppMsg->setDeviceAppId(std::to_string(app.mecUeAppID).c_str());
+                deleteAppMsg->setContextId(app.contextId);
+                deleteAppMsg->setRequestId(1);
+                deleteAppMsg->setChunkLength(inet::B(1000));
+                packet->insertAtBack(deleteAppMsg);
+
+                // sending message to the MEPM
+                //socket.sendTo(packet, app.mecHostDesc->mepmHostIp, app.mecHostDesc->mepmPort);
+
+
+                simtime_t start = handoverStartTime[app.ueAddress.str().c_str()];
+                simtime_t end = simTime();
+
+                simtime_t duration = end - start;
+                emit(totalHandoverMigrationTime, duration);
+                std::cout << getFullPath() << ": HO+MIG emit = " << duration << endl;
+
+
+                return;
+            }
+    }
+}
+
+void MecOrchestratorApp::handleAppMigrationRequestMEFtoMEO(inet::Packet *contAppMsg){
+
+
+
+    EV << "MEOApp::handleAppMigrationRequestMEFtoMEO" << endl;
+    auto data = contAppMsg->peekData<AppMigrationRequest>();
+
+    inet::Packet* pktdup = new inet::Packet("appMigrationRequestMEOtoMPM");
+    auto request = inet::makeShared<AppMigrationRequest>();
+
+    request->setAppName(data->getAppName());
+    request->setAppPackageSource(data->getAppPackageSource());
+    request->setAppIsOnboarded(data->getAppIsOnboarded());
+    request->setDevAppId(data->getDevAppId());
+    request->setAppAddress(data->getAppAddress());
+    request->setAppPort(data->getAppPort());
+    request->setUeIpAddress(data->getUeIpAddress());
+    request->setIpMefRequest(data->getIpMefRequest());
+
+
+    EV << "MEOApp::handleAppMigrationRequestMEFtoMEO recived : " << data->getDevAppId() << endl;
+
+    request->setChunkLength(inet::B(64));
+    pktdup->insertAtBack(request);
+
+
+    if (mecHosts.size() == 0) {
+        EV << "MEOApp::no hosts available!" << endl;
+        return;
+    }
+
+    std::string appDid;
+    if (!data->getAppIsOnboarded()) {
+        EV << "MecOrchestrator::startMECApp - onboarding appDescriptor from: " << data->getAppPackageSource() << endl;
+        const ApplicationDescriptor& appDesc = onboardApplicationPackage(data->getAppPackageSource());
+        appDid = appDesc.getAppDId();
+    } else {
+
+    }
+
+    auto it = mecApplicationDescriptors_.find(appDid);
+    if (it == mecApplicationDescriptors_.end()) {
+        EV << "MecOrchestrator::startMECApp - Application package with AppDId[" << appDid << "] not onboarded." << endl;
+        return;
+    }
+
+    const ApplicationDescriptor& desc = it->second;
+
+    CreateContextAppMessage* r = new CreateContextAppMessage();
+    EV << "DEBUG INDIRIZZO: " << r->getAddressMigration() << endl;
+    EV << "DEBUG INDIRIZZO: " << data->getAppAddress() << endl;
+
+    r->setDevAppId(data->getDevAppId());
+    r->setAppPackagePath(data->getAppPackageSource());
+    r->setOnboarded(data->getAppIsOnboarded());
+    r->setUeIpAddress(data->getUeIpAddress());
+    r->setAddressMigration(data->getAppAddress());
+    r->setPortMigration(data->getAppPort());
+
+    EV << "DEBUG INDIRIZZO: " << r->getAddressMigration() << endl;
+
+    if (!data->getAppIsOnboarded()) {
+        r->setAppDId(appDid.c_str());
+    }
+
+    EV << "DEBUG appID: " << data->getDevAppId() << endl;
+    pendingRequests.insert(std::pair<std::string, CreateContextAppMessage*>(data->getDevAppId(), r->dup()));
+    migrationInfo[data->getDevAppId()] = { data->getAppAddress(), data->getAppPort() };
+
+
+
+
+    auto itRequest = pendingRequests.find(data->getDevAppId());
+
+    if (itRequest == pendingRequests.end()) {
+        EV << "MEOApp::handleResourceReply - pending request "
+           << data->getDevAppId() << " non trovata!" << endl;
+        return;
+    }
+
+    EV << "Trovata chiave [" << itRequest->first << "] con valore: "
+       << itRequest->second->getAddressMigration() <<  endl;
+
+
+    if (desc.getAppDeploymentSetting() != "")
+        deployOnSpecifiedMecHost(data->getDevAppId(), desc, desc.getAppDeploymentSetting());
+
+    EV << "MecOrchestrator::startMECApp - Application package with AppDId[" << appDid << "] find best host." << endl;
+    findMecHostByTargetId(data->getDevAppId(), desc, data->getGbNode());
+
+
+
+    EV << "MEOAPP::debug - ipMefRequest: " << data->getIpMefRequest() << endl;
+    if (strcmp(data->getIpMefRequest(), "INTERNO") != 0){
+        inet::Packet* pktdup1 = new inet::Packet("ackMEOtoMEF");
+        auto request1 = inet::makeShared<AckMigration>();
+
+        request1->setAppId(data->getAppName());
+        request1->setIpMefRequest(data->getIpMefRequest());
+
+
+        request1->setChunkLength(inet::B(64));
+        pktdup1->insertAtBack(request1);
+
+        EV << "MEOAPP::startMECApp - ACK al Federator" << endl;
+        socket.sendTo(pktdup1, MEFAddress, MEFPort);
+
+        simtime_t delay = simTime() - data->getStartTime();
+        emit(handoverFed, delay);
+    }else{
+        inet::Packet* pktdup1 = new inet::Packet("ackMEFtoMEO");
+        auto request1 = inet::makeShared<AckMigration>();
+
+        request1->setAppId(data->getAppName());
+
+
+        request1->setChunkLength(inet::B(64));
+        pktdup1->insertAtBack(request1);
+
+        EV << "MEOAPP::startMECApp - ACK al MEO (funzione)" << endl;
+        handleAckMEFtoMEO(pktdup1);
+
+        simtime_t delay = simTime() - data->getStartTime();
+        emit(handoverInt, delay);
+    }
+
+}
+
+void MecOrchestratorApp::handleAppMigrationRequest(inet::Packet *contAppMsg){
+    auto data = contAppMsg->peekData<FederationMigrationTrigger>();
+
+    std::string input = data->getAppId();
+    std::size_t pos = input.find('[');
+    std::string appName = (pos != std::string::npos) ? input.substr(0, pos) : input;
+
+
+    std::string appPackageSource = "ApplicationDescriptors/" + appName + ".json";
+
+    inet::Packet *pkt = new inet::Packet("appMigrationRequestMEOtoMEF");
+    auto request = inet::makeShared<AppMigrationRequest>();
+
+    request->setAppName(input.c_str());
+    request->setAppPackageSource(appPackageSource.c_str());
+    request->setAppIsOnboarded(false);
+    std::string inputStr = data->getUeIpAddress() + input;
+    //request->setDevAppId(inputStr.c_str());
+
+
+    request->setDevAppId(std::to_string(data->getAppIdMigration()).c_str());
+    request->setGbNode(data->getGbNode());
+    request->setUeIpAddress(data->getUeIpAddress());
+    request->setAppAddress(data->getAddressMigration());
+    request->setAppPort(data->getPortMigration());
+    request->setIpMefRequest("INTERNO");
+    request->setStartTime(data->getStartTime());
+
+    EV << "MEOApp::handleAppMigrationRequest recived UEIPADDRESS: " << data->getUeIpAddress() << endl;
+
+    //ho usato quel campo cambiato nel caso cambia
+    /*
+    for(const auto& pair : meAppMap){
+            const mecApp_s& app = pair.second;
+
+            std::string x = std::to_string(data->getAppIdMigration()).c_str();
+            if (app.appDId == x) {
+
 
                 break;
             }
     }
 
-    request->setChunkLength(inet::B(64));
+
+    */
+    //EV << "MEO::handleAppMigrationRequest: FOUND info: " << app.appDId <<":"<< x << endl;
+
+    request->setChunkLength(inet::B(2048));
     pkt->insertAtBack(request);
 
-    EV << "MEO::handleAppMigrationRequest: send at  " << MEFAddress <<":"<< MEFPort << endl;
 
 
-    socket.sendTo(pkt, MEFAddress, MEFPort);
+    std::unordered_map<int, std::tuple<std::string, std::string, int>> gbNodeToAddressVimPort;
+
+    std::string path = par("mapFile").stdstringValue();
+    std::ifstream infile(path);
+    if (!infile.is_open()) {
+        throw cRuntimeError("Impossibile aprire il file di mappatura: %s", path.c_str());
+    }
+
+    int gbNode, port;
+    std::string address, vim;
+    while (infile >> gbNode >> address >> vim >> port) {
+        gbNodeToAddressVimPort[gbNode] = std::make_tuple(address, vim, port);
+    }
+
+
+    gbNode = data->getGbNode();
+    if (gbNodeToAddressVimPort.count(gbNode)) {
+        const auto& entry = gbNodeToAddressVimPort[gbNode];
+        std::string destAddr = std::get<0>(entry);
+        std::string vimAddr = std::get<1>(entry);
+        int destPort = std::get<2>(entry);
+
+        EV << "MEO::handleAppMigrationRequest: send to " << destAddr << ":" << destPort
+           << " (vim: " << vimAddr << ")" << endl;
+
+        socket.sendTo(pkt, inet::L3AddressResolver().resolve(destAddr.c_str()), destPort);
+    } else {
+        EV_ERROR << "GBNode non trovato nella mappa: " << gbNode << endl;
+    }
+
+    handoverStartTime[data->getUeIpAddress()] = simTime();
+    std::cout << getFullPath() << ": HO+MIG start" << endl;
+
+    simtime_t delay = simTime() - data->getStartTime();
+    emit(msgFederationTrigger, delay);
+
+
+
+
+
 }
 
 
@@ -457,7 +689,8 @@ void MecOrchestratorApp::handleCreateContextMessage(CreateContextAppMessage* con
     {
         deployOnSpecifiedMecHost(contAppMsg->getDevAppId(), desc, desc.getAppDeploymentSetting());
     }
-    findBestMecHostFake(contAppMsg->getDevAppId(), desc);
+    //Francesco Milione added
+    findBestMecHost(contAppMsg->getDevAppId(), desc);
 }
 
 void MecOrchestratorApp::handleResourceReply(inet::Packet *packet)
@@ -472,6 +705,7 @@ void MecOrchestratorApp::handleResourceReply(inet::Packet *packet)
     if(itResponse == responseMap.end())
     {
         EV << "MEOApp::Request not found served by someone else..." << endl;
+
         return;
     }
 
@@ -592,18 +826,20 @@ void MecOrchestratorApp::handleResourceReply(inet::Packet *packet)
                 scheduleAt(simTime(),processResourceRequest_);
 //            response->requestTime = sendSRRequest(pktMM3, pktMM4, bestHost->mepmHostIp, bestHost->vimHostIp, bestHost->vimPort, bestHost->mepmPort);
 
-
-
-
             return;
         }
 
         EV << "MEOApp::MECHost [" << receivedData->getMecHostId() << "] valid! - next start mecApp" << endl;
 
         // if the response is valid
-        responseMap.erase(receivedData->getDeviceAppId());
+       //clearResponseMapByAppIdAndRequest(receivedData->getDeviceAppId());
         // here we can start the mecApp
         EV << "MEOApp::handleResourceReply " << contAppMsg->getAppDId() << endl;
+        std::cout << "MEOApp::handleAppMigrationRequestMEFtoMEO recived appId: " << receivedData->getDeviceAppId() << endl;
+
+        responseMap.erase(receivedData->getDeviceAppId());
+
+
         startMECApp(contAppMsg, bestHost);
     }
     else if(response->vimRes!=NO_VALUE && response->mepmRes != NO_VALUE)
@@ -622,6 +858,7 @@ void MecOrchestratorApp::handleResourceReply(inet::Packet *packet)
             // Sending nack
             sendCreateAppContextAck(false, itRequest->second->getRequestId(), -1, receivedData->getDeviceAppId());
         }
+        std::cout << "FATALERROR" << endl;
 
     }
     return;
@@ -905,6 +1142,27 @@ void MecOrchestratorApp::handleInstantiationResponse(inet::Packet *packet)
         sendCreateAppContextAck(true, itUALCMPRequest->second->getRequestId(), appResponse->getContextId(), "", amsUri);
 
 
+        auto it = startTimes.find(itUALCMPRequest->second->getDevAppId());
+        if (it != startTimes.end()) {
+            double start = it->second;
+            double delay = simTime().dbl() - start;
+            emit(registerSignal("mechostdelay"), delay);
+
+            startTimes.erase(it);
+        }
+
+        auto it1 = startTimesInit.find(itUALCMPRequest->second->getDevAppId());
+            if (it1 != startTimesInit.end()) {
+                double start = it1->second;
+                double delay = simTime().dbl() - start;
+                emit(registerSignal("totalInit"), delay);
+
+                startTimesInit.erase(it1);
+            }
+
+
+        delete itUALCMPRequest->second;
+        pendingRequests.erase(itUALCMPRequest);
     }else
     {
         // Something went wrong
@@ -938,6 +1196,9 @@ void MecOrchestratorApp::startMECApp(CreateContextAppMessage* contAppMsg, MECHos
     const ApplicationDescriptor& appDesc = it->second;
     EV << "MEOApp:: appdesc " << appDesc.getAppName() << endl;
 
+    EV << "DEBUG APPDEVID:  " << contAppMsg->getDevAppId() << endl;
+    startTimesInit[contAppMsg->getDevAppId()] = simTime().dbl();
+
     inet::Packet* pktMM3 = new inet::Packet("instantiationApplicationRequest");
     auto instAppRequest = inet::makeShared<InstantiationApplicationRequest>();
     instAppRequest->setUeAppID(atoi(contAppMsg->getDevAppId()));
@@ -951,6 +1212,21 @@ void MecOrchestratorApp::startMECApp(CreateContextAppMessage* contAppMsg, MECHos
     instAppRequest->setRequiredDisk(appDesc.getVirtualResources().disk);
 
     instAppRequest->setUeIpAddress(inet::L3Address(contAppMsg->getUeIpAddress()));
+
+
+    auto it1 = migrationInfo.find(contAppMsg->getDevAppId());
+    if (it1 != migrationInfo.end()) {
+        std::string address = it1->second.first;
+        int port = it1->second.second;
+        EV << "DEBUG address=" << address << " port=" << port << endl;
+
+        instAppRequest->setAddressMigration(address.c_str());
+        instAppRequest->setPortMigration(port);
+    }
+
+
+
+
 
     // insert OMNeT like services, only one is supported, for now
     if(!appDesc.getOmnetppServiceRequired().empty())
@@ -1064,6 +1340,92 @@ void MecOrchestratorApp::findBestMecHostFake(std::string deviceAppId, const Appl
     }
 }
 
+void MecOrchestratorApp::findMecHostByTargetId(std::string deviceAppId, const ApplicationDescriptor& appDesc, int target)
+{
+    EV << "MEOApp::findMecHostByTargetId - search based on given ID..." << endl;
+
+    std::string key = deviceAppId;
+
+    if (mecHosts.empty()) return;
+
+    std::string targetHost;
+
+    std::unordered_map<int, std::tuple<std::string, std::string, int>> gbNodeToAddressVimPort;
+
+    std::string path = par("mapFile").stdstringValue();
+    std::ifstream infile(path);
+    if (!infile.is_open()) {
+        throw cRuntimeError("Impossibile aprire il file di mappatura: %s", path.c_str());
+    }
+
+    int gbNode, port;
+    std::string address, vim;
+    while (infile >> gbNode >> address >> vim >> port) {
+        gbNodeToAddressVimPort[gbNode] = std::make_tuple(address, vim, port);
+    }
+
+
+    EV << "Contenuto della mappa caricata:\n";
+    for (const auto& [k, v] : gbNodeToAddressVimPort) {
+        EV << "gbNode: " << k
+           << ", address: " << std::get<0>(v)
+           << ", vim: " << std::get<1>(v)
+           << ", port: " << std::get<2>(v) << endl;
+    }
+
+
+    if (gbNodeToAddressVimPort.count(target)) {
+        const auto& entry = gbNodeToAddressVimPort[target];
+        targetHost = std::get<1>(entry);
+
+    } else {
+        EV_ERROR << "GBNode non trovato nella mappa: " << target << endl;
+    }
+
+    double now = simTime().dbl();
+
+    for (auto& it : mecHosts)
+    {
+        inet::L3Address resolvedTarget = inet::L3AddressResolver().resolve(targetHost.c_str());
+        EV << "DEBUG " << it->vimHostIp << " - " << resolvedTarget << endl;
+        if (it->vimHostIp == resolvedTarget && it->vimPort != -1 && it->mepmPort != -1)
+{
+            EV << "MEOApp::Using MECHost - id: " << it->mecHostId << " matching address: " << targetHost << endl;
+
+            MECHostResponseEntry *responseEntry = new MECHostResponseEntry;
+            responseEntry->mecHostID = it->mecHostId;
+
+            ResourceRequest *r = new ResourceRequest();
+            inet::Packet* pktMM3 = makeAvailableServiceRequestPacket(it->mepmHostIp, it->mepmPort, deviceAppId, appDesc);
+            inet::Packet* pktMM4 = makeResourceRequestPacket(it->vimHostIp, it->vimPort, deviceAppId,
+                                                              appDesc.getVirtualResources().cpu,
+                                                              appDesc.getVirtualResources().ram,
+                                                              appDesc.getVirtualResources().disk);
+
+            r->pktMM3 = pktMM3;
+            r->pktMM4 = pktMM4;
+            r->vimHostAddress = it->vimHostIp;
+            r->mepmHostAddress = it->mepmHostIp;
+            r->vimPort = it->vimPort;
+            r->mepmPort = it->mepmPort;
+            resourceRequestQueue_.push(r);
+            responseEntry->requestTime = simTime().dbl();
+            responseEntry->nRichiesta = now;
+
+            if (!processResourceRequest_->isScheduled())
+                scheduleAt(simTime(), processResourceRequest_);
+
+            std::cout << "DEBUG: deviceAppId = \"" << key << "\"" << endl;
+
+            startTimes[key] = now;
+
+            responseMap[key].push_back(responseEntry);
+            break;
+        }
+    }
+}
+
+
 
 //MECHostDescriptor* MecOrchestratorApp::findBestMecHost(const ApplicationDescriptor& appDesc)
 void MecOrchestratorApp::findBestMecHost(std::string deviceAppId, const ApplicationDescriptor& appDesc)
@@ -1102,6 +1464,9 @@ void MecOrchestratorApp::findBestMecHost(std::string deviceAppId, const Applicat
 //            responseEntry->requestTime = sendSRRequest(pktMM3, pktMM4, it->mepmHostIp, it->vimHostIp, it->vimPort, it->mepmPort);
 
             responseMap[key].push_back(responseEntry);
+
+            //FRANCESCO MILIONE ERRORE
+            break;
         }
     }
 
@@ -1213,6 +1578,8 @@ void MecOrchestratorApp::sendCreateAppContextAck(bool result, unsigned int reque
 
             // Deleting pending response from MECHosts
             responseMap.erase(deviceAppId);
+            //clearResponseMapByAppIdAndRequest(deviceAppId);
+
 
             EV << "MEOApp::Pending UALCMP requests: " << pendingRequests.size() << ", pending mechost responses: " << responseMap.size() << endl;
         }
@@ -1314,3 +1681,60 @@ void MecOrchestratorApp::printAvailableAppDescs()
     EV << "####################################" << endl;
 
 }
+
+void MecOrchestratorApp::clearResponseMapByAppIdAndRequest(std::string deviceAppId)
+{
+    EV << "DEBUG: deviceAppId = \"" << deviceAppId << "\"" << endl;
+
+    EV << "\n===== PRIMA DELLA CANCELLAZIONE =====" << endl;
+        for (const auto& [key, vec] : responseMap) {
+            EV << "Key: " << key << " | Size: " << vec.size() << endl;
+            for (const auto& entry : vec) {
+                EV << "  -> mecHostID: " << entry->mecHostID << ", nRichiesta: " << entry->nRichiesta << endl;
+            }
+        }
+
+    int targetNRichiesta = -1;
+
+    // Trova il primo nRichiesta associato a deviceAppId
+    auto it = responseMap.find(deviceAppId);
+    if (it != responseMap.end() && !it->second.empty()) {
+        targetNRichiesta = it->second.front()->nRichiesta;
+    }
+
+    for (auto it = responseMap.begin(); it != responseMap.end(); )
+    {
+        // Verifica che la chiave contenga lo stesso deviceAppId
+        if (it->first.find(deviceAppId) != std::string::npos) {
+            bool match = true;
+            for (auto entry : it->second) {
+                // Se targetNRichiesta è -1, elimina solo quelli con -1 o non settato
+                if (targetNRichiesta == -1) {
+                    if (entry->nRichiesta != -1) {
+                        match = false;
+                        break;
+                    }
+                } else {
+                    if (entry->nRichiesta != targetNRichiesta) {
+                        match = false;
+                        break;
+                    }
+                }
+            }
+            if (match) {
+                it = responseMap.erase(it);
+                continue;
+            }
+        }
+        ++it;
+    }
+
+    EV << "\n===== DOPO LA CANCELLAZIONE =====" << endl;
+        for (const auto& [key, vec] : responseMap) {
+            EV << "Key: " << key << " | Size: " << vec.size() << endl;
+            for (const auto& entry : vec) {
+                EV << "  -> mecHostID: " << entry->mecHostID << ", nRichiesta: " << entry->nRichiesta << endl;
+            }
+        }
+}
+

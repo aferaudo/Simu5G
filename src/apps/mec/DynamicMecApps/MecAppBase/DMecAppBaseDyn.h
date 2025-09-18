@@ -18,6 +18,9 @@ class  DMecAppBaseDyn : public DMecAppBase
         HttpBaseMessage *bufferHttpMessageService;
         HttpBaseMessage *bufferHttpMessageAms;
 
+        inet::ChunkQueue stateBuf;
+        inet::b expectedLen = inet::b(-1);
+
 
     public:
         DMecAppBaseDyn();

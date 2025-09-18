@@ -10,7 +10,7 @@
 //
 
 
-package simu5g.apps.mec.DynamicMecApps.WarningAlertApp;
+package simu5g.apps.mec.PingPongApp;
 
 import inet.applications.contract.IApp;
 
@@ -30,7 +30,7 @@ import inet.applications.contract.IApp;
  //
 
 
-simple DUEWarningAlertApp like IApp
+simple DUETest like IApp
 {
     parameters:       
          @display("i=block/source");
@@ -50,9 +50,9 @@ simple DUEWarningAlertApp like IApp
         //autoscheduling infos
         double period @unit("s") = default(1s);
         double startTime @unit("s") = default(0s); 
-        double stopTime @unit("s") = default(120s);
+        double stopTime @unit("s") = default(0s);
         
-        string mecAppName = default("DMECWarningAlertApp"); // but could be MEWarningAlertApp_rest_External
+        string mecAppName = default(""); // but could be MEWarningAlertApp_rest_External
         
         double positionX = default(210);
         double positionY = default(260);

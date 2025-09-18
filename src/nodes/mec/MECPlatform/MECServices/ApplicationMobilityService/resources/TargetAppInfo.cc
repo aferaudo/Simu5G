@@ -44,8 +44,9 @@ nlohmann::ordered_json TargetAppInfo::toJson() const {
 bool TargetAppInfo::fromJson(const nlohmann::ordered_json &json)
 {
     EV << "TargetAppInfo::processing json" << endl;
-    if(!json.contains("appInstanceId"))
+    if(!json.contains("appInstanceId")){
         return false;
+    }
 
 
     appInstanceId_ = json["appInstanceId"];

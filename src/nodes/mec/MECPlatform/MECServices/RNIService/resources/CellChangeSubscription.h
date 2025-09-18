@@ -25,6 +25,8 @@ public:
     virtual bool fromJson(const nlohmann::ordered_json& json) override;
     virtual nlohmann::ordered_json toJson() const override;
 
+    void sendNotification(std::string ueIp, int newCellId);
+
 
 private:
     bool requestTestNotification_;

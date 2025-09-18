@@ -12,7 +12,7 @@
 #include "nodes/mec/MECOrchestrator/MECOMessages/MECOrchestratorMessages_m.h"
 #include "inet/networklayer/common/L3AddressTag_m.h"
 #include "nodes/mec/MECPlatform/ServiceRegistry/ServiceRegistry.h" //ServiceInfo struct
-
+#include "nodes/mec/Federator/Messages/MEFmessages_m.h"
 
 Define_Module(MecPlatformManagerDyn);
 
@@ -117,7 +117,12 @@ void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
             connectToBroker();
         }
 //        delete msg;
-    }else if (!msg->isSelfMessage() && socket.belongsToSocket(msg))
+    }else if (msg->isSelfMessage() && strcmp(msg->getName(), "sendHttpNotification") == 0){
+        std::string body = msg->par("body").stringValue();
+        Http::sendPostRequest(&tcpSocket, body.c_str(), serverHost.c_str(), triggerURI.c_str());
+
+    }
+    else if (!msg->isSelfMessage() && socket.belongsToSocket(msg))
     {
         EV << "MecPlatformManagerDyn::handleMessage - TYPE: "<< msg->getName() << endl;
         if(!strcmp(msg->getName(), "ServiceRequest")){
@@ -147,6 +152,12 @@ void MecPlatformManagerDyn::handleMessageWhenUp(cMessage *msg)
         {
             inet::Packet* packet = check_and_cast<inet::Packet*>(msg);
             handleParkMigrationTrigger(packet);
+//            delete msg;
+        }
+        else if(!strcmp(msg->getName(), "FederationMigrationTrigger"))
+        {
+            inet::Packet* packet = check_and_cast<inet::Packet*>(msg);
+            handleFederationMigrationTrigger(packet);
 //            delete msg;
         }
         else if(!strcmp(msg->getName(), "ServiceMobilityResponse"))
@@ -380,7 +391,8 @@ void MecPlatformManagerDyn::handleInstantiationResponse(
     EV << "MecPlatformManagerDyn:: App instance id: " << responsemsg->getInstanceId()<< endl;
     if(amsEnabled && responsemsg->getStatus() && mobilitySupportRequired)
     {
-        handleSubscription(responsemsg->getInstanceId());
+        //handleSubscription(responsemsg->getInstanceId());
+        handleSubscription(responsemsg->getDeviceAppId());
     }
 
 }
@@ -476,6 +488,8 @@ void MecPlatformManagerDyn::manageNotification()
                             packetLength = packetLength + notification->getAssociateId()[i].getType().size();
                         }
 
+
+                        // Francesco Milione
                         // Selecting migration type
                         if(jsonBody.contains("appInstanceId")) // -- dynamic resource migration (from dynamic resources to local resources)
                         {
@@ -498,13 +512,23 @@ void MecPlatformManagerDyn::manageNotification()
                             destinationAddr = meoAddress;
                             destPort = meoPort;
                         }
+                        /*
 
+                        EV << "MecPlatformManagerDyn::request app migration to MEC Orchestrator" << endl;
+                        destinationAddr = meoAddress;
+                        destPort = meoPort;
+                        std::string appInstanceId = jsonBody["appInstanceId"];
+                        toSend->setAppInstanceId(appInstanceId.c_str());
+                        std::cout << "MecPlatformManagerDyn:: appInstanceId " << appInstanceId << endl;
+                        packetLength = packetLength + appInstanceId.size();
+
+                        */
                         EV << "MecPlatformManagerDyn::ServiceMobilityRequest built! total packet length: " << packetLength << endl;
 
                         toSend->setChunkLength(inet::B(packetLength));
                         packet->insertAtBack(toSend);
                         EV << "MecPlatformManagerDyn::Sending serviceMobilityRequest to " << destinationAddr.str() << ":"<<std::to_string(destPort)<<endl;
-                        socket.sendTo(packet, destinationAddr, destPort);
+                        //socket.sendTo(packet, destinationAddr, destPort);
                     }
                     else
                     {
@@ -559,40 +583,40 @@ void MecPlatformManagerDyn::handleServiceMobilityResponse(
 
     //generate a notification with targetappinfo
 
-    auto data = packet->peekData<ServiceMobilityResponse>().get();
-
-    // target data
-    TargetAppInfo *targetInfo = new TargetAppInfo();
-    targetInfo->setAppInstanceId(std::string(data->getAppInstanceId()));
-    SockAddr targetAddress;
-    targetAddress.addr = data->getTargetAddress();
-    targetAddress.port = data->getTargetPort();
-
-    std::vector<SockAddr> target;
-    target.push_back({data->getTargetAddress(), data->getTargetPort()});
-    target.push_back({data->getTargetAddress(), data->getTargetUePort()});
-
-//    targetInfo->setCommInterface(std::vector<SockAddr>(1,targetAddress));
-    targetInfo->setCommInterface(target);
-
-    // AssociateId
-    std::vector<AssociateId> associateId;
-    for(int i = 0; i < data->getAssociateIdArraySize(); i++)
-    {
-        associateId.push_back(data->getAssociateId(i));
-    }
-
-    // Creating a MobilityProcedureNotification with targetAppInfo information
-    MobilityProcedureNotification *notification = new MobilityProcedureNotification();
-    notification->setMobilityStatus(INTERHOST_MOVEOUT_TRIGGERED);
-    notification->setTargetAppInfo(*targetInfo);
-    notification->setAssociateId(associateId);
-
-    EV << "MecPlatformManagerDyn::Received service mobility response json object: " << notification->toJson().dump()<< endl;
-
-    // Exploiting socket used for subscribing phase
-    std::cout << "SENDING NOTIFICATION - MY HOST (Service mobilityResponse) " << serverHost.c_str() << " for  " << data->getAppInstanceId() << " at " << simTime() << endl;
-    Http::sendPostRequest(&tcpSocket, notification->toJson().dump().c_str(), serverHost.c_str(), triggerURI.c_str());
+//    auto data = packet->peekData<ServiceMobilityResponse>().get();
+//
+//    // target data
+//    TargetAppInfo *targetInfo = new TargetAppInfo();
+//    targetInfo->setAppInstanceId(std::string(data->getAppInstanceId()));
+//    SockAddr targetAddress;
+//    targetAddress.addr = data->getTargetAddress();
+//    targetAddress.port = data->getTargetPort();
+//
+//    std::vector<SockAddr> target;
+//    target.push_back({data->getTargetAddress(), data->getTargetPort()});
+//    target.push_back({data->getTargetAddress(), data->getTargetUePort()});
+//
+////    targetInfo->setCommInterface(std::vector<SockAddr>(1,targetAddress));
+//    targetInfo->setCommInterface(target);
+//
+//    // AssociateId
+//    std::vector<AssociateId> associateId;
+//    for(int i = 0; i < data->getAssociateIdArraySize(); i++)
+//    {
+//        associateId.push_back(data->getAssociateId(i));
+//    }
+//
+//    // Creating a MobilityProcedureNotification with targetAppInfo information
+//    MobilityProcedureNotification *notification = new MobilityProcedureNotification();
+//    notification->setMobilityStatus(INTERHOST_MOVEOUT_TRIGGERED);
+//    notification->setTargetAppInfo(*targetInfo);
+//    notification->setAssociateId(associateId);
+//
+//    EV << "MecPlatformManagerDyn::Received service mobility response json object: " << notification->toJson().dump()<< endl;
+//
+//    // Exploiting socket used for subscribing phase
+//    std::cout << "SENDING NOTIFICATION - MY HOST (Service mobilityResponse) " << serverHost.c_str() << " for  " << data->getAppInstanceId() << " at " << simTime() << endl;
+//    Http::sendPostRequest(&tcpSocket, notification->toJson().dump().c_str(), serverHost.c_str(), triggerURI.c_str());
 
 }
 
@@ -613,6 +637,64 @@ void MecPlatformManagerDyn::handleParkMigrationTrigger(inet::Packet* packet)
     std::cout << "SENDING NOTIFICATION - MY HOST (handleParkMigrationTrigger) " << serverHost.c_str() << " for app " << data->getAppInstanceId() << endl;
 
     Http::sendPostRequest(&tcpSocket, request.dump().c_str(),  serverHost.c_str(), triggerURI.c_str());
+}
+
+void MecPlatformManagerDyn::handleFederationMigrationTrigger(inet::Packet* packet)
+{
+
+
+    auto data = packet->peekData<FederationMigrationTrigger>().get();
+/*
+    nlohmann::ordered_json request;
+    request["notificationType"] = "MobilityProcedureNotification";
+    //request["associateId"] = nlohmann::json::array();
+
+    request["mobilityStatus"] = "INTERHOST_MOVEOUT_TRIGGERED";
+    request["_links"]["href"] = "";
+
+
+    request["associateId"] = nlohmann::json::array();
+
+    request["appInstanceId"] = std::to_string(data->getAppIdMigration());
+
+    request["targetAppInfo"]["appInstanceId"] = std::to_string(data->getAppIdMigration());
+    request["targetAppInfo"]["commInterface"]["ipAddresses"] = nlohmann::json::array();
+
+    nlohmann::ordered_json arrayVal;
+    arrayVal["host"] = data->getTargetAddress();
+    arrayVal["port"] = data->getTargetPort();
+
+
+    request["targetAppInfo"]["commInterface"]["ipAddresses"].push_back(arrayVal);
+
+
+    EV << "MecPlatformManagerDyn::Trigger ready: " << request.dump() << endl;
+    std::cout << "SENDING NOTIFICATION - MY HOST (handleFederationMigrationTrigger) " << par("brokerAddress") << " for app " << data->getAppId() << endl;
+
+    cMessage *httpSendMsg = new cMessage("sendHttpNotification");
+    httpSendMsg->addPar("body").setStringValue(request.dump().c_str());
+    scheduleAt(simTime() + 0.5, httpSendMsg);
+    */
+
+
+
+
+    // ORA INVIO DIRETTAMENTE A MEO
+    inet::Packet* toSend = new inet::Packet("FederationMigrationTrigger");
+    auto trigger = inet::makeShared<FederationMigrationTrigger>();
+    trigger->setAppId(data->getAppId());
+    trigger->setGbNode(data->getGbNode());
+    trigger->setChunkLength(inet::B(8 + strlen(data->getAppId())));
+    trigger->setUeIpAddress(data->getUeIpAddress());
+    trigger->setAddressMigration(brokerIPAddress.str().c_str());
+    trigger->setPortMigration(10022);
+    trigger->setStartTime(data->getStartTime());
+    trigger->setAppIdMigration(data->getAppIdMigration());
+
+    toSend->insertAtBack(trigger);
+
+    socket.sendTo(toSend, meoAddress, meoPort);
+
 }
 
 void MecPlatformManagerDyn::handleSubscription(

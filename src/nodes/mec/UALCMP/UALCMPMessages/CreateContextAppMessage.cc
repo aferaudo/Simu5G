@@ -35,17 +35,21 @@ CreateContextAppMessage& CreateContextAppMessage::operator=(const CreateContextA
 
 void CreateContextAppMessage::copy(const CreateContextAppMessage& other)
 {
+    this->addressMigration = other.addressMigration;
+    this->portMigration = other.portMigration;
     this->requestId = other.requestId;
     this->onboarded = other.onboarded;
     this->appPackagePath = other.appPackagePath;
     this->appDId = other.appDId;
     this->appContext = other.appContext;
+
 }
 
 nlohmann::json CreateContextAppMessage::getAppContext() const
 {
     return appContext;
 }
+
 
 void CreateContextAppMessage::setAppContext(nlohmann::json& appContext)
 {

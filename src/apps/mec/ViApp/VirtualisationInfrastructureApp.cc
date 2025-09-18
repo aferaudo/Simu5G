@@ -265,6 +265,16 @@ RunningAppEntry* VirtualisationInfrastructureApp::handleInstantiation(Instantiat
     module->par("mp1Port") = data->getMp1Port();
     module->par("isMigrating") = data->isMigrating();
 
+    if (module->hasPar("addressMigration")) {
+        EV << "VirtualisationInfrastructureApp::DEBUG " << data->getAddressMigration() << endl;
+
+        module->par("addressMigration") = data->getAddressMigration();
+    }
+
+    if (module->hasPar("portMigration")) {
+        module->par("portMigration") = data->getPortMigration();
+    }
+
 
     module->finalizeParameters();
 
@@ -302,6 +312,10 @@ RunningAppEntry* VirtualisationInfrastructureApp::handleInstantiation(Instantiat
     entry->resources.cpu = data->getRequiredCpu();
     entry->resources.ram = data->getRequiredRam();
     entry->resources.disk = data->getRequiredDisk();
+
+    entry->addressMigration = data->getAddressMigration();
+    entry->portMigration = data->getPortMigration();
+
     runningApp[data->getUeAppID()] = *entry;
     allocatedCpu += cpu;
     allocatedRam += ram;
@@ -341,6 +355,9 @@ bool VirtualisationInfrastructureApp::handleTermination(DeleteAppMessage* data)
     cMessage* msg = new cMessage("startTerminationProcedure");
     send(msg, gate->getName(), gate->getIndex());
 
+    //EV << "DEBUG DELETEMODULE: " << entry.module;
+
+    //entry.module->deleteModule();
 
     return true;
 }
@@ -399,15 +416,15 @@ void VirtualisationInfrastructureApp::handleEndTerminationProcedure(cMessage* ms
         allocatedRam -= selected->resources.ram;
         allocatedDisk -= selected->resources.disk;
 
-//        cModule* module = selected->module;
-//        module->callFinish();
-//
-//        toDelete = module;
-//        terminatingModules.push(module);
-//        if(!deleteModuleMessage->isScheduled())
-//        {
-//            scheduleAt(simTime()+0.1, deleteModuleMessage);
-//        }
+        cModule* module = selected->module;
+        module->callFinish();
+
+        toDelete = module;
+        terminatingModules.push(module);
+        if(!deleteModuleMessage->isScheduled())
+        {
+            scheduleAt(simTime()+0.1, deleteModuleMessage);
+        }
      }
 
     return;

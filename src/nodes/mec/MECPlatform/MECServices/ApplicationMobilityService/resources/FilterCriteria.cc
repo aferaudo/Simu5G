@@ -56,7 +56,7 @@ bool FilterCriteria::fromJson(const nlohmann::ordered_json& json)
        nlohmann::ordered_json mobilityStatusString = val.value();
        mobilityStatus_.push_back(getMobilityStatusFromString(mobilityStatusString));
     }
-
+    EV << "END FilterCriteria::Building FilterCriteria attribute from json" << endl;
     return true;
 }
 

@@ -86,3 +86,22 @@ bool CellChangeSubscription::fromJson(const nlohmann::ordered_json& json)
     result = result && filterCriteria_->fromJson(json["filterCriteriaAssocHo"]);
     return result;
 }
+
+void CellChangeSubscription::sendNotification(std::string ueIp, int newCellId) {
+    if (!socket_)
+        return;
+
+    nlohmann::ordered_json body;
+    body["eventType"] = "CellChange";
+    body["associateId"]["type"] = "UE_IPv4_ADDRESS";
+    body["associateId"]["value"] = ueIp;
+    body["cellId"] = newCellId;
+
+    std::string host = socket_->getRemoteAddress().str() + ":" + std::to_string(socket_->getRemotePort());
+    std::string uri = baseResLocation_;
+
+    Http::sendPostRequest(socket_, body.dump().c_str(), host.c_str(), uri.c_str());
+
+    EV << "CellChangeSubscription:: Notifica inviata a " << host << " su URI " << uri << endl;
+}
+

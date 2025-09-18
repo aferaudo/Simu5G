@@ -91,6 +91,8 @@ module eNodeB
         //# Plmn params (used by RNI Service in EnodeBStatsCollector)
         string mcc = default("001"); // Test network
         string mnc = default("01");  // Test network
+        
+        string mecHostHandover = default(""); 
 
     gates:
         inout ppp @loose;         // connection to the Core Network

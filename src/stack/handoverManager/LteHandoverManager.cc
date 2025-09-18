@@ -13,6 +13,8 @@
 #include "stack/handoverManager/X2HandoverCommandIE.h"
 #include "inet/common/ProtocolTag_m.h"
 
+#include "nodes/mec/MECPlatform/MECServices/RNIService/RNIService.h"
+
 Define_Module(LteHandoverManager);
 
 using namespace inet;
@@ -38,6 +40,8 @@ void LteHandoverManager::initialize()
     auto ctrlInfo = x2Packet->addTagIfAbsent<X2ControlInfoTag>();
     ctrlInfo->setInit(true);
     x2Packet->insertAtFront(initMsg);
+
+
 
     send(x2Packet, x2Manager_[OUT_GATE]);
 }
@@ -84,6 +88,8 @@ void LteHandoverManager::sendHandoverCommand(MacNodeId ueId, MacNodeId enb, bool
     Enter_Method("sendHandoverCommand");
 
     EV<<NOW<<" LteHandoverManager::sendHandoverCommand - Send handover command over X2 to eNB " << enb << " for UE " << ueId << endl;
+    EV << "DEBUG " << startHo << endl;
+
 
     auto pkt = new Packet("X2HandoverControlMsg");
 
@@ -105,19 +111,47 @@ void LteHandoverManager::sendHandoverCommand(MacNodeId ueId, MacNodeId enb, bool
     pkt->insertAtFront(hoMsg);
     pkt->addTagIfAbsent<PacketProtocolTag>()->setProtocol(&LteProtocol::x2ap);
 
+
+
+    if(startHo){
+        const char* nameMecHost = getParentModule()->getParentModule()->par("mecHostHandover").stringValue();
+
+        std::cout << "DEBUG LTE: " << nameMecHost << " ue: " << ueId << " in " << enb << endl;
+        emit(registerSignal("handoverStart"), simTime());
+
+        cModule *root = getSimulation()->getSystemModule();
+        cModule *mecHost = root->getSubmodule(nameMecHost);
+        cModule *mecPlatform = mecHost->getSubmodule("mecPlatform");
+        cModule *rniBase = mecPlatform->getSubmodule("mecService", 1);
+
+        RNIService *rni = check_and_cast<RNIService *>(rniBase);
+        rni->notifyCellChange(ueId, enb);
+    }
+
+
+    //
+
     // send to X2 Manager
     send(pkt,x2Manager_[OUT_GATE]);
 }
 
 void LteHandoverManager::receiveHandoverCommand(MacNodeId ueId, MacNodeId enb, bool startHo)
 {
-    EV<<NOW<<" LteHandoverManager::receivedHandoverCommand - Received handover command over X2 from eNB " << enb << " for UE " << ueId << endl;
+    //std::cout<<NOW<<" LteHandoverManager::receivedHandoverCommand - Received handover command over X2 from eNB " << enb << " for UE " << ueId << endl;
+
+
+    //std::cout << "Handover avvenuto. Notifico il RNIService.\n";
+
+    Enter_Method("receiveHandoverCommand");
+
+
 
     // send command to IP2Nic
-    if (startHo)
+    if (startHo){
         ip2nic_->triggerHandoverTarget(ueId, enb);
-    else
+    }else{
         ip2nic_->signalHandoverCompleteSource(ueId, enb);
+    }
 }
 
 

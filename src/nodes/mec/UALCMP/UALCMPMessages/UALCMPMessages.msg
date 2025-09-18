@@ -25,6 +25,9 @@ message CreateContextApp extends UALCMPMessage
 	string ueIpAddress;   // this is used by the simulator to check if the ue has left the netowrk!
 	
 	string devAppId;      //device app identifier, used as identifier for the mecapp (i.e. ueAppId)
+	
+	string addressMigration;
+	int portMigration;
 }
 
 message CreateContextAppAck extends UALCMPMessage

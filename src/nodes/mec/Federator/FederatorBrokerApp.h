@@ -46,35 +46,10 @@
 
 using namespace omnetpp;
 
-struct MecHostInfo{
-    std::string hostName;
-    int hostId;
-};
 
-
-//Boh
-struct ServiceInfo{
-    std::string id;
-};
-
-struct FedServiceInfo{
-    std::string systemId;
-    MecHostInfo mecHostInformation;
-    ServiceInfo serviceInfo;
-};
-
-struct SystemInfoEntry{
-    std::string systemId;
-    std::string systemName;
-    std::string systemProvider;
-    std::string uniqueId;
-};
-
-struct AppMigrate {
-    std::string nomeApp;
-    std::string indirizzo;
-    int porta;
-    std::string indirizzoFederator;
+struct FederatorEntry{
+    std::string address;
+    int port;
 };
 
 
@@ -82,30 +57,21 @@ struct AppMigrate {
 
 
 
-class FederatorApp : public cSimpleModule, public inet::UdpSocket::ICallback {
+class FederatorBrokerApp : public cSimpleModule, public inet::UdpSocket::ICallback{
 
 private:
     std::string appName;
-    std::vector<SystemInfoEntry*> systemRegistrer;
-    std::vector<AppMigrate> appRegistry;
+    std::vector<FederatorEntry*> federatorRegistry;
 
 
     int localPort;
     inet::L3Address localIPAddress;
     inet::UdpSocket socket;
 
-    int MEOPort;
-    inet::L3Address MEOAddress;
-
-    int MEFBrokerPort;
-    inet::L3Address MEFBrokerAddress;
-
-    std::queue<simtime_t> migration;
-    simsignal_t federation = registerSignal("federation");
 
 public:
-    FederatorApp ();
-    ~FederatorApp();
+    FederatorBrokerApp ();
+    ~FederatorBrokerApp();
 
 protected:
     virtual void initialize() override;
@@ -117,26 +83,10 @@ protected:
 
     void handleMessage(cMessage *msg) override;
     void handleRegistration(inet::Packet *packet);
-    void handleCancelRegistration(inet::Packet *packet);
-    void handleUpdateRegistration(inet::Packet *packet);
-
-    void handleMECSystemReq(inet::Packet *packet);
-    void handleForwardReqToMEF(inet::Packet *packet);
-    void handleMECSystemInfoRes(inet::Packet *packet);
-    void handleMEFSystemInfoRes(inet::Packet *packet);
-
-    void handleAppRequestMEOtoMEF(inet::Packet *contAppMsg);
-    void handleAppRequestMEFBtoMEF(inet::Packet *contAppMsg);
-    void handleAppResponseMEOtoMEF(inet::Packet *contAppMsg);
-    void handleAppResponseMEFBtoMEF(inet::Packet *contAppMsg);
-
-    void handleAppMigrationRequestMEOtoMEF(inet::Packet *contAppMsg);
-    void handleAppMigrationRequestMEFBtoMEF(inet::Packet *contAppMsg);
-    void handleAckMEOtoMEF(inet::Packet *contAppMsg);
-    void handleAckMEFBtoMEFF(inet::Packet *contAppMsg);
-
-    void stampaTabellaApp();
-
+    void handleAppMigrationReqeustMEFtoMEFB(inet::Packet *contAppMsg);
+    void handleAppRequestMEFtoMEFB(inet::Packet *contAppMsg);
+    void handleAppResponseMEFtoMEFB(inet::Packet *contAppMsg);
+    void handleAckMEFtoMEFB(inet::Packet *contAppMsg);
 
 };
 

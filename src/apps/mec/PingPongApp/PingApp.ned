@@ -43,7 +43,8 @@ simple PingApp like IMECApp, IApp
 		bool logger = default(false);
         bool isMigrating = default(false);
         
-        
+        string addressMigration = default("");
+        int portMigration = default(-1);
         
   		string mp1Address = default("");
         int mp1Port = default(10021);
@@ -58,6 +59,11 @@ simple PingApp like IMECApp, IApp
         double requiredCpu;
         
         int vimPort = default(3333);
+                
+        
+		@signal[pingPong];
+		@statistic[pingPong](record=vector; unit="s");
+		
                
                     
     gates:

@@ -134,11 +134,18 @@ std::vector<std::string> ApplicationMobilityResource::getAppInstanceIds(
         {
             for(auto id : associateId)
             {
+                appInstanceIds.push_back(id.getValue());
+                break;
+            }
+        }
+    }
+                /*
                 EV << "Comparing " << devInfo.getAssociateId().getValue() << " with " << id.getValue() << " and " << devInfo.getAssociateId().getType() << " with " << id.getType() << endl;
                 if(devInfo.getAssociateId().getType() == id.getType()
                         && devInfo.getAssociateId().getValue() == id.getValue())
                 {
                     EV << "ApplicationMobilityResource::an app has been found!" << endl;
+                    EV << "DEBUG" << serviceConsumer.second->getServiceConsumerId().appInstanceId << endl;
                     appInstanceIds.push_back(serviceConsumer.second->getServiceConsumerId().appInstanceId);
                     found = true;
                     break;
@@ -151,6 +158,7 @@ std::vector<std::string> ApplicationMobilityResource::getAppInstanceIds(
         found = false;
     }
     EV << "ApplicationMobilityResource::getAppInstanceIds - result: " << found << endl;
+    */
 
     return appInstanceIds;
 }
